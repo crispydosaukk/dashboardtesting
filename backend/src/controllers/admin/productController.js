@@ -1,20 +1,32 @@
 import path from "path";
 import fs from "fs";
-import pool from "../../config/db.js"; // database connection
+import pool from "../../config/db.js";
 
-// GET ALL PRODUCTS
+// GET ALL PRODUCTS (return fields matching frontend)
 export const getProducts = async (req, res) => {
+  const userId = req.user.id;
+
   const [rows] = await pool.query(
-    `SELECT p.id, p.user_id, p.cat_id, p.product_name, p.product_image, p.product_desc,
-            p.product_price, p.product_discount_price, p.product_status, p.status
+    `SELECT 
+        p.id,
+        p.cat_id,
+        p.product_name AS name,
+        p.product_image AS image,
+        p.product_desc AS description,
+        p.product_price AS price,
+        p.product_discount_price AS discountPrice
      FROM products p
-     ORDER BY p.id DESC`
+     WHERE p.user_id = ?
+     ORDER BY p.id DESC`,
+    [userId]
   );
+
   res.json(rows);
 };
 
 // ADD PRODUCT
 export const addProduct = async (req, res) => {
+  const userId = req.user.id;
   const { name, description, price, discountPrice, cat_id } = req.body;
   const image = req.file ? req.file.filename : null;
 
@@ -22,12 +34,10 @@ export const addProduct = async (req, res) => {
     return res.status(400).json({ message: "All required fields missing" });
   }
 
-  const [[user]] = await pool.query("SELECT id FROM users LIMIT 1"); // temporary user or JWT user
-
   const [result] = await pool.query(
     `INSERT INTO products (user_id, cat_id, product_name, product_image, product_desc, product_price, product_discount_price)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [user.id, cat_id, name, image, description, price, discountPrice]
+    [userId, cat_id, name, image, description, price, discountPrice]
   );
 
   res.json({
@@ -43,15 +53,22 @@ export const addProduct = async (req, res) => {
 
 // DELETE PRODUCT
 export const removeProduct = async (req, res) => {
+  const userId = req.user.id;
   const { id } = req.params;
 
-  const [[product]] = await pool.query("SELECT product_image FROM products WHERE id = ?", [id]);
+  const [[product]] = await pool.query(
+    "SELECT product_image FROM products WHERE id = ? AND user_id = ?",
+    [id, userId]
+  );
 
-  if (product?.product_image) {
+  if (!product) return res.status(404).json({ message: "Not found or Not allowed" });
+
+  if (product.product_image) {
     const imgPath = path.join("public/uploads", product.product_image);
     if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
   }
 
-  await pool.query("DELETE FROM products WHERE id = ?", [id]);
+  await pool.query("DELETE FROM products WHERE id = ? AND user_id = ?", [id, userId]);
+
   res.json({ success: true });
 };
