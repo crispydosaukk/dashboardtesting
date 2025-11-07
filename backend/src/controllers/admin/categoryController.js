@@ -1,36 +1,42 @@
-import { getAllCategories, createCategory, deleteCategory } from "../../models/categoryModel.js";
+import path from "path";
+import fs from "fs";
+import pool from "../../config/db.js";
 
-export async function getCategories(req, res) {
-  try {
-    const userId = req.user.id;
-    const categories = await getAllCategories(userId);
-    return res.json(categories);
-  } catch (error) {
-    return res.status(500).json({ message: "Error fetching categories", error });
+export const getCategories = async (req, res) => {
+  const [rows] = await pool.query(
+    "SELECT id, category_name AS name, category_image AS image FROM categories ORDER BY id DESC"
+  );
+  res.json(rows);
+};
+
+export const addCategory = async (req, res) => {
+  const { name } = req.body;
+  const image = req.file ? req.file.filename : null;
+
+  if (!name || !image)
+    return res.status(400).json({ message: "Name and Image required" });
+
+  const [result] = await pool.query(
+    "INSERT INTO categories (category_name, category_image) VALUES (?, ?)",
+    [name, image]
+  );
+
+  res.json({ id: result.insertId, name, image });
+};
+
+export const removeCategory = async (req, res) => {
+  const { id } = req.params;
+
+  const [[cat]] = await pool.query(
+    "SELECT category_image FROM categories WHERE id = ?",
+    [id]
+  );
+
+  if (cat?.category_image) {
+    const img = path.join("public/uploads", cat.category_image);
+    if (fs.existsSync(img)) fs.unlinkSync(img);
   }
-}
 
-export async function addCategory(req, res) {
-  try {
-    const userId = req.user.id;
-    const { name } = req.body;
-    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
-
-    const insertId = await createCategory(userId, name, imagePath);
-    return res.json({ message: "Category created", category_id: insertId });
-  } catch (error) {
-    return res.status(500).json({ message: "Error creating category", error });
-  }
-}
-
-export async function removeCategory(req, res) {
-  try {
-    const userId = req.user.id;
-    const { id } = req.params;
-
-    await deleteCategory(id, userId);
-    return res.json({ message: "Category deleted" });
-  } catch (error) {
-    return res.status(500).json({ message: "Error deleting category", error });
-  }
-}
+  await pool.query("DELETE FROM categories WHERE id = ?", [id]);
+  res.json({ success: true });
+};
