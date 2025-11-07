@@ -1,5 +1,8 @@
 import express from "express";
 import { login } from "../controllers/admin/authcontroller.js";
+import auth from "../middleware/auth.js";
+import upload from "../middleware/upload.js";
+
 import {
   index as listPermissions,
   create as createPermission,
@@ -14,7 +17,6 @@ import {
   remove as deleteRole,
 } from "../controllers/admin/rolesController.js";
 
-
 import {
   index as listUsers,
   create as createUser,
@@ -22,7 +24,17 @@ import {
   remove as deleteUser,
 } from "../controllers/admin/userscontroller.js";
 
-import { show as getRestaurant, upsert as upsertRestaurant } from "../controllers/admin/restaurantController.js";
+import {
+  show as getRestaurant,
+  upsert as upsertRestaurant,
+} from "../controllers/admin/restaurantController.js";
+
+import {
+  getCategories,
+  addCategory,
+  removeCategory,
+} from "../controllers/admin/categoryController.js";
+
 
 const router = express.Router();
 
@@ -41,13 +53,19 @@ router.post("/roles", createRole);
 router.put("/roles/:id", updateRole);
 router.delete("/roles/:id", deleteRole);
 
-/* ---------- USERS ---------- */
-router.get("/users", listUsers);            // list users + role name
-router.post("/users", createUser);          // create user
-router.put("/users/:id", updateUser);       // update user
+/* USERS */
+router.get("/users", listUsers);
+router.post("/users", createUser);
+router.put("/users/:id", updateUser);
 router.delete("/users/:id", deleteUser);
 
-router.get("/restaurant", getRestaurant);     // get current user's restaurant
-router.post("/restaurant", upsertRestaurant);
+/* RESTAURANT */
+router.get("/restaurant", auth, getRestaurant);
+router.post("/restaurant", auth, upsertRestaurant);
+
+/* CATEGORY */
+router.get("/category", auth, getCategories);
+router.post("/category", auth, upload.single("image"), addCategory);
+router.delete("/category/:id", auth, removeCategory);
 
 export default router;

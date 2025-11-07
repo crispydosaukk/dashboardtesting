@@ -1,10 +1,9 @@
-// frontend/src/pages/restuarent/index.jsx
 import React, { useEffect, useState } from "react";
 import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
 import { v4 as uuidv4 } from "uuid";
-import api from "../../api.js"; // use your shared api wrapper (axios or fetch wrapper)
+import api from "../../api.js";
 
 const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
@@ -20,7 +19,7 @@ export default function Restuarent() {
     twitter: "",
     instagram: "",
     linkedin: "",
-    photo: "" // will contain either URL or base64 string
+    photo: ""
   });
 
   const [timings, setTimings] = useState([
@@ -30,60 +29,76 @@ export default function Restuarent() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadRestaurant();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { loadRestaurant(); }, []);
 
-  // ---------- Helpers ----------
   const onInfoChange = (k) => (e) =>
     setInfo((prev) => ({ ...prev, [k]: e.target.value }));
 
-  const isWeekdayPresent = (d) => timings.some((t) => t.day === d);
+  // normalize day to canonical WEEKDAYS values, return null if invalid
+  function normalizeDay(raw) {
+    if (raw === undefined || raw === null) return null;
+    const s = String(raw).trim();
+    if (!s) return null;
+    const day = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    return WEEKDAYS.includes(day) ? day : null;
+  }
 
-  const updateTiming = (id, patch) => {
-    setTimings((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-  };
-
-  const removeTiming = (id) => {
-    if (timings.length === 1) return alert("At least one day must be present.");
-    setTimings((prev) => prev.filter((t) => t.id !== id));
+  const isWeekdayPresent = (d) => {
+    const nd = normalizeDay(d);
+    if (!nd) return false;
+    return timings.some((t) => normalizeDay(t.day) === nd);
   };
 
   const handleAddManual = () => {
-    const present = new Set(timings.map((t) => t.day));
+    const present = new Set(timings.map((t) => normalizeDay(t.day)));
     const missing = WEEKDAYS.find((d) => !present.has(d));
-    if (!missing) return alert("All weekdays already added.");
+    if (!missing) return;
     setTimings((prev) =>
       [...prev, { id: uuidv4(), day: missing, start: "", end: "" }].sort(
-        (a, b) => WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day)
+        (a, b) => WEEKDAYS.indexOf(normalizeDay(a.day)) - WEEKDAYS.indexOf(normalizeDay(b.day))
       )
     );
   };
 
-  const changeDay = (id, newDay) => {
-    if (!newDay) return;
-    if (isWeekdayPresent(newDay)) return alert("Day already exists.");
+  const changeDay = (id, newDayRaw) => {
+    const newDay = normalizeDay(newDayRaw);
+    if (!newDay || isWeekdayPresent(newDay)) return;
     updateTiming(id, { day: newDay });
     setTimings((prev) =>
-      prev.slice().sort((a, b) => WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day))
+      prev.slice().sort((a, b) => WEEKDAYS.indexOf(normalizeDay(a.day)) - WEEKDAYS.indexOf(normalizeDay(b.day)))
     );
   };
 
-  // Convert a selected file to base64 string
-  const handlePhotoFile = (file) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function (ev) {
-      setInfo((p) => ({ ...p, photo: ev.target.result }));
-    };
-    reader.readAsDataURL(file);
-  };
+  function updateTiming(id, changes) {
+  setTimings(prev =>
+    prev.map(t => t.id === id ? { ...t, ...changes } : t)
+  );
+}
 
-  // ---------- Transformations for API ----------
+function removeTiming(id) {
+  setTimings(prev => prev.filter(t => t.id !== id));
+}
+
   function frontendToApiPayload() {
+    // helper to convert "HH:MM" -> "HH:MM:SS"
+    const toSqlTime = (s) => {
+      if (!s && s !== "") return null;
+      const v = String(s).trim();
+      if (v === "") return null;
+      // if already includes seconds, leave as-is; if format "HH:MM" append :00
+      return /^\d{1,2}:\d{2}(:\d{2})?$/.test(v) ? (v.length === 5 ? v + ":00" : v) : null;
+    };
+
+    // normalize and validate timings; keep last occurrence for duplicate days
+    const byDay = new Map();
+    for (const t of timings) {
+      const day = normalizeDay(t.day);
+      if (!day) continue;
+      const opening_time = toSqlTime(t.start);
+      const closing_time = toSqlTime(t.end);
+      byDay.set(day, { day, opening_time, closing_time });
+    }
     return {
-      restaurant_photo: info.photo || null,
       restaurant_name: info.restaurant_name || null,
       restaurant_address: info.address || null,
       restaurant_phonenumber: info.phone || null,
@@ -92,18 +107,12 @@ export default function Restuarent() {
       restaurant_twitter: info.twitter || null,
       restaurant_instagram: info.instagram || null,
       restaurant_linkedin: info.linkedin || null,
-      timings: timings.map((t) => ({
-        // backend expects day, opening_time, closing_time
-        day: t.day,
-        opening_time: t.start || null,
-        closing_time: t.end || null,
-      })),
+      timings: Array.from(byDay.values()).sort((a,b) => WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day)),
     };
   }
 
   function apiToFrontend(restaurant) {
     if (!restaurant) {
-      // reset to defaults
       setInfo({
         restaurant_name: "",
         address: "",
@@ -119,8 +128,7 @@ export default function Restuarent() {
       return;
     }
 
-    setInfo((prev) => ({
-      ...prev,
+    setInfo({
       restaurant_name: restaurant.restaurant_name ?? "",
       address: restaurant.restaurant_address ?? "",
       phone: restaurant.restaurant_phonenumber ?? "",
@@ -129,13 +137,13 @@ export default function Restuarent() {
       twitter: restaurant.restaurant_twitter ?? "",
       instagram: restaurant.restaurant_instagram ?? "",
       linkedin: restaurant.restaurant_linkedin ?? "",
-      photo: restaurant.restaurant_photo ?? "",
-    }));
+      photo: ""
+    });
 
     if (Array.isArray(restaurant.timings) && restaurant.timings.length) {
       setTimings(
         restaurant.timings.map((t) => ({
-          id: t.id ? String(t.id) : uuidv4(),
+          id: String(t.id ?? uuidv4()),
           day: t.day,
           start: t.opening_time ? t.opening_time.substring(0,5) : "",
           end: t.closing_time ? t.closing_time.substring(0,5) : "",
@@ -146,20 +154,14 @@ export default function Restuarent() {
     }
   }
 
-  // ---------- API calls (use api wrapper) ----------
   async function loadRestaurant() {
     setLoading(true);
     try {
       const res = await api.get("/restaurant");
-      const data = res?.data?.data ?? null;
-      apiToFrontend(data);
-    } catch (e) {
-      console.error("Failed to load restaurant:", e);
-      const msg =
-        e?.response?.data?.message ||
-        e?.message ||
-        "Failed to load restaurant. Check server logs / network.";
-      alert(msg);
+      apiToFrontend(res?.data?.data ?? null);
+    } catch (err) {
+      console.error("Failed to load restaurant:", err);
+      alert("Failed to load restaurant data. Check console for details.");
     } finally {
       setLoading(false);
     }
@@ -168,220 +170,110 @@ export default function Restuarent() {
   async function saveAll() {
     setSaving(true);
     try {
-      // Basic client-side validation: ensure no duplicate days and times make sense
-      const daySet = new Set();
-      for (const t of timings) {
-        if (!t.day) throw new Error("Each timing must have a day selected.");
-        if (daySet.has(t.day)) throw new Error(`Duplicate day found: ${t.day}`);
-        daySet.add(t.day);
-
-        // If both times provided, ensure start < end
-        if (t.start && t.end) {
-          // compare "HH:MM" strings lexicographically is OK
-          if (t.start >= t.end) throw new Error(`Start time must be before end time for ${t.day}.`);
-        }
-      }
-
       const payload = frontendToApiPayload();
-
       const res = await api.post("/restaurant", payload);
-      const returned = res?.data?.data ?? null;
-      apiToFrontend(returned);
+      apiToFrontend(res?.data?.data ?? null);
       alert("Saved successfully.");
-    } catch (e) {
-      console.error("Error saving:", e);
-      const msg =
-        e?.response?.data?.message ||
-        e?.message ||
-        "Error saving restaurant.";
+    } catch (err) {
+      console.error("Failed to save restaurant:", err);
+      const msg = err?.response?.data?.message || err?.message || "Failed to save. Check console.";
       alert(msg);
     } finally {
       setSaving(false);
     }
   }
 
-  async function saveInfoOnly() {
-    await saveAll();
-  }
-
-  async function saveTimingsOnly() {
-    await saveAll();
-  }
-
-  // ---------- UI ----------
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-gray-100">
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col pt-16 lg:pl-72">
-        <main className="flex-1 px-6 py-6">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-6">Restaurant Info</h1>
+      <div className="flex-1 pt-16 lg:pl-72 px-6 py-6">
+        <h1 className="text-2xl font-semibold mb-6">Restaurant Info</h1>
 
-          {/* Restaurant Info Card */}
-          <div className="rounded-xl bg-white p-6 border shadow-sm mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Restaurant Details</h2>
+        <div className="rounded-xl bg-white p-6 border shadow-sm mb-6">
+          <h2 className="text-lg font-semibold mb-4">Restaurant Details</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Restaurant Name</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              ["restaurant_name","Restaurant Name"],
+              ["address","Address"],
+              ["phone","Phone"],
+              ["email","Email"],
+              ["facebook","Facebook"],
+              ["twitter","Twitter"],
+              ["instagram","Instagram"],
+              ["linkedin","LinkedIn"],
+            ].map(([key,label]) => (
+              <div key={key}>
+                <label className="block text-sm mb-1">{label}</label>
                 <input className="border rounded-md px-3 py-2 w-full"
-                  value={info.restaurant_name}
-                  onChange={onInfoChange("restaurant_name")}
+                  value={info[key]}
+                  onChange={onInfoChange(key)}
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Address</label>
-                <input className="border rounded-md px-3 py-2 w-full"
-                  value={info.address}
-                  onChange={onInfoChange("address")}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Phone</label>
-                <input className="border rounded-md px-3 py-2 w-full"
-                  value={info.phone}
-                  onChange={onInfoChange("phone")}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <input className="border rounded-md px-3 py-2 w-full"
-                  value={info.email}
-                  onChange={onInfoChange("email")}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Facebook</label>
-                <input className="border rounded-md px-3 py-2 w-full"
-                  value={info.facebook}
-                  onChange={onInfoChange("facebook")}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Twitter</label>
-                <input className="border rounded-md px-3 py-2 w-full"
-                  value={info.twitter}
-                  onChange={onInfoChange("twitter")}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Instagram</label>
-                <input className="border rounded-md px-3 py-2 w-full"
-                  value={info.instagram}
-                  onChange={onInfoChange("instagram")}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">LinkedIn</label>
-                <input className="border rounded-md px-3 py-2 w-full"
-                  value={info.linkedin}
-                  onChange={onInfoChange("linkedin")}
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Photo</label>
-                <div className="flex gap-3">
-                  
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const f = e.target.files && e.target.files[0];
-                      if (f) handlePhotoFile(f);
-                    }}
-                    className="border rounded-md px-3 py-2"
-                  />
-                </div>
-                {info.photo ? (
-                  <div className="mt-3">
-                    <div className="text-sm font-medium mb-1">Preview:</div>
-                    <img src={info.photo} alt="preview" className="h-24 rounded object-cover border" />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="flex justify-end mt-6 space-x-2">
-              <button
-                onClick={saveInfoOnly}
-                disabled={saving || loading}
-                className="px-5 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-medium disabled:opacity-60"
-              >
-                {saving ? "Saving..." : "Update Info"}
-              </button>
-              <button
-                onClick={saveAll}
-                disabled={saving || loading}
-                className="px-5 py-2 rounded-md bg-green-700 text-white hover:bg-green-800 text-sm font-medium disabled:opacity-60"
-              >
-                {saving ? "Saving..." : "Save All"}
-              </button>
-            </div>
+            ))}
           </div>
 
-          {/* Timings Section */}
-          <div className="rounded-xl bg-white p-6 border shadow-sm relative">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Restaurant Timings</h2>
-              <button onClick={handleAddManual} className="px-3 py-1 rounded bg-emerald-600 text-white text-sm" disabled={timings.length >= 7}>
-                + Add Day
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-t border-gray-200">
-                <thead>
-                  <tr className="bg-emerald-600 text-white text-sm">
-                    <th className="px-4 py-2 text-left font-medium">Day</th>
-                    <th className="px-4 py-2 text-left font-medium">Start</th>
-                    <th className="px-4 py-2 text-left font-medium">End</th>
-                    <th className="px-4 py-2 text-left font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {timings.map((t) => (
-                    <tr key={t.id} className="odd:bg-white even:bg-gray-50">
-                      <td className="px-4 py-2">
-                        <select value={t.day} onChange={(e) => changeDay(t.id, e.target.value)} className="border rounded px-2 py-1 text-sm w-full">
-                          {WEEKDAYS.map((d) => (
-                            <option key={d} value={d} disabled={isWeekdayPresent(d) && t.day !== d}>{d}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-4 py-2">
-                        <input type="time" className="border rounded px-2 py-1 w-full" value={t.start} onChange={(e) => updateTiming(t.id, { start: e.target.value })} />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input type="time" className="border rounded px-2 py-1 w-full" value={t.end} onChange={(e) => updateTiming(t.id, { end: e.target.value })} />
-                      </td>
-                      <td className="px-4 py-2">
-                        <button onClick={() => removeTiming(t.id)} className="px-3 py-1 rounded border text-red-600 text-sm" disabled={timings.length === 1}>Remove</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Update Button Bottom Right */}
-            <div className="flex justify-end mt-6">
-              <button onClick={saveTimingsOnly} disabled={saving || loading} className="px-5 py-2 rounded-md bg-green-700 text-white hover:bg-green-800 text-sm font-medium disabled:opacity-60">
-                {saving ? "Saving..." : "Update Timings"}
-              </button>
-            </div>
+          <div className="flex justify-end mt-6">
+            <button
+              onClick={saveAll}
+              disabled={saving || loading}
+              className="px-6 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {saving ? "Saving..." : "Save All"}
+            </button>
           </div>
-        </main>
+        </div>
 
-        <footer className="mt-auto"><Footer /></footer>
+        <div className="rounded-xl bg-white p-6 border shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold">Restaurant Timings</h2>
+            <button onClick={handleAddManual} className="px-3 py-1 bg-emerald-600 text-white rounded text-sm" disabled={timings.length >= 7}>
+              + Add Day
+            </button>
+          </div>
+
+          <table className="w-full border-t">
+            <thead>
+              <tr className="bg-emerald-600 text-white text-sm">
+                <th className="px-4 py-2 text-left">Day</th>
+                <th className="px-4 py-2 text-left">Start</th>
+                <th className="px-4 py-2 text-left">End</th>
+                <th className="px-4 py-2 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timings.map((t) => (
+                <tr key={t.id} className="odd:bg-white even:bg-gray-50">
+                  <td className="px-4 py-2">
+                    <select className="border rounded px-2 py-1 w-full"
+                      value={t.day}
+                      onChange={(e) => changeDay(t.id, e.target.value)}
+                    >
+                      {WEEKDAYS.map((d) => (
+                        <option key={d} value={d} disabled={isWeekdayPresent(d) && t.day !== d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-2"><input type="time" value={t.start} onChange={(e)=>updateTiming(t.id,{start:e.target.value})} className="border rounded px-2 py-1 w-full" /></td>
+                  <td className="px-4 py-2"><input type="time" value={t.end} onChange={(e)=>updateTiming(t.id,{end:e.target.value})} className="border rounded px-2 py-1 w-full" /></td>
+                  <td className="px-4 py-2"><button onClick={()=>removeTiming(t.id)} className="text-red-600">Remove</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="flex justify-end mt-6">
+            <button onClick={saveAll} disabled={saving || loading} className="px-6 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-60">
+              {saving ? "Saving..." : "Update Timings"}
+            </button>
+          </div>
+        </div>
+
+        <Footer />
       </div>
     </div>
   );

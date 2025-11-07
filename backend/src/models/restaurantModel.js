@@ -36,57 +36,64 @@ export async function getRestaurantByUserId(userId) {
  * Insert a restaurant row and return inserted id
  */
 async function insertRestaurant(conn, userId, payload) {
-  const [res] = await conn.query(
-    `INSERT INTO restaurant_details
-     (user_id, restaurant_photo, restaurant_name, restaurant_address, restaurant_phonenumber,
-      restaurant_email, restaurant_facebook, restaurant_twitter, restaurant_instagram, restaurant_linkedin)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      userId,
-      payload.restaurant_photo ?? null,
-      payload.restaurant_name ?? null,
-      payload.restaurant_address ?? null,
-      payload.restaurant_phonenumber ?? null,
-      payload.restaurant_email ?? null,
-      payload.restaurant_facebook ?? null,
-      payload.restaurant_twitter ?? null,
-      payload.restaurant_instagram ?? null,
-      payload.restaurant_linkedin ?? null,
-    ]
-  );
-  return res.insertId;
+  try {
+    const [res] = await conn.query(
+      `INSERT INTO restaurant_details
+       (user_id, restaurant_name, restaurant_address, restaurant_phonenumber,
+        restaurant_email, restaurant_facebook, restaurant_twitter, restaurant_instagram, restaurant_linkedin)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        userId,
+        payload.restaurant_name ?? null,
+        payload.restaurant_address ?? null,
+        payload.restaurant_phonenumber ?? null,
+        payload.restaurant_email ?? null,
+        payload.restaurant_facebook ?? null,
+        payload.restaurant_twitter ?? null,
+        payload.restaurant_instagram ?? null,
+        payload.restaurant_linkedin ?? null,
+      ]
+    );
+    return res.insertId;
+  } catch (err) {
+    console.error("insertRestaurant error:", err && (err.sqlMessage || err.message) ? (err.sqlMessage || err.message) : err);
+    throw err;
+  }
 }
 
 /**
  * Update restaurant row
  */
 async function updateRestaurant(conn, restaurantId, payload) {
-  await conn.query(
-    `UPDATE restaurant_details SET
-      restaurant_photo = ?,
-      restaurant_name = ?,
-      restaurant_address = ?,
-      restaurant_phonenumber = ?,
-      restaurant_email = ?,
-      restaurant_facebook = ?,
-      restaurant_twitter = ?,
-      restaurant_instagram = ?,
-      restaurant_linkedin = ?,
-      updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`,
-    [
-      payload.restaurant_photo ?? null,
-      payload.restaurant_name ?? null,
-      payload.restaurant_address ?? null,
-      payload.restaurant_phonenumber ?? null,
-      payload.restaurant_email ?? null,
-      payload.restaurant_facebook ?? null,
-      payload.restaurant_twitter ?? null,
-      payload.restaurant_instagram ?? null,
-      payload.restaurant_linkedin ?? null,
-      restaurantId,
-    ]
-  );
+  try {
+    await conn.query(
+      `UPDATE restaurant_details SET
+        restaurant_name = ?,
+        restaurant_address = ?,
+        restaurant_phonenumber = ?,
+        restaurant_email = ?,
+        restaurant_facebook = ?,
+        restaurant_twitter = ?,
+        restaurant_instagram = ?,
+        restaurant_linkedin = ?,
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [
+        payload.restaurant_name ?? null,
+        payload.restaurant_address ?? null,
+        payload.restaurant_phonenumber ?? null,
+        payload.restaurant_email ?? null,
+        payload.restaurant_facebook ?? null,
+        payload.restaurant_twitter ?? null,
+        payload.restaurant_instagram ?? null,
+        payload.restaurant_linkedin ?? null,
+        restaurantId,
+      ]
+    );
+  } catch (err) {
+    console.error("updateRestaurant error:", err && (err.sqlMessage || err.message) ? (err.sqlMessage || err.message) : err);
+    throw err;
+  }
 }
 
 /**
@@ -98,54 +105,93 @@ async function updateRestaurant(conn, restaurantId, payload) {
  * - Delete DB rows missing in payload
  */
 async function syncTimings(conn, restaurantId, payloadTimings = []) {
-  // Normalize payload by day (last wins)
+  // allowed canonical day names
+  const validDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+  // helper: normalize a time value to HH:MM:SS or null
+  function normalizeTimeForSql(v) {
+    if (v === undefined || v === null) return null;
+    const s = String(v).trim();
+    if (s === "") return null;
+    // accept HH:MM or HH:MM:SS (basic validation)
+    if (/^\d{1,2}:\d{2}$/.test(s)) return s.length === 5 ? s + ":00" : s;
+    if (/^\d{1,2}:\d{2}:\d{2}$/.test(s)) return s;
+    // unknown format
+    console.warn("syncTimings: invalid time format, treating as null:", v);
+    return null;
+  }
+
+  // Normalize payload by day (last wins) and validate day names
   const byDay = {};
   for (const t of payloadTimings) {
     if (!t || !t.day) continue;
-    byDay[t.day] = {
-      opening_time: t.opening_time ?? null,
-      closing_time: t.closing_time ?? null,
-    };
+    const raw = String(t.day).trim();
+    const day = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+    if (!validDays.includes(day)) {
+      console.warn("syncTimings: skipping invalid day value:", t.day);
+      continue;
+    }
+
+    // Normalize times
+    const opening_time_raw = normalizeTimeForSql(t.opening_time);
+    const closing_time_raw = normalizeTimeForSql(t.closing_time);
+
+    // If both times are empty/null, treat as instruction to remove this day (skip adding)
+    if (opening_time_raw === null && closing_time_raw === null) {
+      console.info(`syncTimings: skipping day ${day} because both times empty -> will be deleted if exists`);
+      continue;
+    }
+
+    // For NOT NULL columns: if one side is missing, default to "00:00:00"
+    const opening_time = opening_time_raw === null ? "00:00:00" : opening_time_raw;
+    const closing_time = closing_time_raw === null ? "00:00:00" : closing_time_raw;
+
+    byDay[day] = { opening_time, closing_time };
   }
 
-  // fetch existing timings for restaurant
-  const [existing] = await conn.query(
-    `SELECT id, day FROM restaurant_timings WHERE restaurant_id = ?`,
-    [restaurantId]
-  );
-
-  const existingByDay = {};
-  for (const r of existing) existingByDay[r.day] = r.id;
-
-  // Delete days present in DB but not in payload
-  const daysToDelete = existing.map((r) => r.day).filter((d) => !(d in byDay));
-  if (daysToDelete.length) {
-    const placeholders = daysToDelete.map(() => "?").join(",");
-    await conn.query(
-      `DELETE FROM restaurant_timings WHERE restaurant_id = ? AND day IN (${placeholders})`,
-      [restaurantId, ...daysToDelete]
+  try {
+    // fetch existing timings for restaurant
+    const [existing] = await conn.query(
+      `SELECT id, day FROM restaurant_timings WHERE restaurant_id = ?`,
+      [restaurantId]
     );
-  }
 
-  // Insert or update payload days
-  for (const day of Object.keys(byDay)) {
-    const t = byDay[day];
-    if (existingByDay[day]) {
-      // update existing row
+    const existingByDay = {};
+    for (const r of existing) existingByDay[r.day] = r.id;
+
+    // Delete days present in DB but not in payload
+    const daysToDelete = existing.map((r) => r.day).filter((d) => !(d in byDay));
+    if (daysToDelete.length) {
+      const placeholders = daysToDelete.map(() => "?").join(",");
       await conn.query(
-        `UPDATE restaurant_timings
-         SET opening_time = ?, closing_time = ?, updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-        [t.opening_time, t.closing_time, existingByDay[day]]
-      );
-    } else {
-      // insert new row
-      await conn.query(
-        `INSERT INTO restaurant_timings (restaurant_id, day, opening_time, closing_time)
-         VALUES (?, ?, ?, ?)`,
-        [restaurantId, day, t.opening_time, t.closing_time]
+        `DELETE FROM restaurant_timings WHERE restaurant_id = ? AND day IN (${placeholders})`,
+        [restaurantId, ...daysToDelete]
       );
     }
+
+    // Insert or update payload days
+    for (const day of Object.keys(byDay)) {
+      const t = byDay[day];
+      if (existingByDay[day]) {
+        // update existing row
+        await conn.query(
+          `UPDATE restaurant_timings
+           SET opening_time = ?, closing_time = ?, updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+          [t.opening_time, t.closing_time, existingByDay[day]]
+        );
+      } else {
+        // insert new row
+        await conn.query(
+          `INSERT INTO restaurant_timings (restaurant_id, day, opening_time, closing_time)
+           VALUES (?, ?, ?, ?)`,
+          [restaurantId, day, t.opening_time, t.closing_time]
+        );
+      }
+    }
+  } catch (err) {
+    console.error("syncTimings error:", err && (err.sqlMessage || err.message) ? (err.sqlMessage || err.message) : err);
+    throw err;
   }
 }
 
