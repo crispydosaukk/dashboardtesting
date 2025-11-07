@@ -14,12 +14,15 @@ import {
   remove as deleteRole,
 } from "../controllers/admin/rolesController.js";
 
+
 import {
   index as listUsers,
   create as createUser,
   update as updateUser,
   remove as deleteUser,
-} from "../controllers/admin/userscontroller.js"; 
+} from "../controllers/admin/userscontroller.js";
+
+import { show as getRestaurant, upsert as upsertRestaurant } from "../controllers/admin/restaurantController.js";
 
 const router = express.Router();
 
@@ -43,5 +46,8 @@ router.get("/users", listUsers);            // list users + role name
 router.post("/users", createUser);          // create user
 router.put("/users/:id", updateUser);       // update user
 router.delete("/users/:id", deleteUser);
+
+router.get("/restaurant", getRestaurant);     // get current user's restaurant
+router.post("/restaurant", upsertRestaurant);
 
 export default router;

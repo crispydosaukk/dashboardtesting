@@ -28,8 +28,8 @@ export const login = async (req, res) => {
     // ✅ only use bcrypt when the stored value is a bcrypt hash
     const isBcrypt = /^\$2[aby]\$/.test(stored);
     const ok = isBcrypt ? await bcrypt.compare(password, stored) : password === stored;
-
-    if (!ok) return res.status(401).json({ message: "Invalid credentials" });
+    if (!ok) return res.status(401).json({ message: "Invalid email or password" });
+  
 
     // role title
     let roleTitle = null;
