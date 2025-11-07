@@ -49,3 +49,35 @@ export const removeCategory = async (req, res) => {
 
   res.json({ success: true });
 };
+
+
+export const updateCategory = async (req, res) => {
+  const userId = req.user.id;
+  const { id } = req.params;
+  const { name } = req.body;
+  const image = req.file ? req.file.filename : null;
+
+  const [[existing]] = await pool.query(
+    "SELECT category_image FROM categories WHERE id = ? AND user_id = ?",
+    [id, userId]
+  );
+
+  if (!existing) return res.status(404).json({ message: "Not found" });
+
+  // Only delete old image if a new one is uploaded
+  if (image && existing.category_image) {
+    const oldPath = path.join("public/uploads", existing.category_image);
+    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+  }
+
+  await pool.query(
+    "UPDATE categories SET category_name = ?, category_image = IFNULL(?, category_image) WHERE id = ? AND user_id = ?",
+    [name, image, id, userId]
+  );
+
+  res.json({
+    id: Number(id),
+    name,
+    image: image || existing.category_image,
+  });
+};

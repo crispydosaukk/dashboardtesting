@@ -32,27 +32,37 @@ export default function ProductPage() {
   }, []);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const fd = new FormData();
+  e.preventDefault();
+  const fd = new FormData();
 
-    fd.append("name", form.name);
-    fd.append("description", form.description);
-    fd.append("price", form.price);
-    fd.append("discountPrice", form.discountPrice);
-    fd.append("cat_id", form.cat_id);
-    fd.append("image", form.image);
+  fd.append("name", form.name);
+  fd.append("description", form.description);
+  fd.append("price", form.price);
+  fd.append("discountPrice", form.discountPrice);
+  fd.append("cat_id", form.cat_id);
+  if (form.image instanceof File) fd.append("image", form.image);
 
-    const res = await fetch(`${API}/products`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: fd,
-    });
+  const method = form.id ? "PUT" : "POST";
+  const url = form.id ? `${API}/products/${form.id}` : `${API}/products`;
 
-    const newProduct = await res.json();
-    setProducts([newProduct, ...products]);
-    setShowModal(false);
-    setForm({ name: "", description: "", price: "", discountPrice: "", cat_id: "", image: null });
-  };
+  const res = await fetch(url, {
+    method,
+    headers: { Authorization: `Bearer ${token}` },
+    body: fd,
+  });
+
+  const saved = await res.json();
+
+  if (form.id) {
+    setProducts(products.map((p) => (p.id === form.id ? saved : p)));
+  } else {
+    setProducts([saved, ...products]);
+  }
+
+  setShowModal(false);
+  setForm({ name: "", description: "", price: "", discountPrice: "", cat_id: "", image: null });
+};
+
 
   const handleDelete = async (id) => {
     await fetch(`${API}/products/${id}`, {
@@ -119,7 +129,17 @@ export default function ProductPage() {
                           {categories.find((c) => c.id == p.cat_id)?.name}
                         </td>
 
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 flex gap-3">
+                          <button
+                            onClick={() => {
+                              setForm(p);
+                              setShowModal(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            Edit
+                          </button>
+
                           <button
                             onClick={() => handleDelete(p.id)}
                             className="text-red-600 hover:text-red-800 font-medium"
@@ -196,7 +216,6 @@ export default function ProductPage() {
 
               <input
                 type="file"
-                required
                 className="w-full border rounded-lg px-3 py-2"
                 onChange={(e) => setForm({ ...form, image: e.target.files[0] })}
               />

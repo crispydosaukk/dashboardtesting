@@ -34,20 +34,15 @@ export default function Restuarent() {
   const onInfoChange = (k) => (e) =>
     setInfo((prev) => ({ ...prev, [k]: e.target.value }));
 
-  // normalize day to canonical WEEKDAYS values, return null if invalid
   function normalizeDay(raw) {
-    if (raw === undefined || raw === null) return null;
+    if (!raw) return null;
     const s = String(raw).trim();
-    if (!s) return null;
     const day = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
     return WEEKDAYS.includes(day) ? day : null;
   }
 
-  const isWeekdayPresent = (d) => {
-    const nd = normalizeDay(d);
-    if (!nd) return false;
-    return timings.some((t) => normalizeDay(t.day) === nd);
-  };
+  const isWeekdayPresent = (d) =>
+    timings.some((t) => normalizeDay(t.day) === normalizeDay(d));
 
   const handleAddManual = () => {
     const present = new Set(timings.map((t) => normalizeDay(t.day)));
@@ -65,38 +60,27 @@ export default function Restuarent() {
     if (!newDay || isWeekdayPresent(newDay)) return;
     updateTiming(id, { day: newDay });
     setTimings((prev) =>
-      prev.slice().sort((a, b) => WEEKDAYS.indexOf(normalizeDay(a.day)) - WEEKDAYS.indexOf(normalizeDay(b.day)))
+      prev.slice().sort(
+        (a, b) => WEEKDAYS.indexOf(normalizeDay(a.day)) - WEEKDAYS.indexOf(normalizeDay(b.day))
+      )
     );
   };
 
   function updateTiming(id, changes) {
-  setTimings(prev =>
-    prev.map(t => t.id === id ? { ...t, ...changes } : t)
-  );
-}
+    setTimings(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
+  }
 
-function removeTiming(id) {
-  setTimings(prev => prev.filter(t => t.id !== id));
-}
+  function removeTiming(id) {
+    setTimings(prev => prev.filter(t => t.id !== id));
+  }
 
   function frontendToApiPayload() {
-    // helper to convert "HH:MM" -> "HH:MM:SS"
-    const toSqlTime = (s) => {
-      if (!s && s !== "") return null;
-      const v = String(s).trim();
-      if (v === "") return null;
-      // if already includes seconds, leave as-is; if format "HH:MM" append :00
-      return /^\d{1,2}:\d{2}(:\d{2})?$/.test(v) ? (v.length === 5 ? v + ":00" : v) : null;
-    };
-
-    // normalize and validate timings; keep last occurrence for duplicate days
+    const toSqlTime = (s) => s && /^\d{1,2}:\d{2}$/.test(s) ? s + ":00" : s || null;
     const byDay = new Map();
     for (const t of timings) {
       const day = normalizeDay(t.day);
       if (!day) continue;
-      const opening_time = toSqlTime(t.start);
-      const closing_time = toSqlTime(t.end);
-      byDay.set(day, { day, opening_time, closing_time });
+      byDay.set(day, { day, opening_time: toSqlTime(t.start), closing_time: toSqlTime(t.end) });
     }
     return {
       restaurant_name: info.restaurant_name || null,
@@ -145,12 +129,10 @@ function removeTiming(id) {
         restaurant.timings.map((t) => ({
           id: String(t.id ?? uuidv4()),
           day: t.day,
-          start: t.opening_time ? t.opening_time.substring(0,5) : "",
-          end: t.closing_time ? t.closing_time.substring(0,5) : "",
+          start: t.opening_time?.substring(0,5) || "",
+          end: t.closing_time?.substring(0,5) || "",
         })).sort((a,b) => WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day))
       );
-    } else {
-      setTimings([{ id: uuidv4(), day: "Monday", start: "", end: "" }]);
     }
   }
 
@@ -160,8 +142,7 @@ function removeTiming(id) {
       const res = await api.get("/restaurant");
       apiToFrontend(res?.data?.data ?? null);
     } catch (err) {
-      console.error("Failed to load restaurant:", err);
-      alert("Failed to load restaurant data. Check console for details.");
+      alert("Failed to load restaurant data.");
     } finally {
       setLoading(false);
     }
@@ -170,109 +151,140 @@ function removeTiming(id) {
   async function saveAll() {
     setSaving(true);
     try {
-      const payload = frontendToApiPayload();
-      const res = await api.post("/restaurant", payload);
+      const res = await api.post("/restaurant", frontendToApiPayload());
       apiToFrontend(res?.data?.data ?? null);
       alert("Saved successfully.");
     } catch (err) {
-      console.error("Failed to save restaurant:", err);
-      const msg = err?.response?.data?.message || err?.message || "Failed to save. Check console.";
-      alert(msg);
+      alert("Failed to save.");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex flex-col min-h-screen bg-gray-50">
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 pt-16 lg:pl-72 px-6 py-6">
-        <h1 className="text-2xl font-semibold mb-6">Restaurant Info</h1>
+      <div className="flex-1 flex flex-col pt-16 lg:pl-72">
+        <main className="flex-1 px-4 lg:px-6 py-6">
 
-        <div className="rounded-xl bg-white p-6 border shadow-sm mb-6">
-          <h2 className="text-lg font-semibold mb-4">Restaurant Details</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              ["restaurant_name","Restaurant Name"],
-              ["address","Address"],
-              ["phone","Phone"],
-              ["email","Email"],
-              ["facebook","Facebook"],
-              ["twitter","Twitter"],
-              ["instagram","Instagram"],
-              ["linkedin","LinkedIn"],
-            ].map(([key,label]) => (
-              <div key={key}>
-                <label className="block text-sm mb-1">{label}</label>
-                <input className="border rounded-md px-3 py-2 w-full"
-                  value={info[key]}
-                  onChange={onInfoChange(key)}
-                />
-              </div>
-            ))}
+          <div className="mb-6">
+            <h1 className="text-2xl font-semibold text-gray-900">Restaurant Information</h1>
           </div>
 
-          <div className="flex justify-end mt-6">
-            <button
-              onClick={saveAll}
-              disabled={saving || loading}
-              className="px-6 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-60"
-            >
-              {saving ? "Saving..." : "Save All"}
-            </button>
-          </div>
-        </div>
+          <div className="rounded-xl bg-white p-6 shadow-md border border-gray-200 mb-6">
+            <h2 className="text-lg font-semibold mb-4">Restaurant Details</h2>
 
-        <div className="rounded-xl bg-white p-6 border shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold">Restaurant Timings</h2>
-            <button onClick={handleAddManual} className="px-3 py-1 bg-emerald-600 text-white rounded text-sm" disabled={timings.length >= 7}>
-              + Add Day
-            </button>
-          </div>
-
-          <table className="w-full border-t">
-            <thead>
-              <tr className="bg-emerald-600 text-white text-sm">
-                <th className="px-4 py-2 text-left">Day</th>
-                <th className="px-4 py-2 text-left">Start</th>
-                <th className="px-4 py-2 text-left">End</th>
-                <th className="px-4 py-2 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {timings.map((t) => (
-                <tr key={t.id} className="odd:bg-white even:bg-gray-50">
-                  <td className="px-4 py-2">
-                    <select className="border rounded px-2 py-1 w-full"
-                      value={t.day}
-                      onChange={(e) => changeDay(t.id, e.target.value)}
-                    >
-                      {WEEKDAYS.map((d) => (
-                        <option key={d} value={d} disabled={isWeekdayPresent(d) && t.day !== d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-2"><input type="time" value={t.start} onChange={(e)=>updateTiming(t.id,{start:e.target.value})} className="border rounded px-2 py-1 w-full" /></td>
-                  <td className="px-4 py-2"><input type="time" value={t.end} onChange={(e)=>updateTiming(t.id,{end:e.target.value})} className="border rounded px-2 py-1 w-full" /></td>
-                  <td className="px-4 py-2"><button onClick={()=>removeTiming(t.id)} className="text-red-600">Remove</button></td>
-                </tr>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                ["restaurant_name","Restaurant Name"],
+                ["address","Address"],
+                ["phone","Phone"],
+                ["email","Email"],
+                ["facebook","Facebook"],
+                ["twitter","Twitter"],
+                ["instagram","Instagram"],
+                ["linkedin","LinkedIn"],
+              ].map(([key,label]) => (
+                <div key={key}>
+                  <label className="block text-sm text-gray-600 mb-1">{label}</label>
+                  <input
+                    className="border border-gray-300 rounded-lg px-3 py-2 w-full"
+                    value={info[key]}
+                    onChange={onInfoChange(key)}
+                  />
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
 
-          <div className="flex justify-end mt-6">
-            <button onClick={saveAll} disabled={saving || loading} className="px-6 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-60">
-              {saving ? "Saving..." : "Update Timings"}
-            </button>
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={saveAll}
+                disabled={saving || loading}
+                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm disabled:opacity-60"
+              >
+                {saving ? "Saving..." : "Save All"}
+              </button>
+            </div>
           </div>
-        </div>
 
+          <div className="rounded-xl bg-white p-6 shadow-md border border-gray-200">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Restaurant Timings</h2>
+              <button
+                onClick={handleAddManual}
+                disabled={timings.length >= 7}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm shadow-sm"
+              >
+                + Add Day
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-gray-100 border-b text-gray-700">
+                    <th className="py-3 px-4 text-left">Day</th>
+                    <th className="py-3 px-4 text-left">Start</th>
+                    <th className="py-3 px-4 text-left">End</th>
+                    <th className="py-3 px-4 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-700">
+                  {timings.map((t) => (
+                    <tr key={t.id} className="border-b hover:bg-gray-50 transition">
+                      <td className="py-3 px-4">
+                        <select
+                          className="border border-gray-300 rounded-lg px-2 py-1 w-full"
+                          value={t.day}
+                          onChange={(e) => changeDay(t.id, e.target.value)}
+                        >
+                          {WEEKDAYS.map((d) => (
+                            <option key={d} value={d} disabled={isWeekdayPresent(d) && t.day !== d}>
+                              {d}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <input type="time" value={t.start}
+                          onChange={(e)=>updateTiming(t.id,{start:e.target.value})}
+                          className="border border-gray-300 rounded-lg px-2 py-1 w-full"
+                        />
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <input type="time" value={t.end}
+                          onChange={(e)=>updateTiming(t.id,{end:e.target.value})}
+                          className="border border-gray-300 rounded-lg px-2 py-1 w-full"
+                        />
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <button onClick={()=>removeTiming(t.id)} className="text-red-600 hover:text-red-800 font-medium">
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={saveAll}
+                disabled={saving || loading}
+                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm disabled:opacity-60"
+              >
+                {saving ? "Saving..." : "Update Timings"}
+              </button>
+            </div>
+          </div>
+
+        </main>
         <Footer />
       </div>
     </div>

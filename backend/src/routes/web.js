@@ -2,7 +2,7 @@ import express from "express";
 import { login } from "../controllers/admin/authcontroller.js";
 import auth from "../middleware/auth.js";
 import upload from "../middleware/upload.js"; // <-- use this one
-import { getProducts, addProduct, removeProduct } from "../controllers/admin/productController.js";
+import { getProducts, addProduct, removeProduct, updateProduct} from "../controllers/admin/productController.js";
 
 import {
   index as listPermissions,
@@ -34,7 +34,9 @@ import {
   getCategories,
   addCategory,
   removeCategory,
+  updateCategory
 } from "../controllers/admin/categoryController.js";
+
 
 const router = express.Router();
 
@@ -66,11 +68,13 @@ router.post("/restaurant", auth, upsertRestaurant);
 /* CATEGORY */
 router.get("/category", auth, getCategories);
 router.post("/category", auth, upload.single("image"), addCategory);
+router.put("/category/:id", auth, upload.single("image"), updateCategory); // <-- ADD THIS
 router.delete("/category/:id", auth, removeCategory);
 
 /* PRODUCTS */
 router.get("/products", auth, getProducts);
 router.post("/products", auth, upload.single("image"), addProduct);
 router.delete("/products/:id", auth, removeProduct);
+router.put("/products/:id", auth, upload.single("image"), updateProduct);
 
 export default router;

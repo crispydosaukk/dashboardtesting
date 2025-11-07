@@ -180,14 +180,11 @@ export default function Roles() {
     });
   }, [roles, searchTerm]);
 
-  // Render helpers
   const renderPermissionsInline = (permArr = []) => {
-    if (!permArr.length) return <span className="text-gray-500">—</span>;
-    const names = permArr.map((p) => p.title);
-    const max = 3;
-    if (names.length <= max) return names.join(", ");
-    return `${names.slice(0, max).join(", ")} +${names.length - max} more`;
-  };
+  if (!permArr.length) return <span className="text-gray-500">—</span>;
+  return permArr.map((p) => p.title).join(", ");
+};
+
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">

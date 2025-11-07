@@ -72,3 +72,47 @@ export const removeProduct = async (req, res) => {
 
   res.json({ success: true });
 };
+
+
+// UPDATE PRODUCT
+export const updateProduct = async (req, res) => {
+  const userId = req.user.id;
+  const { id } = req.params;
+  const { name, description, price, discountPrice, cat_id } = req.body;
+  const newImage = req.file ? req.file.filename : null;
+
+  // Get old image
+  const [[existing]] = await pool.query(
+    "SELECT product_image FROM products WHERE id = ? AND user_id = ?",
+    [id, userId]
+  );
+  if (!existing) return res.status(404).json({ message: "Not found" });
+
+  // Delete old image if new one uploaded
+  if (newImage && existing.product_image) {
+    const oldPath = path.join("public/uploads", existing.product_image);
+    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+  }
+
+  await pool.query(
+    `UPDATE products SET 
+      product_name=?, 
+      product_desc=?, 
+      product_price=?, 
+      product_discount_price=?, 
+      cat_id=?, 
+      product_image = IFNULL(?, product_image)
+     WHERE id=? AND user_id=?`,
+    [name, description, price, discountPrice, cat_id, newImage, id, userId]
+  );
+
+  res.json({
+    id,
+    name,
+    description,
+    price,
+    discountPrice,
+    cat_id,
+    image: newImage || existing.product_image
+  });
+};
