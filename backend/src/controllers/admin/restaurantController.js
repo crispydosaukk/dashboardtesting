@@ -57,12 +57,11 @@ export async function upsert(req, res) {
 
   // If a file is uploaded via upload.single('photo'), multer populates req.file
   if (req.file && req.file.filename) {
-    // If your upload middleware stores files under public/uploads and you serve them via /uploads,
-    // save the public URL path so the frontend can directly use it.
+    // store the public path for frontend
     body.restaurant_photo = `/uploads/${req.file.filename}`;
   }
 
-  // Validate payload basic shape
+  // Basic payload validation
   if (!body || typeof body !== "object") {
     return res.status(400).json({ success: false, message: "Invalid payload" });
   }

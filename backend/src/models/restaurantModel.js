@@ -17,7 +17,7 @@ export async function getRestaurantByUserId(userId) {
     const restaurant = rows[0];
 
     const [timings] = await conn.query(
-      `SELECT id, day, opening_time, closing_time
+      `SELECT id, day, opening_time, closing_time, is_active
        FROM restaurant_timings
        WHERE restaurant_id = ?
        ORDER BY FIELD(day,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')`,
@@ -52,6 +52,7 @@ async function insertRestaurant(conn, userId, payload) {
         payload.restaurant_twitter ?? null,
         payload.restaurant_instagram ?? null,
         payload.restaurant_linkedin ?? null,
+        payload.parking_info ?? null,
         payload.restaurant_photo ?? null,
       ]
     );
@@ -103,7 +104,11 @@ async function updateRestaurant(conn, restaurantId, payload) {
 
 /**
  * Synchronize timings for a restaurant:
- * - payloadTimings: [{ day, opening_time, closing_time }, ...]
+ * - payloadTimings: [{ day, opening_time, closing_time, is_active }, ...]
+ *
+ * Behavior:
+ * - If a day is present in payloadTimings -> upsert (insert or update) with provided is_active and times.
+ * - If a day is NOT present in payloadTimings but exists in DB -> delete that DB row.
  */
 async function syncTimings(conn, restaurantId, payloadTimings = []) {
   const validDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -118,6 +123,7 @@ async function syncTimings(conn, restaurantId, payloadTimings = []) {
     return null;
   }
 
+  // Build a map day -> { opening_time, closing_time, is_active }
   const byDay = {};
   for (const t of payloadTimings) {
     if (!t || !t.day) continue;
@@ -131,15 +137,15 @@ async function syncTimings(conn, restaurantId, payloadTimings = []) {
     const opening_time_raw = normalizeTimeForSql(t.opening_time);
     const closing_time_raw = normalizeTimeForSql(t.closing_time);
 
-    if (opening_time_raw === null && closing_time_raw === null) {
-      // skip -> will delete DB row if exists
-      continue;
-    }
-
+    // If times are null, we will store "00:00:00" as placeholder (or keep null if you prefer).
+    // Here we store "00:00:00" to avoid timezone/time issues; is_active controls if day is on/off.
     const opening_time = opening_time_raw === null ? "00:00:00" : opening_time_raw;
     const closing_time = closing_time_raw === null ? "00:00:00" : closing_time_raw;
 
-    byDay[day] = { opening_time, closing_time };
+    const is_active = (typeof t.is_active === "boolean") ? (t.is_active ? 1 : 0)
+                     : (t.is_active === 1 || t.is_active === "1" || t.is_active === "true") ? 1 : 0;
+
+    byDay[day] = { opening_time, closing_time, is_active };
   }
 
   try {
@@ -151,6 +157,7 @@ async function syncTimings(conn, restaurantId, payloadTimings = []) {
     const existingByDay = {};
     for (const r of existing) existingByDay[r.day] = r.id;
 
+    // Delete DB rows for days absent in payload
     const daysToDelete = existing.map((r) => r.day).filter((d) => !(d in byDay));
     if (daysToDelete.length) {
       const placeholders = daysToDelete.map(() => "?").join(",");
@@ -160,20 +167,21 @@ async function syncTimings(conn, restaurantId, payloadTimings = []) {
       );
     }
 
+    // Upsert all supplied days
     for (const day of Object.keys(byDay)) {
       const t = byDay[day];
       if (existingByDay[day]) {
         await conn.query(
           `UPDATE restaurant_timings
-           SET opening_time = ?, closing_time = ?, updated_at = CURRENT_TIMESTAMP
+           SET opening_time = ?, closing_time = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
            WHERE id = ?`,
-          [t.opening_time, t.closing_time, existingByDay[day]]
+          [t.opening_time, t.closing_time, t.is_active, existingByDay[day]]
         );
       } else {
         await conn.query(
-          `INSERT INTO restaurant_timings (restaurant_id, day, opening_time, closing_time)
-           VALUES (?, ?, ?, ?)`,
-          [restaurantId, day, t.opening_time, t.closing_time]
+          `INSERT INTO restaurant_timings (restaurant_id, day, opening_time, closing_time, is_active)
+           VALUES (?, ?, ?, ?, ?)`,
+          [restaurantId, day, t.opening_time, t.closing_time, t.is_active]
         );
       }
     }

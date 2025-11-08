@@ -28,7 +28,7 @@ export default function Restuarent() {
   const [photoPreview, setPhotoPreview] = useState(null); // local preview
 
   const [timings, setTimings] = useState([
-    { id: uuidv4(), day: "Monday", start: "10:00", end: "20:00" },
+    { id: uuidv4(), day: "Monday", start: "10:00", end: "20:00", is_active: true },
   ]);
 
   const [loading, setLoading] = useState(false);
@@ -64,7 +64,7 @@ export default function Restuarent() {
     const missing = WEEKDAYS.find((d) => !present.has(d));
     if (!missing) return;
     setTimings((prev) =>
-      [...prev, { id: uuidv4(), day: missing, start: "", end: "" }].sort(
+      [...prev, { id: uuidv4(), day: missing, start: "", end: "", is_active: true }].sort(
         (a, b) => WEEKDAYS.indexOf(normalizeDay(a.day)) - WEEKDAYS.indexOf(normalizeDay(b.day))
       )
     );
@@ -90,13 +90,27 @@ export default function Restuarent() {
   }
 
   function frontendToApiPayload() {
-    const toSqlTime = (s) => s && /^\d{1,2}:\d{2}$/.test(s) ? s + ":00" : s || null;
-    const byDay = new Map();
+    // convert times to SQL time format HH:MM:SS or null
+    const toSqlTime = (s) => {
+      if (!s) return null;
+      // HTML time input usually "HH:MM"
+      if (/^\d{1,2}:\d{2}$/.test(s)) return s + ":00";
+      if (/^\d{1,2}:\d{2}:\d{2}$/.test(s)) return s;
+      return null;
+    };
+
+    const byDay = [];
     for (const t of timings) {
       const day = normalizeDay(t.day);
       if (!day) continue;
-      byDay.set(day, { day, opening_time: toSqlTime(t.start), closing_time: toSqlTime(t.end) });
+      byDay.push({
+        day,
+        opening_time: toSqlTime(t.start),
+        closing_time: toSqlTime(t.end),
+        is_active: !!t.is_active
+      });
     }
+
     return {
       restaurant_name: info.restaurant_name || null,
       restaurant_address: info.address || null,
@@ -106,10 +120,9 @@ export default function Restuarent() {
       restaurant_twitter: info.twitter || null,
       restaurant_instagram: info.instagram || null,
       restaurant_linkedin: info.linkedin || null,
-      parking_info: info.parking_info || null, 
-      // When not uploading file, keep existing photo URL so DB won't be cleared.
+      parking_info: info.parking_info || null,
       restaurant_photo: info.photo || null,
-      timings: Array.from(byDay.values()).sort((a,b) => WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day)),
+      timings: byDay.sort((a,b) => WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day)),
     };
   }
 
@@ -124,10 +137,12 @@ export default function Restuarent() {
         twitter: "",
         instagram: "",
         linkedin: "",
+        parking_info: "",
         photo: ""
       });
-      setTimings([{ id: uuidv4(), day: "Monday", start: "", end: "" }]);
+      setTimings([{ id: uuidv4(), day: "Monday", start: "", end: "", is_active: true }]);
       setPhotoFile(null);
+      setPhotoPreview(null);
       return;
     }
 
@@ -141,7 +156,7 @@ export default function Restuarent() {
       instagram: restaurant.restaurant_instagram ?? "",
       linkedin: restaurant.restaurant_linkedin ?? "",
       parking_info: restaurant.parking_info ?? "",
-      photo: restaurant.restaurant_photo ?? "" // this should be the public path like "/uploads/xxx.jpg"
+      photo: restaurant.restaurant_photo ?? ""
     });
 
     setPhotoFile(null);
@@ -154,10 +169,11 @@ export default function Restuarent() {
           day: t.day,
           start: t.opening_time?.substring(0,5) || "",
           end: t.closing_time?.substring(0,5) || "",
+          is_active: !!(t.is_active || t.is_active === 1)
         })).sort((a,b) => WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day))
       );
     } else {
-      setTimings([{ id: uuidv4(), day: "Monday", start: "", end: "" }]);
+      setTimings([{ id: uuidv4(), day: "Monday", start: "", end: "", is_active: true }]);
     }
   }
 
@@ -266,11 +282,12 @@ export default function Restuarent() {
 
                 <div className="relative w-40 h-40 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
                   {photoPreview ? (
-                    <img src={photoPreview} className="w-full h-full object-cover" />
+                    <img src={photoPreview} className="w-full h-full object-cover" alt="preview" />
                   ) : info.photo ? (
                     <img
                       src={`${import.meta.env.VITE_API_URL.replace("/api", "")}${info.photo}`}
                       className="w-full h-full object-cover"
+                      alt="restaurant"
                     />
                   ) : (
                     <span className="text-sm text-gray-400">No Photo</span>
@@ -334,12 +351,13 @@ export default function Restuarent() {
                     <th className="py-3 px-4 text-left">Day</th>
                     <th className="py-3 px-4 text-left">Start</th>
                     <th className="py-3 px-4 text-left">End</th>
+                    <th className="py-3 px-4 text-left">Active</th>
                     <th className="py-3 px-4 text-left">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="text-gray-700">
                   {timings.map((t) => (
-                    <tr key={t.id} className="border-b hover:bg-gray-50 transition">
+                    <tr key={t.id} className={`border-b hover:bg-gray-50 transition ${!t.is_active ? "opacity-70" : ""}`}>
                       <td className="py-3 px-4">
                         <select
                           className="border border-gray-300 rounded-lg px-2 py-1 w-full"
@@ -369,9 +387,23 @@ export default function Restuarent() {
                       </td>
 
                       <td className="py-3 px-4">
-                        <button onClick={()=>removeTiming(t.id)} className="text-red-600 hover:text-red-800 font-medium">
-                          Remove
-                        </button>
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!t.is_active}
+                            onChange={(e) => updateTiming(t.id, { is_active: e.target.checked })}
+                            className="form-checkbox h-5 w-5"
+                          />
+                          <span className="ml-2 text-sm">{t.is_active ? "On" : "Off"}</span>
+                        </label>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <button onClick={()=>removeTiming(t.id)} className="text-red-600 hover:text-red-800 font-medium">
+                            Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
