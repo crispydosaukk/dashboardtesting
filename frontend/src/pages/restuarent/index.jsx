@@ -1,5 +1,5 @@
-// src/pages/Restuarent.jsx
-import React, { useEffect, useState } from "react";
+// src/pages/Restuarent.jsx (Premium Dashboard UI)
+import React, { useEffect, useState, useRef } from "react";
 import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
@@ -10,7 +10,6 @@ const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday",
 
 export default function Restuarent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
   const [info, setInfo] = useState({
     restaurant_name: "",
     address: "",
@@ -21,33 +20,26 @@ export default function Restuarent() {
     instagram: "",
     linkedin: "",
     parking_info: "",
-    photo: "" // will hold URL from server, e.g. "/uploads/filename.jpg"
+    photo: ""
   });
-
-  const [photoFile, setPhotoFile] = useState(null); // File object when user picks a new image
-  const [photoPreview, setPhotoPreview] = useState(null); // local preview
-
-  const [timings, setTimings] = useState([
-    { id: uuidv4(), day: "Monday", start: "10:00", end: "20:00", is_active: true },
-  ]);
-
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [timings, setTimings] = useState([{ id: uuidv4(), day: "Monday", start: "", end: "", is_active: true }]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const fileInputRef = useRef(null);
 
   useEffect(() => { loadRestaurant(); }, []);
 
   useEffect(() => {
-    if (!photoFile) {
-      setPhotoPreview(null);
-      return;
-    }
+    if (!photoFile) { setPhotoPreview(null); return; }
     const url = URL.createObjectURL(photoFile);
     setPhotoPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [photoFile]);
 
-  const onInfoChange = (k) => (e) =>
-    setInfo((prev) => ({ ...prev, [k]: e.target.value }));
+  const onInfoChange = (k) => (e) => setInfo((p) => ({ ...p, [k]: e.target.value }));
 
   function normalizeDay(raw) {
     if (!raw) return null;
@@ -56,8 +48,7 @@ export default function Restuarent() {
     return WEEKDAYS.includes(day) ? day : null;
   }
 
-  const isWeekdayPresent = (d) =>
-    timings.some((t) => normalizeDay(t.day) === normalizeDay(d));
+  const isWeekdayPresent = (d) => timings.some((t) => normalizeDay(t.day) === normalizeDay(d));
 
   const handleAddManual = () => {
     const present = new Set(timings.map((t) => normalizeDay(t.day)));
@@ -74,26 +65,17 @@ export default function Restuarent() {
     const newDay = normalizeDay(newDayRaw);
     if (!newDay || isWeekdayPresent(newDay)) return;
     updateTiming(id, { day: newDay });
-    setTimings((prev) =>
-      prev.slice().sort(
-        (a, b) => WEEKDAYS.indexOf(normalizeDay(a.day)) - WEEKDAYS.indexOf(normalizeDay(b.day))
-      )
-    );
+    setTimings((prev) => prev.slice().sort(
+      (a, b) => WEEKDAYS.indexOf(normalizeDay(a.day)) - WEEKDAYS.indexOf(normalizeDay(b.day))
+    ));
   };
 
-  function updateTiming(id, changes) {
-    setTimings(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
-  }
-
-  function removeTiming(id) {
-    setTimings(prev => prev.filter(t => t.id !== id));
-  }
+  function updateTiming(id, changes) { setTimings(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t)); }
+  function removeTiming(id) { setTimings(prev => prev.filter(t => t.id !== id)); }
 
   function frontendToApiPayload() {
-    // convert times to SQL time format HH:MM:SS or null
     const toSqlTime = (s) => {
       if (!s) return null;
-      // HTML time input usually "HH:MM"
       if (/^\d{1,2}:\d{2}$/.test(s)) return s + ":00";
       if (/^\d{1,2}:\d{2}:\d{2}$/.test(s)) return s;
       return null;
@@ -103,12 +85,7 @@ export default function Restuarent() {
     for (const t of timings) {
       const day = normalizeDay(t.day);
       if (!day) continue;
-      byDay.push({
-        day,
-        opening_time: toSqlTime(t.start),
-        closing_time: toSqlTime(t.end),
-        is_active: !!t.is_active
-      });
+      byDay.push({ day, opening_time: toSqlTime(t.start), closing_time: toSqlTime(t.end), is_active: !!t.is_active });
     }
 
     return {
@@ -128,21 +105,9 @@ export default function Restuarent() {
 
   function apiToFrontend(restaurant) {
     if (!restaurant) {
-      setInfo({
-        restaurant_name: "",
-        address: "",
-        phone: "",
-        email: "",
-        facebook: "",
-        twitter: "",
-        instagram: "",
-        linkedin: "",
-        parking_info: "",
-        photo: ""
-      });
+      setInfo({ restaurant_name: "", address: "", phone: "", email: "", facebook: "", twitter: "", instagram: "", linkedin: "", parking_info: "", photo: "" });
       setTimings([{ id: uuidv4(), day: "Monday", start: "", end: "", is_active: true }]);
-      setPhotoFile(null);
-      setPhotoPreview(null);
+      setPhotoFile(null); setPhotoPreview(null);
       return;
     }
 
@@ -159,8 +124,7 @@ export default function Restuarent() {
       photo: restaurant.restaurant_photo ?? ""
     });
 
-    setPhotoFile(null);
-    setPhotoPreview(null);
+    setPhotoFile(null); setPhotoPreview(null);
 
     if (Array.isArray(restaurant.timings) && restaurant.timings.length) {
       setTimings(
@@ -184,10 +148,8 @@ export default function Restuarent() {
       apiToFrontend(res?.data?.data ?? null);
     } catch (err) {
       console.error(err);
-      alert("Failed to load restaurant data.");
-    } finally {
-      setLoading(false);
-    }
+      // non-blocking: optionally show toast
+    } finally { setLoading(false); }
   }
 
   async function saveAll() {
@@ -196,213 +158,208 @@ export default function Restuarent() {
       const payload = frontendToApiPayload();
 
       if (photoFile) {
-        // Use multipart/form-data when a new file is provided
         const fd = new FormData();
-        // append file
         fd.append("photo", photoFile);
-        // append other fields as strings
         for (const [k, v] of Object.entries(payload)) {
-          if (k === "timings") {
-            fd.append("timings", JSON.stringify(v));
-          } else if (v !== undefined && v !== null) {
-            fd.append(k, String(v));
-          } else {
-            fd.append(k, "");
-          }
+          if (k === "timings") fd.append("timings", JSON.stringify(v));
+          else if (v !== undefined && v !== null) fd.append(k, String(v)); else fd.append(k, "");
         }
-        const res = await api.post("/restaurant", fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        const res = await api.post("/restaurant", fd, { headers: { "Content-Type": "multipart/form-data" } });
         apiToFrontend(res?.data?.data ?? null);
       } else {
-        // send JSON (no file)
         const res = await api.post("/restaurant", payload);
         apiToFrontend(res?.data?.data ?? null);
       }
 
-      alert("Saved successfully.");
+      setSaving(false);
+      const el = document.getElementById("save-toast");
+      if (el) { el.classList.remove("opacity-0"); setTimeout(()=>el.classList.add("opacity-0"), 2200); }
     } catch (err) {
       console.error("save error:", err);
-      alert("Failed to save.");
-    } finally {
       setSaving(false);
+      alert("Failed to save. Check console for details.");
     }
   }
 
   const onFileChange = (e) => {
     const f = e.target.files && e.target.files[0];
-    if (f) {
-      setPhotoFile(f);
-    } else {
-      setPhotoFile(null);
-    }
+    if (f) setPhotoFile(f); else { setPhotoFile(null); }
   };
 
+  // Drag/drop helpers
+  const onDrop = (e) => {
+    e.preventDefault();
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) setPhotoFile(f);
+  };
+  const onDragOver = (e) => e.preventDefault();
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 antialiased text-slate-800">
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col pt-16 lg:pl-72">
-        <main className="flex-1 px-4 lg:px-6 py-6">
-          <div className="mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900">Restaurant Information</h1>
+      <main className="lg:pl-72 pt-16">
+        <div className="max-w-7xl mx-auto px-6 pb-10">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight">Restaurant Dashboard</h1>
+              <p className="mt-1 text-sm text-slate-500">Manage your restaurant profile, photo, and weekly timings.</p>
+            </div>
+
+           
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow-md border border-gray-200 mb-6">
-            <h2 className="text-lg font-semibold mb-4">Restaurant Details</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left: Details form */}
+            <section className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-lg border border-slate-100">
+              <h2 className="text-lg font-medium mb-4">Restaurant Details</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  ["restaurant_name","Restaurant Name"],
-                  ["address","Address"],
-                  ["phone","Phone"],
-                  ["email","Email"],
-                  ["facebook","Facebook"],
-                  ["twitter","Twitter"],
-                  ["instagram","Instagram"],
-                  ["linkedin","LinkedIn"],
-                  ["parking_info","Parking Info"],
-                ].map(([key,label]) => (
-                  <div key={key}>
-                    <label className="block text-sm text-gray-600 mb-1">{label}</label>
-                    <input
-                      className="border border-gray-300 rounded-lg px-3 py-2 w-full"
-                      value={info[key]}
-                      onChange={onInfoChange(key)}
-                    />
-                  </div>
-                ))}
-              </div>
-
-             {/* Photo column */}
-              <div className="flex flex-col items-center gap-3">
-                <label className="text-sm font-medium text-gray-700">Restaurant Photo</label>
-
-                <div className="relative w-40 h-40 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
-                  {photoPreview ? (
-                    <img src={photoPreview} className="w-full h-full object-cover" alt="preview" />
-                  ) : info.photo ? (
-                    <img
-                      src={`${import.meta.env.VITE_API_URL.replace("/api", "")}${info.photo}`}
-                      className="w-full h-full object-cover"
-                      alt="restaurant"
-                    />
-                  ) : (
-                    <span className="text-sm text-gray-400">No Photo</span>
-                  )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="col-span-2 md:col-span-1">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Restaurant Name</label>
+                  <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200" value={info.restaurant_name} onChange={onInfoChange("restaurant_name")} />
                 </div>
 
-                {/* Upload button */}
-                <label className="px-3 py-1.5 text-sm border border-gray-300 rounded-md cursor-pointer hover:bg-gray-100 transition">
-                  Upload Photo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={onFileChange}
-                    className="hidden"
-                  />
-                </label>
+                <div className="md:col-span-1">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Phone</label>
+                  <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm" value={info.phone} onChange={onInfoChange("phone")} />
+                </div>
 
-                {/* Remove button */}
-                {photoFile && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPhotoFile(null);
-                      setPhotoPreview(null);
-                    }}
-                    className="text-sm text-red-600 hover:underline"
-                  >
-                    Remove selected photo
-                  </button>
-                )}
+                <div className="md:col-span-1">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
+                  <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm" value={info.email} onChange={onInfoChange("email")} />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Address</label>
+                  <textarea rows={3} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm" value={info.address} onChange={onInfoChange("address")} />
+                </div>
+
+                {/* Socials */}
+                <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Facebook</label>
+                    <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={info.facebook} onChange={onInfoChange("facebook")} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Instagram</label>
+                    <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={info.instagram} onChange={onInfoChange("instagram")} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Twitter</label>
+                    <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={info.twitter} onChange={onInfoChange("twitter")} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">LinkedIn</label>
+                    <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={info.linkedin} onChange={onInfoChange("linkedin")} />
+                  </div>
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Parking Info</label>
+                  <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={info.parking_info} onChange={onInfoChange("parking_info")} />
+                </div>
+
               </div>
-            </div>
+            </section>
 
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={saveAll}
-                disabled={saving || loading}
-                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm disabled:opacity-60"
-              >
-                {saving ? "Saving..." : "Save All"}
-              </button>
-            </div>
+            {/* Right: Photo card and quick stats */}
+            <aside className="space-y-6">
+              <div className="bg-white rounded-2xl p-4 shadow-lg border border-slate-100">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium">Restaurant Photo</h3>
+                  <span className="text-xs text-slate-500">Recommended: 1200×800</span>
+                </div>
+
+                <div onDrop={onDrop} onDragOver={onDragOver} className="relative rounded-lg border-dashed border-2 border-slate-200 p-3 flex items-center justify-center">
+                  <div className="w-full h-40 rounded-lg overflow-hidden bg-slate-50 flex items-center justify-center">
+                    {photoPreview ? (
+                      <img src={photoPreview} alt="preview" className="w-full h-full object-cover" />
+                    ) : info.photo ? (
+                      <img src={`${import.meta.env.VITE_API_URL.replace('/api','')}${info.photo}`} alt="restaurant" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-center text-sm text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto mb-2 h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h10a4 4 0 004-4V7a4 4 0 00-4-4H7a4 4 0 00-4 4v8z"/></svg>
+                        <div>Drag & drop or upload</div>
+                      </div>
+                    )}
+                  </div>
+
+                  <input ref={fileInputRef} type="file" accept="image/*" onChange={onFileChange} className="hidden" />
+                </div>
+
+                <div className="mt-3 flex items-center gap-2">
+                  <button onClick={() => fileInputRef.current && fileInputRef.current.click()} className="px-3 py-2 bg-white border border-slate-200 rounded-md text-sm shadow-sm">Upload</button>
+                  {photoFile && (
+                    <button onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} className="px-3 py-2 bg-red-50 text-red-600 border border-red-100 rounded-md text-sm">Remove</button>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                <h4 className="text-sm font-medium mb-2">Quick Actions</h4>
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => setTimings([{ id: uuidv4(), day: 'Monday', start: '', end: '', is_active: true }])} className="text-left px-3 py-2 rounded-md bg-slate-50 border border-slate-100 text-sm">Reset Timings</button>
+                </div>
+              </div>
+               <div className="flex items-center gap-3 ml-28 mt-20">
+                <button onClick={loadRestaurant} disabled={loading} className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-md shadow-sm hover:shadow-md text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v6h6M20 20v-6h-6"/></svg>
+                  <span>{loading ? "Loading..." : "Reload"}</span>
+                </button>
+
+                <button onClick={saveAll} disabled={saving || loading} className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h8l4 4v8a2 2 0 01-2 2H4a2 2 0 01-2-2V5z"/></svg>
+                  <span>{saving ? "Saving..." : "Save Changes"}</span>
+                </button>
+              </div>
+            </aside>
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow-md border border-gray-200">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Restaurant Timings</h2>
-              <button
-                onClick={handleAddManual}
-                disabled={timings.length >= 7}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm shadow-sm"
-              >
-                + Add Day
-              </button>
+          {/* Timings table */}
+          <section className="mt-6 bg-white rounded-2xl p-6 shadow-lg border border-slate-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-medium">Weekly Timings</h2>
+              <div className="flex items-center gap-2">
+                <button onClick={handleAddManual} disabled={timings.length >= 7} className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm">+ Add Day</button>
+                <button onClick={() => setTimings([])} className="px-3 py-2 bg-white border rounded-md text-sm">Clear</button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
+              <table className="w-full text-sm table-auto">
                 <thead>
-                  <tr className="bg-gray-100 border-b text-gray-700">
-                    <th className="py-3 px-4 text-left">Day</th>
-                    <th className="py-3 px-4 text-left">Start</th>
-                    <th className="py-3 px-4 text-left">End</th>
-                    <th className="py-3 px-4 text-left">Active</th>
-                    <th className="py-3 px-4 text-left">Actions</th>
+                  <tr className="text-left text-slate-600 border-b">
+                    <th className="py-3 px-4">Day</th>
+                    <th className="py-3 px-4">Start</th>
+                    <th className="py-3 px-4">End</th>
+                    <th className="py-3 px-4">Active</th>
+                    <th className="py-3 px-4">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="text-gray-700">
+                <tbody>
                   {timings.map((t) => (
-                    <tr key={t.id} className={`border-b hover:bg-gray-50 transition ${!t.is_active ? "opacity-70" : ""}`}>
-                      <td className="py-3 px-4">
-                        <select
-                          className="border border-gray-300 rounded-lg px-2 py-1 w-full"
-                          value={t.day}
-                          onChange={(e) => changeDay(t.id, e.target.value)}
-                        >
+                    <tr key={t.id} className={`${!t.is_active ? 'opacity-70' : ''} border-b hover:bg-slate-50`}>
+                      <td className="py-3 px-4 w-40">
+                        <select value={t.day} onChange={(e)=>changeDay(t.id,e.target.value)} className="w-full rounded-md border border-slate-200 px-2 py-1">
                           {WEEKDAYS.map((d) => (
-                            <option key={d} value={d} disabled={isWeekdayPresent(d) && t.day !== d}>
-                              {d}
-                            </option>
+                            <option key={d} value={d} disabled={isWeekdayPresent(d) && t.day !== d}>{d}</option>
                           ))}
                         </select>
                       </td>
-
-                      <td className="py-3 px-4">
-                        <input type="time" value={t.start}
-                          onChange={(e)=>updateTiming(t.id,{start:e.target.value})}
-                          className="border border-gray-300 rounded-lg px-2 py-1 w-full"
-                        />
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <input type="time" value={t.end}
-                          onChange={(e)=>updateTiming(t.id,{end:e.target.value})}
-                          className="border border-gray-300 rounded-lg px-2 py-1 w-full"
-                        />
-                      </td>
-
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 w-36"><input type="time" value={t.start} onChange={(e)=>updateTiming(t.id,{start:e.target.value})} className="rounded-md border border-slate-200 px-2 py-1 w-full" /></td>
+                      <td className="py-3 px-4 w-36"><input type="time" value={t.end} onChange={(e)=>updateTiming(t.id,{end:e.target.value})} className="rounded-md border border-slate-200 px-2 py-1 w-full" /></td>
+                      <td className="py-3 px-4 w-24">
                         <label className="inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={!!t.is_active}
-                            onChange={(e) => updateTiming(t.id, { is_active: e.target.checked })}
-                            className="form-checkbox h-5 w-5"
-                          />
-                          <span className="ml-2 text-sm">{t.is_active ? "On" : "Off"}</span>
+                          <input type="checkbox" checked={!!t.is_active} onChange={(e)=>updateTiming(t.id,{is_active:e.target.checked})} className="form-checkbox h-5 w-5" />
+                          <span className="ml-2 text-sm">{t.is_active ? 'On' : 'Off'}</span>
                         </label>
                       </td>
-
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <button onClick={()=>removeTiming(t.id)} className="text-red-600 hover:text-red-800 font-medium">
-                            Remove
-                          </button>
+                      <td className="py-3 px-4 w-36">
+                        <div className="flex items-center gap-2">
+                          <button onClick={()=>removeTiming(t.id)} className="text-sm text-red-600">Remove</button>
+                          <button onClick={()=>updateTiming(t.id,{start:'09:00',end:'18:00',is_active:true})} className="text-sm text-slate-600">Set 9–6</button>
                         </div>
                       </td>
                     </tr>
@@ -411,20 +368,17 @@ export default function Restuarent() {
               </table>
             </div>
 
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={saveAll}
-                disabled={saving || loading}
-                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm disabled:opacity-60"
-              >
-                {saving ? "Saving..." : "Update Timings"}
-              </button>
+            <div className="mt-6 flex justify-end">
+              <button onClick={saveAll} disabled={saving || loading} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow">{saving ? 'Saving...' : 'Update Timings'}</button>
             </div>
-          </div>
+          </section>
 
-        </main>
-        <Footer />
-      </div>
+          <div id="save-toast" className="fixed right-6 bottom-6 bg-emerald-600 text-white px-4 py-2 rounded-md shadow-lg opacity-0 transition-opacity">Saved</div>
+
+        </div>
+      </main>
+
+      <Footer />
     </div>
   );
 }

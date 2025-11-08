@@ -159,6 +159,20 @@ export default function Sidebar({ open, onClose }) {
       <style>{`
         .animate-fadeIn { animation: fadeIn 240ms ease both; }
         @keyframes fadeIn { from { opacity:0; transform: translateY(-6px) } to { opacity:1; transform: translateY(0) } }
+        /* Animated glow on focus */
+        input[type="search"]:focus {
+          box-shadow:
+            0 0 0 1px rgba(16,185,129,0.4),
+            0 0 12px rgba(16,185,129,0.5);
+        }
+
+        /* Floating subtle highlight pulse */
+        input[type="search"]::placeholder {
+          transition: opacity 0.4s ease;
+        }
+        input[type="search"]:focus::placeholder {
+          opacity: 0.25;
+        }
 
         /* Thin custom scrollbar for the sidebar */
         .sidebar-scroll::-webkit-scrollbar { width: 8px; }
@@ -188,13 +202,21 @@ export default function Sidebar({ open, onClose }) {
           <div className="mt-3 relative">
             <label className="relative block">
               <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search..."
-                className="w-full text-sm rounded-lg border border-emerald-100 pl-8 pr-8 py-2 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                aria-label="Search sidebar"
-              />
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search..."
+              className="
+                w-full text-sm rounded-xl px-8 py-2.5
+                bg-white/40 backdrop-blur-md
+                border border-emerald-200/40
+                text-emerald-900 placeholder:text-emerald-600/50
+                shadow-[inset_0_0_0_1px_rgba(16,185,129,0.25)]
+                focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400
+                transition-all
+              "
+              aria-label="Search sidebar"
+            />
 
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">⌕</span>
 
