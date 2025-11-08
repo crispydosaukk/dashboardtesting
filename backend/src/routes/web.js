@@ -1,8 +1,9 @@
+// backend/routes/web.js
 import express from "express";
 import { login } from "../controllers/admin/authcontroller.js";
 import auth from "../middleware/auth.js";
-import upload from "../middleware/upload.js"; // <-- use this one
-import { getProducts, addProduct, removeProduct, updateProduct} from "../controllers/admin/productController.js";
+import upload from "../middleware/upload.js"; // multer configured to save to public/uploads
+import { getProducts, addProduct, removeProduct, updateProduct } from "../controllers/admin/productController.js";
 
 import {
   index as listPermissions,
@@ -37,7 +38,6 @@ import {
   updateCategory
 } from "../controllers/admin/categoryController.js";
 
-
 const router = express.Router();
 
 /* AUTH */
@@ -61,14 +61,14 @@ router.post("/users", createUser);
 router.put("/users/:id", updateUser);
 router.delete("/users/:id", deleteUser);
 
-/* RESTAURANT */
+/* RESTAURANT -- use upload.single to accept optional photo */
 router.get("/restaurant", auth, getRestaurant);
-router.post("/restaurant", auth, upsertRestaurant);
+router.post("/restaurant", auth, upload.single("photo"), upsertRestaurant);
 
 /* CATEGORY */
 router.get("/category", auth, getCategories);
 router.post("/category", auth, upload.single("image"), addCategory);
-router.put("/category/:id", auth, upload.single("image"), updateCategory); // <-- ADD THIS
+router.put("/category/:id", auth, upload.single("image"), updateCategory);
 router.delete("/category/:id", auth, removeCategory);
 
 /* PRODUCTS */

@@ -32,7 +32,6 @@ export default function Category() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Simple local duplicate check (case-insensitive)
     const nameTrim = form.name?.trim();
     if (!nameTrim) {
       alert("Please enter a category name");
@@ -54,7 +53,6 @@ export default function Category() {
     try {
       let res;
       if (!isEdit) {
-        // ADD NEW CATEGORY
         res = await fetch(`${API}/category`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
@@ -74,7 +72,6 @@ export default function Category() {
         const newData = await res.json();
         setCategories([newData, ...categories]);
       } else {
-        // UPDATE CATEGORY
         res = await fetch(`${API}/category/${form.id}`, {
           method: "PUT",
           headers: { Authorization: `Bearer ${token}` },
@@ -92,21 +89,15 @@ export default function Category() {
         }
 
         const updated = await res.json();
-
         setCategories(
           categories.map((c) =>
             c.id === Number(form.id)
-              ? {
-                  ...c,
-                  name: updated.name,
-                  image: updated.image,
-                }
+              ? { ...c, name: updated.name, image: updated.image }
               : c
           )
         );
       }
 
-      // reset modal
       setShowModal(false);
       setForm({ id: null, name: "", image: null, oldImage: "" });
       setIsEdit(false);
@@ -149,6 +140,32 @@ export default function Category() {
     }
   };
 
+  // Toggle category status
+  const handleToggleStatus = async (cat) => {
+    const newStatus = cat.status === 1 ? 0 : 1;
+
+    try {
+      const res = await fetch(`${API}/category/${cat.id}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: cat.name, status: newStatus }),
+      });
+
+      if (!res.ok) {
+        alert("Failed to update status");
+        return;
+      }
+
+      setCategories(
+        categories.map((c) =>
+          c.id === cat.id ? { ...c, status: newStatus } : c
+        )
+      );
+    } catch (error) {
+      console.error("Error toggling status:", error);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
@@ -176,14 +193,15 @@ export default function Category() {
                 <tr className="text-left border-b bg-gray-50">
                   <th className="py-3 font-medium">Image</th>
                   <th className="py-3 font-medium">Name</th>
-                  <th className="py-3 font-medium">Actions</th>
+                  <th className="py-3 font-medium text-center">Status</th>
+                  <th className="py-3 font-medium text-center">Actions</th>
                 </tr>
               </thead>
 
               <tbody>
                 {categories.length === 0 ? (
                   <tr>
-                    <td colSpan="3" className="py-6 text-center text-gray-500">
+                    <td colSpan="4" className="py-6 text-center text-gray-500">
                       No categories found
                     </td>
                   </tr>
@@ -191,24 +209,45 @@ export default function Category() {
                   categories.map((item) => (
                     <tr
                       key={item.id}
-                      className="border-b hover:bg-gray-50 transition"
+                      className={`border-b transition ${
+                        item.status === 0 ? "opacity-60 bg-gray-100" : "hover:bg-gray-50"
+                      }`}
                     >
                       <td className="py-3">
-                        {item.image && (
-                          <img
-                            src={`${API.replace("/api", "")}/uploads/${item.image}`}
-                            className="h-12 w-12 rounded-lg object-cover shadow-sm"
-                            alt="category"
+                        <div className="relative h-12 w-12">
+                          {item.image && (
+                            <img
+                              src={`${API.replace("/api", "")}/uploads/${item.image}`}
+                              className={`h-12 w-12 rounded-lg object-cover shadow-sm transition ${
+                                item.status === 0 ? "grayscale blur-[1px]" : ""
+                              }`}
+                              alt="category"
+                            />
+                          )}
+                          {item.status === 0 && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="w-[2px] h-10 bg-red-500 rotate-45"></span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-3 font-medium text-gray-800">{item.name}</td>
+
+                      <td className="py-3 text-center">
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={item.status === 1}
+                            onChange={() => handleToggleStatus(item)}
+                            className="sr-only peer"
                           />
-                        )}
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 relative"></div>
+                        </label>
                       </td>
 
-                      <td className="py-3 font-medium text-gray-800">
-                        {item.name}
-                      </td>
-
-                      <td className="py-3">
-                        <div className="flex gap-4">
+                      <td className="py-3 text-center">
+                        <div className="flex gap-4 justify-center">
                           <button
                             onClick={() => handleEdit(item)}
                             className="text-green-600 hover:text-green-700 font-medium"

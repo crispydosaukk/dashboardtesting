@@ -1,4 +1,4 @@
-// backend/src/models/restaurantModel.js
+// backend/models/restaurantModel.js
 import pool from "../config/db.js";
 
 /**
@@ -24,7 +24,6 @@ export async function getRestaurantByUserId(userId) {
       [restaurant.id]
     );
 
-    // ensure timings exists always as array
     restaurant.timings = Array.isArray(timings) ? timings : [];
     return restaurant;
   } finally {
@@ -40,8 +39,8 @@ async function insertRestaurant(conn, userId, payload) {
     const [res] = await conn.query(
       `INSERT INTO restaurant_details
        (user_id, restaurant_name, restaurant_address, restaurant_phonenumber,
-        restaurant_email, restaurant_facebook, restaurant_twitter, restaurant_instagram, restaurant_linkedin)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        restaurant_email, restaurant_facebook, restaurant_twitter, restaurant_instagram, restaurant_linkedin, restaurant_photo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
         payload.restaurant_name ?? null,
@@ -52,6 +51,7 @@ async function insertRestaurant(conn, userId, payload) {
         payload.restaurant_twitter ?? null,
         payload.restaurant_instagram ?? null,
         payload.restaurant_linkedin ?? null,
+        payload.restaurant_photo ?? null,
       ]
     );
     return res.insertId;
@@ -76,6 +76,7 @@ async function updateRestaurant(conn, restaurantId, payload) {
         restaurant_twitter = ?,
         restaurant_instagram = ?,
         restaurant_linkedin = ?,
+        restaurant_photo = ?,
         updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [
@@ -87,6 +88,7 @@ async function updateRestaurant(conn, restaurantId, payload) {
         payload.restaurant_twitter ?? null,
         payload.restaurant_instagram ?? null,
         payload.restaurant_linkedin ?? null,
+        payload.restaurant_photo ?? null,
         restaurantId,
       ]
     );
@@ -99,29 +101,20 @@ async function updateRestaurant(conn, restaurantId, payload) {
 /**
  * Synchronize timings for a restaurant:
  * - payloadTimings: [{ day, opening_time, closing_time }, ...]
- * Behavior:
- * - Update existing rows (match by day)
- * - Insert missing days
- * - Delete DB rows missing in payload
  */
 async function syncTimings(conn, restaurantId, payloadTimings = []) {
-  // allowed canonical day names
   const validDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
-  // helper: normalize a time value to HH:MM:SS or null
   function normalizeTimeForSql(v) {
     if (v === undefined || v === null) return null;
     const s = String(v).trim();
     if (s === "") return null;
-    // accept HH:MM or HH:MM:SS (basic validation)
     if (/^\d{1,2}:\d{2}$/.test(s)) return s.length === 5 ? s + ":00" : s;
     if (/^\d{1,2}:\d{2}:\d{2}$/.test(s)) return s;
-    // unknown format
     console.warn("syncTimings: invalid time format, treating as null:", v);
     return null;
   }
 
-  // Normalize payload by day (last wins) and validate day names
   const byDay = {};
   for (const t of payloadTimings) {
     if (!t || !t.day) continue;
@@ -132,17 +125,14 @@ async function syncTimings(conn, restaurantId, payloadTimings = []) {
       continue;
     }
 
-    // Normalize times
     const opening_time_raw = normalizeTimeForSql(t.opening_time);
     const closing_time_raw = normalizeTimeForSql(t.closing_time);
 
-    // If both times are empty/null, treat as instruction to remove this day (skip adding)
     if (opening_time_raw === null && closing_time_raw === null) {
-      console.info(`syncTimings: skipping day ${day} because both times empty -> will be deleted if exists`);
+      // skip -> will delete DB row if exists
       continue;
     }
 
-    // For NOT NULL columns: if one side is missing, default to "00:00:00"
     const opening_time = opening_time_raw === null ? "00:00:00" : opening_time_raw;
     const closing_time = closing_time_raw === null ? "00:00:00" : closing_time_raw;
 
@@ -150,7 +140,6 @@ async function syncTimings(conn, restaurantId, payloadTimings = []) {
   }
 
   try {
-    // fetch existing timings for restaurant
     const [existing] = await conn.query(
       `SELECT id, day FROM restaurant_timings WHERE restaurant_id = ?`,
       [restaurantId]
@@ -159,7 +148,6 @@ async function syncTimings(conn, restaurantId, payloadTimings = []) {
     const existingByDay = {};
     for (const r of existing) existingByDay[r.day] = r.id;
 
-    // Delete days present in DB but not in payload
     const daysToDelete = existing.map((r) => r.day).filter((d) => !(d in byDay));
     if (daysToDelete.length) {
       const placeholders = daysToDelete.map(() => "?").join(",");
@@ -169,11 +157,9 @@ async function syncTimings(conn, restaurantId, payloadTimings = []) {
       );
     }
 
-    // Insert or update payload days
     for (const day of Object.keys(byDay)) {
       const t = byDay[day];
       if (existingByDay[day]) {
-        // update existing row
         await conn.query(
           `UPDATE restaurant_timings
            SET opening_time = ?, closing_time = ?, updated_at = CURRENT_TIMESTAMP
@@ -181,7 +167,6 @@ async function syncTimings(conn, restaurantId, payloadTimings = []) {
           [t.opening_time, t.closing_time, existingByDay[day]]
         );
       } else {
-        // insert new row
         await conn.query(
           `INSERT INTO restaurant_timings (restaurant_id, day, opening_time, closing_time)
            VALUES (?, ?, ?, ?)`,
@@ -204,7 +189,6 @@ export async function upsertRestaurantForUser(userId, payload) {
   try {
     await conn.beginTransaction();
 
-    // find existing restaurant
     const [rows] = await conn.query(
       `SELECT id FROM restaurant_details WHERE user_id = ? LIMIT 1`,
       [userId]
@@ -218,14 +202,12 @@ export async function upsertRestaurantForUser(userId, payload) {
       restaurantId = await insertRestaurant(conn, userId, payload);
     }
 
-    // sync timings if provided
     if (Array.isArray(payload.timings)) {
       await syncTimings(conn, restaurantId, payload.timings);
     }
 
     await conn.commit();
 
-    // return fresh object
     return await getRestaurantByUserId(userId);
   } catch (err) {
     await conn.rollback();

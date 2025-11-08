@@ -1,3 +1,4 @@
+// backend/controllers/admin/restaurantController.js
 import jwt from "jsonwebtoken";
 import {
   getRestaurantByUserId,
@@ -7,10 +8,9 @@ import {
 function extractUserId(req) {
   const header =
     (req.headers && (req.headers.authorization || req.headers.Authorization)) ||
-    (req.cookies && (req.cookies.token || req.cookies.auth)); // optional cookie fallback
+    (req.cookies && (req.cookies.token || req.cookies.auth));
   if (!header) return null;
 
-  // Accept "Bearer <token>" or raw token string
   const token = typeof header === "string" && header.toLowerCase().startsWith("bearer ")
     ? header.slice(7).trim()
     : String(header).trim();
@@ -19,10 +19,8 @@ function extractUserId(req) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "devsecret");
-    // support common id claim names
     return decoded?.id || decoded?.userId || decoded?.sub || null;
   } catch (err) {
-    // log to help debugging invalid token issues
     console.error("JWT verify error:", err && err.message ? err.message : err);
     return null;
   }
@@ -45,18 +43,36 @@ export async function upsert(req, res) {
   const userId = extractUserId(req);
   if (!userId) return res.status(401).json({ success: false, message: "Unauthorized: invalid or missing token" });
 
-  // Basic payload validation
-  if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+  // req.body may contain strings if multipart/form-data is used.
+  // Parse timings if it's a JSON string.
+  let body = req.body || {};
+  try {
+    if (body.timings && typeof body.timings === "string") {
+      body.timings = JSON.parse(body.timings);
+    }
+  } catch (err) {
+    console.warn("Could not parse timings from request body:", err);
+    return res.status(400).json({ success: false, message: "Invalid timings format" });
+  }
+
+  // If a file is uploaded via upload.single('photo'), multer populates req.file
+  if (req.file && req.file.filename) {
+    // If your upload middleware stores files under public/uploads and you serve them via /uploads,
+    // save the public URL path so the frontend can directly use it.
+    body.restaurant_photo = `/uploads/${req.file.filename}`;
+  }
+
+  // Validate payload basic shape
+  if (!body || typeof body !== "object") {
     return res.status(400).json({ success: false, message: "Invalid payload" });
   }
 
   try {
-    const updated = await upsertRestaurantForUser(userId, req.body);
+    const updated = await upsertRestaurantForUser(userId, body);
     return res.json({ success: true, message: "Saved successfully", data: updated });
   } catch (err) {
     console.error("Error upserting restaurant:", err);
-    // log incoming body to help reproduce DB error (do not send internals to client)
-    console.error("Request body:", JSON.stringify(req.body).slice(0, 2000));
+    console.error("Request body (truncated):", JSON.stringify(body).slice(0, 2000));
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 }

@@ -124,6 +124,13 @@ export default function ProductPage() {
     }
   };
 
+  const formatGBP = (value) =>
+  new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+  }).format(value || 0);
+
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
@@ -180,12 +187,17 @@ export default function ProductPage() {
 
                         <td className="py-3 px-4 font-medium">{p.name}</td>
 
-                        <td className="py-3 px-4">
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-gray-900">₹{p.price}</span>
-                            <span className="text-sm text-gray-500 line-through">₹{p.discountPrice}</span>
-                          </div>
-                        </td>
+                      <td className="py-3 px-4">
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-gray-900">{formatGBP(p.price)}</span>
+
+                          {p.discountPrice && Number(p.discountPrice) > 0 && (
+                            <span className="text-sm text-gray-500 line-through">
+                              {formatGBP(p.discountPrice)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
                         <td className="py-3 px-4">
                           {categories.find((c) => c.id == p.cat_id)?.name}

@@ -1,3 +1,4 @@
+// src/pages/Restuarent.jsx
 import React, { useEffect, useState } from "react";
 import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
@@ -19,8 +20,11 @@ export default function Restuarent() {
     twitter: "",
     instagram: "",
     linkedin: "",
-    photo: ""
+    photo: "" // will hold URL from server, e.g. "/uploads/filename.jpg"
   });
+
+  const [photoFile, setPhotoFile] = useState(null); // File object when user picks a new image
+  const [photoPreview, setPhotoPreview] = useState(null); // local preview
 
   const [timings, setTimings] = useState([
     { id: uuidv4(), day: "Monday", start: "10:00", end: "20:00" },
@@ -30,6 +34,16 @@ export default function Restuarent() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { loadRestaurant(); }, []);
+
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
 
   const onInfoChange = (k) => (e) =>
     setInfo((prev) => ({ ...prev, [k]: e.target.value }));
@@ -91,6 +105,8 @@ export default function Restuarent() {
       restaurant_twitter: info.twitter || null,
       restaurant_instagram: info.instagram || null,
       restaurant_linkedin: info.linkedin || null,
+      // When not uploading file, keep existing photo URL so DB won't be cleared.
+      restaurant_photo: info.photo || null,
       timings: Array.from(byDay.values()).sort((a,b) => WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day)),
     };
   }
@@ -109,6 +125,7 @@ export default function Restuarent() {
         photo: ""
       });
       setTimings([{ id: uuidv4(), day: "Monday", start: "", end: "" }]);
+      setPhotoFile(null);
       return;
     }
 
@@ -121,8 +138,11 @@ export default function Restuarent() {
       twitter: restaurant.restaurant_twitter ?? "",
       instagram: restaurant.restaurant_instagram ?? "",
       linkedin: restaurant.restaurant_linkedin ?? "",
-      photo: ""
+      photo: restaurant.restaurant_photo ?? "" // this should be the public path like "/uploads/xxx.jpg"
     });
+
+    setPhotoFile(null);
+    setPhotoPreview(null);
 
     if (Array.isArray(restaurant.timings) && restaurant.timings.length) {
       setTimings(
@@ -133,6 +153,8 @@ export default function Restuarent() {
           end: t.closing_time?.substring(0,5) || "",
         })).sort((a,b) => WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day))
       );
+    } else {
+      setTimings([{ id: uuidv4(), day: "Monday", start: "", end: "" }]);
     }
   }
 
@@ -142,6 +164,7 @@ export default function Restuarent() {
       const res = await api.get("/restaurant");
       apiToFrontend(res?.data?.data ?? null);
     } catch (err) {
+      console.error(err);
       alert("Failed to load restaurant data.");
     } finally {
       setLoading(false);
@@ -151,15 +174,50 @@ export default function Restuarent() {
   async function saveAll() {
     setSaving(true);
     try {
-      const res = await api.post("/restaurant", frontendToApiPayload());
-      apiToFrontend(res?.data?.data ?? null);
+      const payload = frontendToApiPayload();
+
+      if (photoFile) {
+        // Use multipart/form-data when a new file is provided
+        const fd = new FormData();
+        // append file
+        fd.append("photo", photoFile);
+        // append other fields as strings
+        for (const [k, v] of Object.entries(payload)) {
+          if (k === "timings") {
+            fd.append("timings", JSON.stringify(v));
+          } else if (v !== undefined && v !== null) {
+            fd.append(k, String(v));
+          } else {
+            fd.append(k, "");
+          }
+        }
+        const res = await api.post("/restaurant", fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        apiToFrontend(res?.data?.data ?? null);
+      } else {
+        // send JSON (no file)
+        const res = await api.post("/restaurant", payload);
+        apiToFrontend(res?.data?.data ?? null);
+      }
+
       alert("Saved successfully.");
     } catch (err) {
+      console.error("save error:", err);
       alert("Failed to save.");
     } finally {
       setSaving(false);
     }
   }
+
+  const onFileChange = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) {
+      setPhotoFile(f);
+    } else {
+      setPhotoFile(null);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -168,7 +226,6 @@ export default function Restuarent() {
 
       <div className="flex-1 flex flex-col pt-16 lg:pl-72">
         <main className="flex-1 px-4 lg:px-6 py-6">
-
           <div className="mb-6">
             <h1 className="text-2xl font-semibold text-gray-900">Restaurant Information</h1>
           </div>
@@ -176,26 +233,64 @@ export default function Restuarent() {
           <div className="rounded-xl bg-white p-6 shadow-md border border-gray-200 mb-6">
             <h2 className="text-lg font-semibold mb-4">Restaurant Details</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                ["restaurant_name","Restaurant Name"],
-                ["address","Address"],
-                ["phone","Phone"],
-                ["email","Email"],
-                ["facebook","Facebook"],
-                ["twitter","Twitter"],
-                ["instagram","Instagram"],
-                ["linkedin","LinkedIn"],
-              ].map(([key,label]) => (
-                <div key={key}>
-                  <label className="block text-sm text-gray-600 mb-1">{label}</label>
-                  <input
-                    className="border border-gray-300 rounded-lg px-3 py-2 w-full"
-                    value={info[key]}
-                    onChange={onInfoChange(key)}
-                  />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  ["restaurant_name","Restaurant Name"],
+                  ["address","Address"],
+                  ["phone","Phone"],
+                  ["email","Email"],
+                  ["facebook","Facebook"],
+                  ["twitter","Twitter"],
+                  ["instagram","Instagram"],
+                  ["linkedin","LinkedIn"],
+                ].map(([key,label]) => (
+                  <div key={key}>
+                    <label className="block text-sm text-gray-600 mb-1">{label}</label>
+                    <input
+                      className="border border-gray-300 rounded-lg px-3 py-2 w-full"
+                      value={info[key]}
+                      onChange={onInfoChange(key)}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Photo column */}
+              <div className="flex flex-col items-center gap-3">
+                <label className="text-sm text-gray-600">Restaurant Photo</label>
+
+                <div className="w-40 h-40 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 flex items-center justify-center">
+                  {photoPreview ? (
+                    <img src={photoPreview} className="w-full h-full object-cover" />
+                  ) : info.photo ? (
+                    <img
+                      src={`${import.meta.env.VITE_API_URL.replace('/api', '')}${info.photo}`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-sm text-gray-400">No photo</div>
+                  )}
+
                 </div>
-              ))}
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={onFileChange}
+                  className="text-sm"
+                />
+
+                {photoFile && (
+                  <button
+                    type="button"
+                    onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
+                    className="text-sm text-red-600"
+                  >
+                    Remove selected
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex justify-end mt-6">
