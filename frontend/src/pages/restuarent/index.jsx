@@ -20,6 +20,7 @@ export default function Restuarent() {
     twitter: "",
     instagram: "",
     linkedin: "",
+    parking_info: "",
     photo: "" // will hold URL from server, e.g. "/uploads/filename.jpg"
   });
 
@@ -105,6 +106,7 @@ export default function Restuarent() {
       restaurant_twitter: info.twitter || null,
       restaurant_instagram: info.instagram || null,
       restaurant_linkedin: info.linkedin || null,
+      parking_info: info.parking_info || null, 
       // When not uploading file, keep existing photo URL so DB won't be cleared.
       restaurant_photo: info.photo || null,
       timings: Array.from(byDay.values()).sort((a,b) => WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day)),
@@ -138,6 +140,7 @@ export default function Restuarent() {
       twitter: restaurant.restaurant_twitter ?? "",
       instagram: restaurant.restaurant_instagram ?? "",
       linkedin: restaurant.restaurant_linkedin ?? "",
+      parking_info: restaurant.parking_info ?? "",
       photo: restaurant.restaurant_photo ?? "" // this should be the public path like "/uploads/xxx.jpg"
     });
 
@@ -244,6 +247,7 @@ export default function Restuarent() {
                   ["twitter","Twitter"],
                   ["instagram","Instagram"],
                   ["linkedin","LinkedIn"],
+                  ["parking_info","Parking Info"],
                 ].map(([key,label]) => (
                   <div key={key}>
                     <label className="block text-sm text-gray-600 mb-1">{label}</label>
@@ -256,38 +260,45 @@ export default function Restuarent() {
                 ))}
               </div>
 
-              {/* Photo column */}
+             {/* Photo column */}
               <div className="flex flex-col items-center gap-3">
-                <label className="text-sm text-gray-600">Restaurant Photo</label>
+                <label className="text-sm font-medium text-gray-700">Restaurant Photo</label>
 
-                <div className="w-40 h-40 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 flex items-center justify-center">
+                <div className="relative w-40 h-40 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
                   {photoPreview ? (
                     <img src={photoPreview} className="w-full h-full object-cover" />
                   ) : info.photo ? (
                     <img
-                      src={`${import.meta.env.VITE_API_URL.replace('/api', '')}${info.photo}`}
+                      src={`${import.meta.env.VITE_API_URL.replace("/api", "")}${info.photo}`}
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="text-sm text-gray-400">No photo</div>
+                    <span className="text-sm text-gray-400">No Photo</span>
                   )}
-
                 </div>
 
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={onFileChange}
-                  className="text-sm"
-                />
+                {/* Upload button */}
+                <label className="px-3 py-1.5 text-sm border border-gray-300 rounded-md cursor-pointer hover:bg-gray-100 transition">
+                  Upload Photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={onFileChange}
+                    className="hidden"
+                  />
+                </label>
 
+                {/* Remove button */}
                 {photoFile && (
                   <button
                     type="button"
-                    onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
-                    className="text-sm text-red-600"
+                    onClick={() => {
+                      setPhotoFile(null);
+                      setPhotoPreview(null);
+                    }}
+                    className="text-sm text-red-600 hover:underline"
                   >
-                    Remove selected
+                    Remove selected photo
                   </button>
                 )}
               </div>

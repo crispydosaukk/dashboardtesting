@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs";
 import pool from "../../config/db.js";
 
-// GET ALL PRODUCTS (return fields matching frontend)
+// GET ALL PRODUCTS (return fields matching frontend, include status)
 export const getProducts = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -15,7 +15,8 @@ export const getProducts = async (req, res) => {
         p.product_image AS image,
         p.product_desc AS description,
         p.product_price AS price,
-        p.product_discount_price AS discountPrice
+        p.product_discount_price AS discountPrice,
+        IFNULL(p.status,1) AS status
      FROM products p
      WHERE p.user_id = ?
      ORDER BY p.id DESC`,
@@ -29,7 +30,7 @@ export const getProducts = async (req, res) => {
   }
 };
 
-// ADD PRODUCT
+// ADD PRODUCT (sets status = 1 by default)
 export const addProduct = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -48,8 +49,8 @@ export const addProduct = async (req, res) => {
     if (exists) return res.status(409).json({ message: "Product name already exists" });
 
     const [result] = await pool.query(
-      `INSERT INTO products (user_id, cat_id, product_name, product_image, product_desc, product_price, product_discount_price)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (user_id, cat_id, product_name, product_image, product_desc, product_price, product_discount_price, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
       [userId, cat_id, name, image, description, price, discountPrice]
     );
 
@@ -60,7 +61,8 @@ export const addProduct = async (req, res) => {
       description,
       price,
       discountPrice,
-      cat_id
+      cat_id,
+      status: 1,
     });
   } catch (err) {
     console.error("addProduct error:", err);
@@ -95,12 +97,19 @@ export const removeProduct = async (req, res) => {
   }
 };
 
-// UPDATE PRODUCT
+// UPDATE PRODUCT — now supports updating name/desc/price/discount/cat_id/image AND status
 export const updateProduct = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
+
+    // Accept name/status from req.body (status may be string/number)
     const { name, description, price, discountPrice, cat_id } = req.body;
+    const statusRaw = req.body.status;
+    const status = typeof statusRaw !== "undefined" && statusRaw !== null
+      ? (statusRaw === "1" || statusRaw === 1 || statusRaw === "true" ? 1 : 0)
+      : null;
+
     const newImage = req.file ? req.file.filename : null;
 
     // Get old image
@@ -110,12 +119,14 @@ export const updateProduct = async (req, res) => {
     );
     if (!existing) return res.status(404).json({ message: "Not found" });
 
-    // duplicate check excluding current record (case-insensitive)
-    const [[conflict]] = await pool.query(
-      "SELECT id FROM products WHERE user_id = ? AND LOWER(product_name) = LOWER(?) AND id <> ?",
-      [userId, name, id]
-    );
-    if (conflict) return res.status(409).json({ message: "Product name already exists" });
+    // duplicate check excluding current record (case-insensitive) — only if name provided
+    if (name) {
+      const [[conflict]] = await pool.query(
+        "SELECT id FROM products WHERE user_id = ? AND LOWER(product_name) = LOWER(?) AND id <> ?",
+        [userId, name, id]
+      );
+      if (conflict) return res.status(409).json({ message: "Product name already exists" });
+    }
 
     // Delete old image if new one uploaded
     if (newImage && existing.product_image) {
@@ -123,27 +134,62 @@ export const updateProduct = async (req, res) => {
       if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
     }
 
-    await pool.query(
-      `UPDATE products SET 
-        product_name=?, 
-        product_desc=?, 
-        product_price=?, 
-        product_discount_price=?, 
-        cat_id=?, 
-        product_image = IFNULL(?, product_image)
-       WHERE id=? AND user_id=?`,
-      [name, description, price, discountPrice, cat_id, newImage, id, userId]
+    // Build dynamic updates
+    const fields = [];
+    const params = [];
+
+    if (typeof name !== "undefined") {
+      fields.push("product_name = ?");
+      params.push(name);
+    }
+    if (typeof description !== "undefined") {
+      fields.push("product_desc = ?");
+      params.push(description);
+    }
+    if (typeof price !== "undefined") {
+      fields.push("product_price = ?");
+      params.push(price);
+    }
+    if (typeof discountPrice !== "undefined") {
+      fields.push("product_discount_price = ?");
+      params.push(discountPrice);
+    }
+    if (typeof cat_id !== "undefined") {
+      fields.push("cat_id = ?");
+      params.push(cat_id);
+    }
+    if (newImage) {
+      fields.push("product_image = ?");
+      params.push(newImage);
+    }
+    if (status !== null) {
+      fields.push("status = ?");
+      params.push(status);
+    }
+
+    if (fields.length === 0) {
+      // nothing to update, return current
+      const [[current]] = await pool.query(
+        `SELECT id, product_name AS name, product_image AS image, product_desc AS description,
+                product_price AS price, product_discount_price AS discountPrice, cat_id, IFNULL(status,1) AS status
+         FROM products WHERE id = ? AND user_id = ?`,
+        [id, userId]
+      );
+      return res.json(current);
+    }
+
+    params.push(id, userId);
+    const sql = `UPDATE products SET ${fields.join(", ")} WHERE id = ? AND user_id = ?`;
+    await pool.query(sql, params);
+
+    const [[updated]] = await pool.query(
+      `SELECT id, product_name AS name, product_image AS image, product_desc AS description,
+              product_price AS price, product_discount_price AS discountPrice, cat_id, IFNULL(status,1) AS status
+       FROM products WHERE id = ? AND user_id = ?`,
+      [id, userId]
     );
 
-    res.json({
-      id: Number(id),
-      name,
-      description,
-      price,
-      discountPrice,
-      cat_id,
-      image: newImage || existing.product_image
-    });
+    res.json(updated);
   } catch (err) {
     console.error("updateProduct error:", err);
     res.status(500).json({ message: "Server error" });

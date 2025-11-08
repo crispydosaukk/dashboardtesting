@@ -38,9 +38,10 @@ async function insertRestaurant(conn, userId, payload) {
   try {
     const [res] = await conn.query(
       `INSERT INTO restaurant_details
-       (user_id, restaurant_name, restaurant_address, restaurant_phonenumber,
-        restaurant_email, restaurant_facebook, restaurant_twitter, restaurant_instagram, restaurant_linkedin, restaurant_photo)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (user_id, restaurant_name, restaurant_address, restaurant_phonenumber,
+        restaurant_email, restaurant_facebook, restaurant_twitter, restaurant_instagram,
+        restaurant_linkedin, parking_info, restaurant_photo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
         payload.restaurant_name ?? null,
@@ -77,6 +78,7 @@ async function updateRestaurant(conn, restaurantId, payload) {
         restaurant_instagram = ?,
         restaurant_linkedin = ?,
         restaurant_photo = ?,
+        parking_info = ?,
         updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [
@@ -89,6 +91,7 @@ async function updateRestaurant(conn, restaurantId, payload) {
         payload.restaurant_instagram ?? null,
         payload.restaurant_linkedin ?? null,
         payload.restaurant_photo ?? null,
+        payload.parking_info ?? null,
         restaurantId,
       ]
     );

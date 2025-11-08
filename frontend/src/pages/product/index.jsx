@@ -13,7 +13,7 @@ export default function ProductPage() {
   const [showModal, setShowModal] = useState(false);
 
   const [form, setForm] = useState({
-    id: null, // allow id when editing
+    id: null,
     name: "",
     description: "",
     price: "",
@@ -43,7 +43,6 @@ export default function ProductPage() {
       return;
     }
 
-    // local duplicate check (case-insensitive) — excludes the current product when editing
     const localExists = products.some(
       (p) => p.id !== form.id && p.name?.trim().toLowerCase() === nameTrim.toLowerCase()
     );
@@ -124,12 +123,46 @@ export default function ProductPage() {
     }
   };
 
-  const formatGBP = (value) =>
-  new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(value || 0);
+  // Toggle product status (persist to backend)
+  const handleToggleStatus = async (product) => {
+    const newStatus = product.status === 1 ? 0 : 1;
 
+    // Optimistic update
+    setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, status: newStatus } : p)));
+
+    try {
+      const res = await fetch(`${API}/products/${product.id}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: product.name, status: newStatus }),
+      });
+
+      if (!res.ok) {
+        // revert UI if failed
+        setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, status: product.status } : p)));
+        const err = await res.json().catch(() => ({ message: "Server error" }));
+        alert(err.message || "Failed to update product status");
+        return;
+      }
+
+      const updated = await res.json();
+      // ensure final state matches backend
+      setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    } catch (err) {
+      console.error("Error toggling product status:", err);
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, status: product.status } : p)));
+      alert("Something went wrong while updating status.");
+    }
+  };
+
+  const formatGBP = (value) =>
+    new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: "GBP",
+    }).format(value || 0);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -171,42 +204,55 @@ export default function ProductPage() {
                       <th className="py-3 px-4 text-left">Name</th>
                       <th className="py-3 px-4 text-left">Price</th>
                       <th className="py-3 px-4 text-left">Category</th>
+                      <th className="py-3 px-4 text-center">Status</th>
                       <th className="py-3 px-4 text-left">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
                     {products.map((p) => (
-                      <tr key={p.id} className="border-b hover:bg-gray-50 transition">
+                      <tr
+                        key={p.id}
+                        className={`border-b transition ${p.status === 0 ? "opacity-60 bg-gray-100" : "hover:bg-gray-50"}`}
+                      >
                         <td className="py-3 px-4">
                           <img
                             src={`${API}/uploads/${p.image}`}
-                            className="h-12 w-12 rounded-md object-cover border"
+                            className={`h-12 w-12 rounded-md object-cover border ${p.status === 0 ? "grayscale blur-[1px]" : ""}`}
                             alt={p.name}
                           />
                         </td>
 
                         <td className="py-3 px-4 font-medium">{p.name}</td>
 
-                      <td className="py-3 px-4">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-gray-900">{formatGBP(p.price)}</span>
-
-                          {p.discountPrice && Number(p.discountPrice) > 0 && (
-                            <span className="text-sm text-gray-500 line-through">
-                              {formatGBP(p.discountPrice)}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
                         <td className="py-3 px-4">
-                          {categories.find((c) => c.id == p.cat_id)?.name}
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-gray-900">{formatGBP(p.price)}</span>
+
+                            {p.discountPrice && Number(p.discountPrice) > 0 && (
+                              <span className="text-sm text-gray-500 line-through">
+                                {formatGBP(p.discountPrice)}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4">{categories.find((c) => c.id == p.cat_id)?.name}</td>
+
+                        <td className="py-3 px-4 text-center">
+                          <label className="inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={p.status === 1}
+                              onChange={() => handleToggleStatus(p)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 relative"></div>
+                          </label>
                         </td>
 
                         <td className="py-3 px-4 flex gap-3">
                           <button
                             onClick={() => {
-                              // ensure form has id when editing
                               setForm({
                                 id: p.id,
                                 name: p.name,
@@ -214,7 +260,7 @@ export default function ProductPage() {
                                 price: p.price,
                                 discountPrice: p.discountPrice,
                                 cat_id: p.cat_id,
-                                image: null, // new image if user selects
+                                image: null,
                               });
                               setShowModal(true);
                             }}
