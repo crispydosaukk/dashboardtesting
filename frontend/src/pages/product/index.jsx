@@ -13,6 +13,7 @@ export default function ProductPage() {
   const [showModal, setShowModal] = useState(false);
 
   const [form, setForm] = useState({
+    id: null, // allow id when editing
     name: "",
     description: "",
     price: "",
@@ -24,53 +25,103 @@ export default function ProductPage() {
   useEffect(() => {
     fetch(`${API}/category`, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => res.json())
-      .then(setCategories);
+      .then(setCategories)
+      .catch((err) => console.error("Error loading categories:", err));
 
     fetch(`${API}/products`, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => res.json())
-      .then(setProducts);
-  }, []);
+      .then(setProducts)
+      .catch((err) => console.error("Error loading products:", err));
+  }, [API, token]);
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  const fd = new FormData();
+    e.preventDefault();
 
-  fd.append("name", form.name);
-  fd.append("description", form.description);
-  fd.append("price", form.price);
-  fd.append("discountPrice", form.discountPrice);
-  fd.append("cat_id", form.cat_id);
-  if (form.image instanceof File) fd.append("image", form.image);
+    const nameTrim = form.name?.trim();
+    if (!nameTrim) {
+      alert("Please enter product name");
+      return;
+    }
 
-  const method = form.id ? "PUT" : "POST";
-  const url = form.id ? `${API}/products/${form.id}` : `${API}/products`;
+    // local duplicate check (case-insensitive) — excludes the current product when editing
+    const localExists = products.some(
+      (p) => p.id !== form.id && p.name?.trim().toLowerCase() === nameTrim.toLowerCase()
+    );
+    if (localExists) {
+      alert("Product name already exists");
+      return;
+    }
 
-  const res = await fetch(url, {
-    method,
-    headers: { Authorization: `Bearer ${token}` },
-    body: fd,
-  });
+    const fd = new FormData();
+    fd.append("name", nameTrim);
+    fd.append("description", form.description || "");
+    fd.append("price", form.price || "");
+    fd.append("discountPrice", form.discountPrice || "");
+    fd.append("cat_id", form.cat_id || "");
+    if (form.image instanceof File) fd.append("image", form.image);
 
-  const saved = await res.json();
+    const method = form.id ? "PUT" : "POST";
+    const url = form.id ? `${API}/products/${form.id}` : `${API}/products`;
 
-  if (form.id) {
-    setProducts(products.map((p) => (p.id === form.id ? saved : p)));
-  } else {
-    setProducts([saved, ...products]);
-  }
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
 
-  setShowModal(false);
-  setForm({ name: "", description: "", price: "", discountPrice: "", cat_id: "", image: null });
-};
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Server error" }));
+        if (res.status === 409) {
+          alert(err.message || "Product name already exists");
+          return;
+        }
+        alert(err.message || "Failed to save product");
+        return;
+      }
 
+      const saved = await res.json();
+
+      if (form.id) {
+        setProducts(products.map((p) => (p.id === saved.id ? saved : p)));
+      } else {
+        setProducts([saved, ...products]);
+      }
+
+      setShowModal(false);
+      setForm({
+        id: null,
+        name: "",
+        description: "",
+        price: "",
+        discountPrice: "",
+        cat_id: "",
+        image: null,
+      });
+    } catch (error) {
+      console.error("Save product error:", error);
+      alert("Something went wrong. Please try again.");
+    }
+  };
 
   const handleDelete = async (id) => {
-    await fetch(`${API}/products/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    if (!confirm("Are you sure you want to delete this product?")) return;
 
-    setProducts(products.filter((item) => item.id !== id));
+    try {
+      const res = await fetch(`${API}/products/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Server error" }));
+        alert(err.message || "Failed to delete product");
+        return;
+      }
+      setProducts(products.filter((item) => item.id !== id));
+    } catch (err) {
+      console.error("Delete product error:", err);
+      alert("Something went wrong while deleting.");
+    }
   };
 
   return (
@@ -80,11 +131,21 @@ export default function ProductPage() {
 
       <div className="flex-1 flex flex-col pt-16 lg:pl-72">
         <main className="flex-1 px-4 lg:px-6 py-6">
-
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-semibold text-gray-900">Product Management</h1>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => {
+                setForm({
+                  id: null,
+                  name: "",
+                  description: "",
+                  price: "",
+                  discountPrice: "",
+                  cat_id: "",
+                  image: null,
+                });
+                setShowModal(true);
+              }}
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm"
             >
               + Add Product
@@ -113,6 +174,7 @@ export default function ProductPage() {
                           <img
                             src={`${API}/uploads/${p.image}`}
                             className="h-12 w-12 rounded-md object-cover border"
+                            alt={p.name}
                           />
                         </td>
 
@@ -132,7 +194,16 @@ export default function ProductPage() {
                         <td className="py-3 px-4 flex gap-3">
                           <button
                             onClick={() => {
-                              setForm(p);
+                              // ensure form has id when editing
+                              setForm({
+                                id: p.id,
+                                name: p.name,
+                                description: p.description,
+                                price: p.price,
+                                discountPrice: p.discountPrice,
+                                cat_id: p.cat_id,
+                                image: null, // new image if user selects
+                              });
                               setShowModal(true);
                             }}
                             className="text-blue-600 hover:text-blue-800 font-medium"
@@ -161,7 +232,7 @@ export default function ProductPage() {
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white w-full max-w-lg rounded-xl shadow-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">Add Product</h2>
+            <h2 className="text-lg font-semibold mb-4">{form.id ? "Edit Product" : "Add Product"}</h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <input

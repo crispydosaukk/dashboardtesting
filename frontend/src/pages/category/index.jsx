@@ -26,13 +26,29 @@ export default function Category() {
       .then((res) => res.json())
       .then((data) => setCategories(data))
       .catch((err) => console.error("Error fetching categories:", err));
-  }, []);
+  }, [API, token]);
 
   // Add / Update handler
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Simple local duplicate check (case-insensitive)
+    const nameTrim = form.name?.trim();
+    if (!nameTrim) {
+      alert("Please enter a category name");
+      return;
+    }
+
+    const localExists = categories.some(
+      (c) => c.id !== form.id && c.name.trim().toLowerCase() === nameTrim.toLowerCase()
+    );
+    if (localExists) {
+      alert("Category name already exists");
+      return;
+    }
+
     const fd = new FormData();
-    fd.append("name", form.name);
+    fd.append("name", nameTrim);
     if (form.image) fd.append("image", form.image);
 
     try {
@@ -44,6 +60,17 @@ export default function Category() {
           headers: { Authorization: `Bearer ${token}` },
           body: fd,
         });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: "Server error" }));
+          if (res.status === 409) {
+            alert(err.message || "Category name already exists");
+            return;
+          }
+          alert(err.message || "Failed to add category");
+          return;
+        }
+
         const newData = await res.json();
         setCategories([newData, ...categories]);
       } else {
@@ -53,6 +80,17 @@ export default function Category() {
           headers: { Authorization: `Bearer ${token}` },
           body: fd,
         });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: "Server error" }));
+          if (res.status === 409) {
+            alert(err.message || "Category name already exists");
+            return;
+          }
+          alert(err.message || "Failed to update category");
+          return;
+        }
+
         const updated = await res.json();
 
         setCategories(
@@ -74,6 +112,7 @@ export default function Category() {
       setIsEdit(false);
     } catch (error) {
       console.error("Error saving category:", error);
+      alert("Something went wrong. Please try again.");
     }
   };
 
@@ -94,13 +133,19 @@ export default function Category() {
     if (!confirm("Are you sure you want to delete this category?")) return;
 
     try {
-      await fetch(`${API}/category/${id}`, {
+      const res = await fetch(`${API}/category/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Server error" }));
+        alert(err.message || "Failed to delete category");
+        return;
+      }
       setCategories(categories.filter((c) => c.id !== id));
     } catch (error) {
       console.error("Error deleting category:", error);
+      alert("Something went wrong while deleting.");
     }
   };
 
