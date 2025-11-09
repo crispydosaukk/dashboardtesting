@@ -1,9 +1,14 @@
-// backend/routes/web.js
 import express from "express";
 import { login } from "../controllers/admin/authcontroller.js";
 import auth from "../middleware/auth.js";
-import upload from "../middleware/upload.js"; // multer configured to save to public/uploads
-import { getProducts, addProduct, removeProduct, updateProduct } from "../controllers/admin/productController.js";
+import upload from "../middleware/upload.js";
+
+import { 
+  getProducts, 
+  addProduct, 
+  removeProduct, 
+  updateProduct 
+} from "../controllers/admin/productController.js";
 
 import {
   index as listPermissions,
@@ -37,6 +42,7 @@ import {
   removeCategory,
   updateCategory
 } from "../controllers/admin/categoryController.js";
+
 
 const router = express.Router();
 
