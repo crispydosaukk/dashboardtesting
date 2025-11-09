@@ -6,6 +6,7 @@ import Footer from "../../components/common/footer.jsx";
 
 export default function Category() {
   const API = import.meta.env.VITE_API_URL;
+  const API_BASE = API ? API.replace(/\/api\/?$/i, "") : "";
   const token = localStorage.getItem("token");
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -14,9 +15,10 @@ export default function Category() {
   const [form, setForm] = useState({
     id: null,
     name: "",
-    image: null,
+    image: null, // File or null
     oldImage: "",
   });
+  const [previewUrl, setPreviewUrl] = useState(""); // safe image preview url
   const [categories, setCategories] = useState([]);
 
   // --- Search state
@@ -25,6 +27,7 @@ export default function Category() {
 
   // Fetch all categories
   useEffect(() => {
+    if (!API || !token) return;
     fetch(`${API}/category`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -53,6 +56,22 @@ export default function Category() {
     });
   }, [categories, debouncedQuery]);
 
+  // Manage previewUrl for selected new image (or clear when no new image)
+  useEffect(() => {
+    // If a new File is chosen, create preview; otherwise clear preview
+    if (form.image instanceof File) {
+      const url = URL.createObjectURL(form.image);
+      setPreviewUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+        setPreviewUrl("");
+      };
+    } else {
+      // no new file - clear preview (but keep oldImage visible via API_BASE)
+      setPreviewUrl("");
+    }
+  }, [form.image]);
+
   // Add / Update handler
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,7 +83,7 @@ export default function Category() {
     }
 
     const localExists = categories.some(
-      (c) => c.id !== form.id && c.name.trim().toLowerCase() === nameTrim.toLowerCase()
+      (c) => c.id !== form.id && c.name && c.name.trim().toLowerCase() === nameTrim.toLowerCase()
     );
     if (localExists) {
       alert("Category name already exists");
@@ -116,16 +135,18 @@ export default function Category() {
         const updated = await res.json();
         setCategories((prev) =>
           prev.map((c) =>
-            c.id === Number(form.id)
-              ? { ...c, name: updated.name, image: updated.image }
+            c.id === (typeof form.id === "string" ? Number(form.id) : form.id)
+              ? { ...c, name: updated.name, image: updated.image, status: updated.status ?? c.status }
               : c
           )
         );
       }
 
+      // close modal & reset
       setShowModal(false);
       setForm({ id: null, name: "", image: null, oldImage: "" });
       setIsEdit(false);
+      setPreviewUrl("");
     } catch (error) {
       console.error("Error saving category:", error);
       alert("Something went wrong. Please try again.");
@@ -139,8 +160,9 @@ export default function Category() {
       id: item.id,
       name: item.name,
       image: null,
-      oldImage: item.image,
+      oldImage: item.image || "",
     });
+    setPreviewUrl("");
     setShowModal(true);
   };
 
@@ -169,6 +191,9 @@ export default function Category() {
   const handleToggleStatus = async (cat) => {
     const newStatus = cat.status === 1 ? 0 : 1;
 
+    // optimistic UI
+    setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, status: newStatus } : c)));
+
     try {
       const res = await fetch(`${API}/category/${cat.id}`, {
         method: "PUT",
@@ -177,18 +202,82 @@ export default function Category() {
       });
 
       if (!res.ok) {
+        // revert on failure
+        setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, status: cat.status } : c)));
         alert("Failed to update status");
         return;
       }
 
-      setCategories((prev) =>
-        prev.map((c) =>
-          c.id === cat.id ? { ...c, status: newStatus } : c
-        )
-      );
+      // success: server may return updated object; update state if provided
+      const updated = await res.json().catch(() => null);
+      if (updated && updated.id) {
+        setCategories((prev) => prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)));
+      }
     } catch (error) {
       console.error("Error toggling status:", error);
+      setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, status: cat.status } : c)));
     }
+  };
+
+  // Mobile card for categories
+  const CategoryCard = ({ item }) => {
+    const imgUrl = item.image ? `${API_BASE}/uploads/${item.image}` : null;
+    return (
+      <div className={`bg-white border rounded-xl p-4 shadow-sm ${item.status === 0 ? "opacity-80" : ""}`}>
+        <div className="flex items-start gap-4">
+          <div className="h-16 w-16 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0">
+            {imgUrl ? (
+              <img src={imgUrl} alt={item.name} className="h-full w-full object-cover" />
+            ) : (
+              <div className="text-xs text-slate-400 px-2 text-center">No image</div>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-800 break-words whitespace-normal">{item.name}</div>
+                <div className="text-xs text-slate-500 mt-1">ID: <span className="text-slate-400">{item.id}</span></div>
+              </div>
+
+              <div className="flex items-center gap-2 ml-2">
+                <label className="inline-flex items-center cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={item.status === 1}
+                    onChange={() => handleToggleStatus(item)}
+                    className="sr-only peer"
+                    aria-label={`Toggle ${item.name} status`}
+                  />
+                  <div className="w-11 h-6 bg-slate-200 rounded-full relative peer-checked:bg-emerald-500 transition">
+                    <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transform transition peer-checked:translate-x-5" />
+                  </div>
+                </label>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-emerald-600 hover:bg-emerald-50"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {item?.description && (
+              <div className="mt-2 text-xs text-slate-500 break-words whitespace-normal">{item.description}</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -197,30 +286,31 @@ export default function Category() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col pt-16 lg:pl-72">
-        <main className="flex-1 px-6 md:px-10 lg:px-12 py-10">
+        <main className="flex-1 px-4 sm:px-6 lg:px-10 py-8">
           {/* Page header */}
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h2 className="leading-tight font-extrabold">
-                  <span className="block text-xl md:text-2xl text-emerald-700">Categories</span>
+                  <span className="block text-lg sm:text-xl md:text-2xl text-emerald-700">Categories</span>
                 </h2>
-                <p className="mt-1 text-slate-600 max-w-xl">
+                <p className="mt-1 text-slate-600 max-w-xl text-sm">
                   Manage your product categories — add images, toggle availability, edit or delete.
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 w-full md:w-auto">
                 {/* Search input */}
-                <div className="relative">
+                <div className="relative flex-1 md:flex-none">
                   <svg className="absolute left-3 top-3 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z" />
                   </svg>
                   <input
                     placeholder="Search categories or ID..."
-                    className="pl-10 pr-10 py-2 border rounded-lg shadow-sm w-64 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="pl-10 pr-10 py-2 border rounded-lg shadow-sm w-full md:w-64 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    aria-label="Search categories"
                   />
                   {searchQuery && (
                     <button
@@ -241,11 +331,12 @@ export default function Category() {
                   onClick={() => {
                     setIsEdit(false);
                     setForm({ id: null, name: "", image: null, oldImage: "" });
+                    setPreviewUrl("");
                     setShowModal(true);
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-md transition"
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-md transition text-sm"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
                   </svg>
                   Add Category
@@ -253,15 +344,16 @@ export default function Category() {
               </div>
             </div>
 
-            {/* table card */}
-            <div className="mt-8 bg-white rounded-2xl shadow-lg border border-black overflow-hidden">
-              <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100">
-                <h2 className="text-lg font-medium text-slate-800">All Categories</h2>
-                <div className="text-sm text-slate-500">{filteredCategories.length} total</div>
-              </div>
+            {/* table / cards container */}
+            <div className="mt-6">
+              <div className="bg-white rounded-2xl shadow border overflow-hidden">
+                <div className="px-4 py-3 flex items-center justify-between border-b border-slate-100">
+                  <h3 className="text-sm font-medium text-slate-800">All Categories</h3>
+                  <div className="text-sm text-slate-500">{filteredCategories.length} total</div>
+                </div>
 
-              <div className="p-4">
-                <div className="overflow-x-auto">
+                {/* Desktop table */}
+                <div className="hidden md:block p-4 overflow-x-auto">
                   <table className="min-w-full divide-y divide-slate-100">
                     <thead className="bg-slate-50">
                       <tr>
@@ -281,13 +373,16 @@ export default function Category() {
                         </tr>
                       ) : (
                         filteredCategories.map((item) => (
-                          <tr key={item.id} className={`${item.status === 0 ? "bg-slate-50 opacity-80" : ""} hover:bg-slate-50 transition`}>
+                          <tr
+                            key={item.id}
+                            className={`${item.status === 0 ? "bg-slate-50 opacity-80" : ""} hover:bg-slate-50 transition`}
+                          >
                             <td className="px-4 py-4 align-middle">
                               <div className="flex items-center gap-3">
                                 <div className="h-14 w-14 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 flex items-center justify-center">
                                   {item.image ? (
                                     <img
-                                      src={`${API.replace("/api", "")}/uploads/${item.image}`}
+                                      src={`${API_BASE}/uploads/${item.image}`}
                                       alt={item.name}
                                       className={`h-full w-full object-cover ${item.status === 0 ? "grayscale blur-[0.6px]" : ""}`}
                                     />
@@ -295,16 +390,15 @@ export default function Category() {
                                     <div className="text-xs text-slate-400 px-2">No image</div>
                                   )}
                                 </div>
-                                <div className="hidden sm:block text-xs text-slate-500">
-                                  <div className="text-sm font-medium text-slate-800">{item.name}</div>
+                                <div className="text-xs text-slate-500">
+                                  <div className="text-sm font-medium text-slate-800 break-words whitespace-normal">{item.name}</div>
                                   <div className="mt-1">ID: <span className="text-slate-400">{item.id}</span></div>
                                 </div>
                               </div>
                             </td>
 
                             <td className="px-4 py-4 align-middle">
-                              <div className="text-sm font-medium text-slate-800 sm:hidden">{item.name}</div>
-                              <div className="hidden sm:block text-sm text-slate-700">{item.name}</div>
+                              <div className="text-sm text-slate-700 break-words whitespace-normal">{item.name}</div>
                             </td>
 
                             <td className="px-4 py-4 align-middle text-center">
@@ -345,30 +439,49 @@ export default function Category() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Mobile cards */}
+                <div className="md:hidden p-4 space-y-4">
+                  {filteredCategories.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400">{categories.length === 0 ? "No categories found" : "No categories match your search."}</div>
+                  ) : (
+                    filteredCategories.map((item) => <CategoryCard key={item.id} item={item} />)
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </main>
 
-        {/* Footer wrapper with mt-auto to keep it at the bottom when content is short */}
-        <div className="mt-34">
+        {/* Footer wrapper */}
+        <div className="mt-0 sm:mt-22">
           <Footer />
         </div>
       </div>
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => {
+              setShowModal(false);
+              setIsEdit(false);
+              setForm({ id: null, name: "", image: null, oldImage: "" });
+              setPreviewUrl("");
+            }}
+            aria-hidden="true"
+          />
 
-          <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="relative w-full sm:w-[min(720px,95%)] bg-white rounded-t-xl sm:rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-lg font-semibold">{isEdit ? "Edit Category" : "Add Category"}</h3>
               <button
                 onClick={() => {
                   setShowModal(false);
                   setIsEdit(false);
                   setForm({ id: null, name: "", image: null, oldImage: "" });
+                  setPreviewUrl("");
                 }}
                 className="p-2 rounded-md hover:bg-slate-100"
                 aria-label="Close"
@@ -379,7 +492,7 @@ export default function Category() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
+            <form onSubmit={handleSubmit} className="px-4 sm:px-6 py-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700">Category Name</label>
                 <input
@@ -387,31 +500,54 @@ export default function Category() {
                   required
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                  className="mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-200 text-sm"
                   placeholder="e.g. Beverages"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700">Category Image</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) =>
-                    setForm({ ...form, image: e.target.files ? e.target.files[0] : null })
-                  }
-                  className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2"
-                />
-                {isEdit && form.oldImage && (
-                  <div className="mt-3 flex items-center gap-3">
-                    <img
-                      src={`${API.replace("/api", "")}/uploads/${form.oldImage}`}
-                      className="h-16 w-16 rounded-lg object-cover border"
-                      alt="preview"
+
+                <div className="mt-2 flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer bg-gray-50 border rounded-md px-3 py-2 text-sm">
+                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v-6m0 0l-2 2m2-2 2 2" />
+                    </svg>
+                    <span className="text-sm text-slate-600">Choose Image</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files ? e.target.files[0] : null;
+                        setForm((prev) => ({ ...prev, image: file }));
+                      }}
                     />
-                    <div className="text-sm text-slate-500">Current image</div>
-                  </div>
-                )}
+                  </label>
+
+                  {(previewUrl && form.image instanceof File) || form.oldImage ? (
+                    <div className="flex items-center gap-3">
+                      {previewUrl && form.image instanceof File ? (
+                        <img
+                          src={previewUrl}
+                          alt="preview"
+                          className="h-16 w-16 rounded-lg object-cover border"
+                        />
+                      ) : form.oldImage ? (
+                        <img
+                          src={`${API_BASE}/uploads/${form.oldImage}`}
+                          alt="current"
+                          className="h-16 w-16 rounded-lg object-cover border"
+                        />
+                      ) : null}
+                      <div className="text-sm text-slate-500">
+                        {previewUrl && form.image instanceof File ? "New image ready to upload" : "Current image"}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-16 w-16 rounded-lg bg-slate-100 flex items-center justify-center text-xs text-slate-400 border">No image</div>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-2">
@@ -421,6 +557,7 @@ export default function Category() {
                     setShowModal(false);
                     setIsEdit(false);
                     setForm({ id: null, name: "", image: null, oldImage: "" });
+                    setPreviewUrl("");
                   }}
                   className="px-4 py-2 rounded-lg border text-sm"
                 >
@@ -428,7 +565,7 @@ export default function Category() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow-sm"
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
                 >
                   {isEdit ? "Update" : "Save"}
                 </button>

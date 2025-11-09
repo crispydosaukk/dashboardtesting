@@ -51,17 +51,33 @@ export default function ProductPage() {
   const formatGBP = (value) =>
     new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(value || 0);
 
+  // compute API base (strip trailing /api if present) for uploads
+  const API_BASE = API ? API.replace(/\/api\/?$/i, "") : "";
+
   // small helper to show image preview from File or existing path
   const imagePreviewUrl = useMemo(() => {
     if (form.image instanceof File) {
       return URL.createObjectURL(form.image);
     }
     if (form.oldImage) {
-      return `${API.replace("/api", "")}/uploads/${form.oldImage}`;
+      return `${API_BASE}/uploads/${form.oldImage}`;
     }
     return null;
-    // NOTE: we intentionally do NOT revoke the object URL here; React will unmount and this is fine for typical admin usage.
-  }, [form.image, form.oldImage, API]);
+  }, [form.image, form.oldImage, API_BASE]);
+
+  // revoke objectURL when image file changes or component unmounts
+  useEffect(() => {
+    let currentUrl = null;
+    if (form.image instanceof File) {
+      currentUrl = URL.createObjectURL(form.image);
+    }
+    return () => {
+      if (currentUrl) {
+        URL.revokeObjectURL(currentUrl);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.image]);
 
   // --- Client-side filtered products (memoized)
   const filteredProducts = useMemo(() => {
@@ -207,13 +223,25 @@ export default function ProductPage() {
 
   // Render helpers for small screens: product card
   const ProductCard = ({ p }) => {
-    const imgUrl = `${API}/uploads/${p.image}`;
+    const imgUrl = p.image ? `${API_BASE}/uploads/${p.image}` : null;
     return (
-      <div className={`bg-white border rounded-2xl p-4 shadow-sm flex gap-4 items-center ${p.status === 0 ? "opacity-60" : ""}`}>
-        <img src={imgUrl} alt={p.name} className="h-20 w-20 rounded-lg object-cover flex-shrink-0 border" />
+      <div
+        className={`bg-white border rounded-2xl p-4 shadow-sm flex gap-4 items-center ${p.status === 0 ? "opacity-60" : ""}`}
+      >
+        {imgUrl ? (
+          <img
+            src={imgUrl}
+            alt={p.name}
+            className="h-20 w-20 rounded-lg object-cover flex-shrink-0 border"
+          />
+        ) : (
+          <div className="h-20 w-20 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center text-xs text-gray-400 border">
+            No image
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <h3 className="font-semibold text-gray-900 truncate">{p.name}</h3>
               <p className="text-sm text-gray-500 truncate mt-1">{p.description}</p>
             </div>
@@ -286,14 +314,14 @@ export default function ProductPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="hidden sm:block">
+                <div className="w-full sm:w-auto">
                   <div className="relative">
                     <svg className="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z" />
                     </svg>
                     <input
                       placeholder="Search products..."
-                      className="pl-10 pr-10 py-2 border rounded-lg shadow-sm w-72 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      className="pl-10 pr-10 py-2 border rounded-lg shadow-sm w-full sm:w-72 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -346,7 +374,7 @@ export default function ProductPage() {
                   <div className="py-8 text-center text-gray-500">No products match your search.</div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm table-auto">
+                    <table className="w-full text-sm table-auto min-w-[700px]">
                       <thead>
                         <tr className="bg-gray-50 text-gray-700">
                           <th className="py-3 px-4 text-left">Image</th>
@@ -361,7 +389,7 @@ export default function ProductPage() {
                         {filteredProducts.map((p) => (
                           <tr key={p.id} className={`border-b transition ${p.status === 0 ? "opacity-60 bg-gray-50" : "hover:bg-gray-50"}`}>
                             <td className="py-3 px-4">
-                              <img src={`${API}/uploads/${p.image}`} alt={p.name} className="h-12 w-12 rounded-md object-cover border" />
+                              <img src={`${API_BASE}/uploads/${p.image}`} alt={p.name} className="h-12 w-12 rounded-md object-cover border" />
                             </td>
                             <td className="py-3 px-4 font-medium max-w-[260px]">
                               <div className="truncate max-w-full">{p.name}</div>
@@ -430,7 +458,7 @@ export default function ProductPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden md:rounded-2xl">
             <div className="flex items-center justify-between p-5 border-b">
               <h3 className="text-lg font-semibold">{form.id ? "Edit Product" : "Add Product"}</h3>
               <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700">
