@@ -65,7 +65,7 @@ export async function upsert(req, res) {
   if (!body || typeof body !== "object") {
     return res.status(400).json({ success: false, message: "Invalid payload" });
   }
-
+  
   try {
     const updated = await upsertRestaurantForUser(userId, body);
     return res.json({ success: true, message: "Saved successfully", data: updated });

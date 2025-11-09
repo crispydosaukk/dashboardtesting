@@ -12,7 +12,7 @@ function buildValues(rows, colsPerRow = 2) {
     .join(", ");
   const params = rows.flat();
   return { placeholders, params };
-}
+}   
 
 /* ---------- GET /roles -> roles with permissions ---------- */
 export const index = async (_req, res) => {

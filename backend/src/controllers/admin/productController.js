@@ -9,7 +9,7 @@ export const getProducts = async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT 
-        p.id,
+        p.id,  
         p.cat_id,
         p.product_name AS name,
         p.product_image AS image,

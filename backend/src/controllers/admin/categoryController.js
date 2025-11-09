@@ -11,7 +11,7 @@ export const getCategories = async (req, res) => {
       `SELECT id, category_name AS name, category_image AS image, IFNULL(status, 1) AS status
        FROM categories WHERE user_id = ? ORDER BY id DESC`,
       [userId]
-    );
+    );  
 
     res.json(rows);
   } catch (err) {

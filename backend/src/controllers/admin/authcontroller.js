@@ -18,7 +18,7 @@ export const login = async (req, res) => {
          FROM users
         WHERE LOWER(email)=? AND deleted_at IS NULL
         LIMIT 1`,
-      [email]
+      [email]  
     );
     if (!rows.length) return res.status(401).json({ message: "Invalid credentials" });
 

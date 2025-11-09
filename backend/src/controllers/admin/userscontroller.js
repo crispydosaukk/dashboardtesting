@@ -15,7 +15,7 @@ export const index = async (_req, res) => {
       FROM ${USER_TABLE} u
       LEFT JOIN roles r ON r.id = u.role_id
       WHERE u.deleted_at IS NULL
-      ORDER BY u.id ASC
+      ORDER BY u.id ASC  
     `);
     return res.json({ message: "OK", data: rows });
   } catch (e) {

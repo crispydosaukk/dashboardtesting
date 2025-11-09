@@ -10,14 +10,14 @@ import {
   updateProduct 
 } from "../controllers/admin/ProductController.js";
 
-import {
+import {  
   index as listPermissions,
   create as createPermission,
   update as updatePermissionCtrl,
   remove as deletePermissionCtrl,
 } from "../controllers/admin/PermissionController.js";
 
-import {
+import {  
   index as listRoles,
   create as createRole,
   update as updateRole,

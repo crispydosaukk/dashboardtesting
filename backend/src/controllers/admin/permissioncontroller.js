@@ -14,7 +14,7 @@ export const index = async (_req, res) => {
     console.error("List permissions error:", err);
     res.status(500).json({ status: 0, message: err.message || "Server error", data: [] });
   }
-};
+};  
 
 export const create = async (req, res) => {
   try {
