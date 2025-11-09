@@ -1,5 +1,5 @@
 import express from "express";
-import { login } from "../controllers/admin/authcontroller.js";
+import { login } from "../controllers/admin/AuthController.js";
 import auth from "../middleware/auth.js";
 import upload from "../middleware/upload.js";
 
@@ -8,40 +8,40 @@ import {
   addProduct, 
   removeProduct, 
   updateProduct 
-} from "../controllers/admin/productController.js";
+} from "../controllers/admin/ProductController.js";
 
 import {
   index as listPermissions,
   create as createPermission,
   update as updatePermissionCtrl,
   remove as deletePermissionCtrl,
-} from "../controllers/admin/permissioncontroller.js";
+} from "../controllers/admin/PermissionController.js";
 
 import {
   index as listRoles,
   create as createRole,
   update as updateRole,
   remove as deleteRole,
-} from "../controllers/admin/rolesController.js";
+} from "../controllers/admin/RolesController.js";
 
 import {
   index as listUsers,
   create as createUser,
   update as updateUser,
   remove as deleteUser,
-} from "../controllers/admin/userscontroller.js";
+} from "../controllers/admin/UsersController.js";
 
 import {
   show as getRestaurant,
   upsert as upsertRestaurant,
-} from "../controllers/admin/restaurantController.js";
+} from "../controllers/admin/RestaurantController.js";
 
 import {
   getCategories,
   addCategory,
   removeCategory,
   updateCategory
-} from "../controllers/admin/categoryController.js";
+} from "../controllers/admin/CategoryController.js";
 
 
 const router = express.Router();

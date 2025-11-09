@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import db from "../../config/db.js";
-import { USER_TABLE } from "../../models/userModel.js";
+import { USER_TABLE } from "../../models/UserModel.js";
 
 /** Simple email check */
 function isEmail(v = "") {

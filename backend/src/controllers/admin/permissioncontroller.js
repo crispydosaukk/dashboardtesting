@@ -4,7 +4,7 @@ import {
   listPermissions,
   updatePermission,
   softDeletePermission,
-} from "../../models/permissionModel.js";
+} from "../../models/PermissionModel.js";
 
 export const index = async (_req, res) => {
   try {

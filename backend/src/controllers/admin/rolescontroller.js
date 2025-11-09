@@ -3,7 +3,7 @@ import db from "../../config/db.js";
 import {
   ROLE_TABLE,
   PERMISSION_ROLE_TABLE,
-} from "../../models/rolesModel.js";
+} from "../../models/RolesModel.js";
 
 /** Build "(?, ?), (?, ?)" placeholders and flat params for bulk insert */
 function buildValues(rows, colsPerRow = 2) {

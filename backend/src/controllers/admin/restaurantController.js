@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import {
   getRestaurantByUserId,
   upsertRestaurantForUser,
-} from "../../models/restaurantModel.js";
+} from "../../models/RestaurantModel.js";
 
 function extractUserId(req) {
   const header =
