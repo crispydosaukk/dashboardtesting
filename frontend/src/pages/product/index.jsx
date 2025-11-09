@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
@@ -12,6 +12,11 @@ export default function ProductPage() {
   const [categories, setCategories] = useState([]);
   const [showModal, setShowModal] = useState(false);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  // Debounced query to avoid filtering on every keystroke
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
   const [form, setForm] = useState({
     id: null,
     name: "",
@@ -19,9 +24,11 @@ export default function ProductPage() {
     price: "",
     discountPrice: "",
     cat_id: "",
-    image: null,
+    image: null, // File or null
+    oldImage: null, // existing image filename (for edit)
   });
 
+  // --- Data loading
   useEffect(() => {
     fetch(`${API}/category`, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => res.json())
@@ -34,6 +41,48 @@ export default function ProductPage() {
       .catch((err) => console.error("Error loading products:", err));
   }, [API, token]);
 
+  // Debounce the search input (300ms)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim().toLowerCase()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // --- Helpers
+  const formatGBP = (value) =>
+    new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(value || 0);
+
+  // small helper to show image preview from File or existing path
+  const imagePreviewUrl = useMemo(() => {
+    if (form.image instanceof File) {
+      return URL.createObjectURL(form.image);
+    }
+    if (form.oldImage) {
+      return `${API.replace("/api", "")}/uploads/${form.oldImage}`;
+    }
+    return null;
+    // NOTE: we intentionally do NOT revoke the object URL here; React will unmount and this is fine for typical admin usage.
+  }, [form.image, form.oldImage, API]);
+
+  // --- Client-side filtered products (memoized)
+  const filteredProducts = useMemo(() => {
+    if (!debouncedQuery) return products;
+    const q = debouncedQuery;
+    return products.filter((p) => {
+      // check name
+      if (p.name && p.name.toString().toLowerCase().includes(q)) return true;
+      // check description
+      if (p.description && p.description.toString().toLowerCase().includes(q)) return true;
+      // check category name
+      const catName = categories.find((c) => c.id == p.cat_id)?.name;
+      if (catName && catName.toString().toLowerCase().includes(q)) return true;
+      // check price or discount numeric included (optional)
+      if (p.price && p.price.toString().toLowerCase().includes(q)) return true;
+      if (p.discountPrice && p.discountPrice.toString().toLowerCase().includes(q)) return true;
+      return false;
+    });
+  }, [products, categories, debouncedQuery]);
+
+  // --- Submit (Add / Edit)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -82,9 +131,9 @@ export default function ProductPage() {
       const saved = await res.json();
 
       if (form.id) {
-        setProducts(products.map((p) => (p.id === saved.id ? saved : p)));
+        setProducts((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
       } else {
-        setProducts([saved, ...products]);
+        setProducts((prev) => [saved, ...prev]);
       }
 
       setShowModal(false);
@@ -96,6 +145,7 @@ export default function ProductPage() {
         discountPrice: "",
         cat_id: "",
         image: null,
+        oldImage: null,
       });
     } catch (error) {
       console.error("Save product error:", error);
@@ -103,6 +153,7 @@ export default function ProductPage() {
     }
   };
 
+  // --- Delete
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
@@ -116,18 +167,16 @@ export default function ProductPage() {
         alert(err.message || "Failed to delete product");
         return;
       }
-      setProducts(products.filter((item) => item.id !== id));
+      setProducts((prev) => prev.filter((item) => item.id !== id));
     } catch (err) {
       console.error("Delete product error:", err);
       alert("Something went wrong while deleting.");
     }
   };
 
-  // Toggle product status (persist to backend)
+  // --- Toggle status (optimistic)
   const handleToggleStatus = async (product) => {
     const newStatus = product.status === 1 ? 0 : 1;
-
-    // Optimistic update
     setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, status: newStatus } : p)));
 
     try {
@@ -141,7 +190,6 @@ export default function ProductPage() {
       });
 
       if (!res.ok) {
-        // revert UI if failed
         setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, status: product.status } : p)));
         const err = await res.json().catch(() => ({ message: "Server error" }));
         alert(err.message || "Failed to update product status");
@@ -149,7 +197,6 @@ export default function ProductPage() {
       }
 
       const updated = await res.json();
-      // ensure final state matches backend
       setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     } catch (err) {
       console.error("Error toggling product status:", err);
@@ -158,204 +205,361 @@ export default function ProductPage() {
     }
   };
 
-  const formatGBP = (value) =>
-    new Intl.NumberFormat("en-GB", {
-      style: "currency",
-      currency: "GBP",
-    }).format(value || 0);
+  // Render helpers for small screens: product card
+  const ProductCard = ({ p }) => {
+    const imgUrl = `${API}/uploads/${p.image}`;
+    return (
+      <div className={`bg-white border rounded-2xl p-4 shadow-sm flex gap-4 items-center ${p.status === 0 ? "opacity-60" : ""}`}>
+        <img src={imgUrl} alt={p.name} className="h-20 w-20 rounded-lg object-cover flex-shrink-0 border" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-gray-900 truncate">{p.name}</h3>
+              <p className="text-sm text-gray-500 truncate mt-1">{p.description}</p>
+            </div>
+            <div className="text-right">
+              <div className="font-semibold text-gray-900">{formatGBP(p.price)}</div>
+              {p.discountPrice && Number(p.discountPrice) > 0 && (
+                <div className="text-sm text-gray-400 line-through">{formatGBP(p.discountPrice)}</div>
+              )}
+            </div>
+          </div>
 
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <div className="text-sm text-gray-500">{categories.find((c) => c.id == p.cat_id)?.name || "—"}</div>
+
+            <div className="flex items-center gap-2">
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={p.status === 1}
+                  onChange={() => handleToggleStatus(p)}
+                  className="sr-only peer"
+                />
+                <div className="w-10 h-5 bg-gray-200 rounded-full peer-checked:bg-emerald-500 relative after:content-[''] after:absolute after:left-[2px] after:top-[2px] after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-5"></div>
+              </label>
+
+              <button
+                onClick={() =>
+                  setForm({
+                    id: p.id,
+                    name: p.name,
+                    description: p.description,
+                    price: p.price,
+                    discountPrice: p.discountPrice,
+                    cat_id: p.cat_id,
+                    image: null,
+                    oldImage: p.image,
+                  }) || setShowModal(true)
+                }
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                Edit
+              </button>
+
+              <button onClick={() => handleDelete(p.id)} className="text-sm text-red-600 hover:text-red-800">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // --- UI
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col pt-16 lg:pl-72">
-        <main className="flex-1 px-4 lg:px-6 py-6">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900">Product Management</h1>
-            <button
-              onClick={() => {
-                setForm({
-                  id: null,
-                  name: "",
-                  description: "",
-                  price: "",
-                  discountPrice: "",
-                  cat_id: "",
-                  image: null,
-                });
-                setShowModal(true);
-              }}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm"
-            >
-              + Add Product
-            </button>
-          </div>
-
-          <div className="rounded-xl bg-white p-6 shadow-md border border-gray-200">
-            {products.length === 0 ? (
-              <p className="text-gray-600 text-base py-4 text-center">No products added yet.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-gray-100 border-b text-gray-700">
-                      <th className="py-3 px-4 text-left">Image</th>
-                      <th className="py-3 px-4 text-left">Name</th>
-                      <th className="py-3 px-4 text-left">Price</th>
-                      <th className="py-3 px-4 text-left">Category</th>
-                      <th className="py-3 px-4 text-center">Status</th>
-                      <th className="py-3 px-4 text-left">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-700">
-                    {products.map((p) => (
-                      <tr
-                        key={p.id}
-                        className={`border-b transition ${p.status === 0 ? "opacity-60 bg-gray-100" : "hover:bg-gray-50"}`}
-                      >
-                        <td className="py-3 px-4">
-                          <img
-                            src={`${API}/uploads/${p.image}`}
-                            className={`h-12 w-12 rounded-md object-cover border ${p.status === 0 ? "grayscale blur-[1px]" : ""}`}
-                            alt={p.name}
-                          />
-                        </td>
-
-                        <td className="py-3 px-4 font-medium">{p.name}</td>
-
-                        <td className="py-3 px-4">
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-gray-900">{formatGBP(p.price)}</span>
-
-                            {p.discountPrice && Number(p.discountPrice) > 0 && (
-                              <span className="text-sm text-gray-500 line-through">
-                                {formatGBP(p.discountPrice)}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="py-3 px-4">{categories.find((c) => c.id == p.cat_id)?.name}</td>
-
-                        <td className="py-3 px-4 text-center">
-                          <label className="inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={p.status === 1}
-                              onChange={() => handleToggleStatus(p)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 relative"></div>
-                          </label>
-                        </td>
-
-                        <td className="py-3 px-4 flex gap-3">
-                          <button
-                            onClick={() => {
-                              setForm({
-                                id: p.id,
-                                name: p.name,
-                                description: p.description,
-                                price: p.price,
-                                discountPrice: p.discountPrice,
-                                cat_id: p.cat_id,
-                                image: null,
-                              });
-                              setShowModal(true);
-                            }}
-                            className="text-blue-600 hover:text-blue-800 font-medium"
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            onClick={() => handleDelete(p.id)}
-                            className="text-red-600 hover:text-red-800 font-medium"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+        <main className="flex-1 px-4 lg:px-8 py-8">
+          <div className="max-w-7xl mx-auto space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h2 className="leading-tight font-extrabold">
+                  <span className="block text-xl md:text-2xl text-emerald-700">Product Management</span>
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">Manage menu items — prices, categories, and availability.</p>
               </div>
-            )}
+
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:block">
+                  <div className="relative">
+                    <svg className="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z" />
+                    </svg>
+                    <input
+                      placeholder="Search products..."
+                      className="pl-10 pr-10 py-2 border rounded-lg shadow-sm w-72 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {/* Clear button */}
+                    {searchQuery && (
+                      <button
+                        onClick={() => {
+                          setSearchQuery("");
+                          setDebouncedQuery("");
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        aria-label="clear search"
+                        type="button"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setForm({
+                      id: null,
+                      name: "",
+                      description: "",
+                      price: "",
+                      discountPrice: "",
+                      cat_id: "",
+                      image: null,
+                      oldImage: null,
+                    });
+                    setShowModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Product
+                </button>
+              </div>
+            </div>
+
+            {/* Content container */}
+            <div className="grid grid-cols-1 gap-6">
+              {/* Table (desktop) */}
+              <div className="hidden md:block rounded-xl bg-white p-4 shadow-sm border border-gray-200">
+                {filteredProducts.length === 0 ? (
+                  <div className="py-8 text-center text-gray-500">No products match your search.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm table-auto">
+                      <thead>
+                        <tr className="bg-gray-50 text-gray-700">
+                          <th className="py-3 px-4 text-left">Image</th>
+                          <th className="py-3 px-4 text-left">Name</th>
+                          <th className="py-3 px-4 text-left">Price</th>
+                          <th className="py-3 px-4 text-left">Category</th>
+                          <th className="py-3 px-4 text-center">Status</th>
+                          <th className="py-3 px-4 text-left">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-gray-700">
+                        {filteredProducts.map((p) => (
+                          <tr key={p.id} className={`border-b transition ${p.status === 0 ? "opacity-60 bg-gray-50" : "hover:bg-gray-50"}`}>
+                            <td className="py-3 px-4">
+                              <img src={`${API}/uploads/${p.image}`} alt={p.name} className="h-12 w-12 rounded-md object-cover border" />
+                            </td>
+                            <td className="py-3 px-4 font-medium max-w-[260px]">
+                              <div className="truncate max-w-full">{p.name}</div>
+                              <div className="text-xs text-gray-400 truncate max-w-full">{p.description}</div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="font-semibold">{formatGBP(p.price)}</div>
+                              {p.discountPrice && Number(p.discountPrice) > 0 && (
+                                <div className="text-xs text-gray-400 line-through">{formatGBP(p.discountPrice)}</div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">{categories.find((c) => c.id == p.cat_id)?.name || "—"}</td>
+                            <td className="py-3 px-4 text-center">
+                              <label className="inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked={p.status === 1} onChange={() => handleToggleStatus(p)} className="sr-only peer" />
+                                <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-emerald-500 relative after:content-[''] after:absolute after:left-[2px] after:top-[2px] after:w-5 after:h-5 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-full"></div>
+                              </label>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-4">
+                                <button
+                                  onClick={() =>
+                                    setForm({
+                                      id: p.id,
+                                      name: p.name,
+                                      description: p.description,
+                                      price: p.price,
+                                      discountPrice: p.discountPrice,
+                                      cat_id: p.cat_id,
+                                      image: null,
+                                      oldImage: p.image,
+                                    }) || setShowModal(true)
+                                  }
+                                  className="text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                  Edit
+                                </button>
+                                <button onClick={() => handleDelete(p.id)} className="text-red-600 hover:text-red-800 font-medium">
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Cards (mobile) */}
+              <div className="md:hidden space-y-4">
+                {filteredProducts.length === 0 ? (
+                  <div className="py-8 text-center text-gray-500">No products match your search.</div>
+                ) : (
+                  filteredProducts.map((p) => <ProductCard key={p.id} p={p} />)
+                )}
+              </div>
+            </div>
           </div>
         </main>
+
         <Footer />
       </div>
 
+      {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-lg rounded-xl shadow-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">{form.id ? "Edit Product" : "Add Product"}</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b">
+              <h3 className="text-lg font-semibold">{form.id ? "Edit Product" : "Add Product"}</h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <input
-                type="text"
-                placeholder="Product Name"
-                required
-                className="w-full border rounded-lg px-3 py-2"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-
-              <textarea
-                placeholder="Description"
-                required
-                className="w-full border rounded-lg px-3 py-2"
-                rows="3"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="text-sm text-gray-600">Product Name</label>
                 <input
-                  type="number"
-                  placeholder="Price"
+                  type="text"
+                  placeholder="Product Name"
                   required
-                  className="w-full border rounded-lg px-3 py-2"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
-                />
-
-                <input
-                  type="number"
-                  placeholder="Discount Price"
-                  required
-                  className="w-full border rounded-lg px-3 py-2"
-                  value={form.discountPrice}
-                  onChange={(e) => setForm({ ...form, discountPrice: e.target.value })}
+                  className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 />
               </div>
 
-              <select
-                required
-                className="w-full border rounded-lg px-3 py-2"
-                value={form.cat_id}
-                onChange={(e) => setForm({ ...form, cat_id: e.target.value })}
-              >
-                <option value="">Select Category</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <div className="md:col-span-2">
+                <label className="text-sm text-gray-600">Description</label>
+                <textarea
+                  placeholder="Description"
+                  required
+                  className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  rows="3"
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                />
+              </div>
 
-              <input
-                type="file"
-                className="w-full border rounded-lg px-3 py-2"
-                onChange={(e) => setForm({ ...form, image: e.target.files[0] })}
-              />
+              <div>
+                <label className="text-sm text-gray-600">Price</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Price"
+                  required
+                  className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  value={form.price}
+                  onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                />
+              </div>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-100">
+              <div>
+                <label className="text-sm text-gray-600">Discount Price</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Discount Price"
+                  className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  value={form.discountPrice}
+                  onChange={(e) => setForm((f) => ({ ...f, discountPrice: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-600">Category</label>
+                <select
+                  required
+                  className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  value={form.cat_id}
+                  onChange={(e) => setForm((f) => ({ ...f, cat_id: e.target.value }))}
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-600">Image</label>
+
+                <div className="mt-1 flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer bg-gray-50 border rounded-md px-3 py-2">
+                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v-6m0 0l-2 2m2-2 2 2" />
+                    </svg>
+                    <span className="text-sm text-gray-600">Choose Image</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          image: e.target.files && e.target.files[0] ? e.target.files[0] : null,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  {imagePreviewUrl ? (
+                    <img src={imagePreviewUrl} alt="preview" className="h-16 w-16 rounded-md object-cover border" />
+                  ) : (
+                    <div className="h-16 w-16 rounded-md bg-gray-100 flex items-center justify-center text-xs text-gray-400 border">No image</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModal(false);
+                    setForm({
+                      id: null,
+                      name: "",
+                      description: "",
+                      price: "",
+                      discountPrice: "",
+                      cat_id: "",
+                      image: null,
+                      oldImage: null,
+                    });
+                  }}
+                  className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+                >
                   Cancel
                 </button>
 
-                <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
-                  Save
+                <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
+                  {form.id ? "Update" : "Save"}
                 </button>
               </div>
             </form>

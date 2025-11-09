@@ -195,9 +195,9 @@ export default function Roles() {
         <main className="flex-1 px-3 sm:px-4 lg:px-6 py-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
-              List of Roles
-            </h1>
+            <h2 className="leading-tight font-extrabold">
+              <span className="block text-xl md:text-2xl text-emerald-700">List of Roles</span>
+            </h2>
 
             <button
               onClick={() => setOpenCreate(true)}

@@ -225,7 +225,9 @@ export default function Users() {
         <main className="flex-1 px-3 sm:px-4 lg:px-6 py-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">List of Users</h1>
+            <h2 className="leading-tight font-extrabold">
+              <span className="block text-xl md:text-2xl text-emerald-700">List of Users</span>
+            </h2>
             <button
               onClick={() => setOpenCreate(true)}
               className="inline-flex items-center gap-2 rounded-md bg-green-700 px-4 py-2 text-sm font-medium text-white shadow hover:bg-green-700/90 focus:outline-none focus:ring-2 focus:ring-green-500"
