@@ -28,6 +28,12 @@ export default function ProductPage() {
     oldImage: null, // existing image filename (for edit)
   });
 
+  // For mobile/desktop modal animation control
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth < 768 : false
+  );
+  const [modalSlideIn, setModalSlideIn] = useState(false); // controls slide animation
+
   // --- Data loading
   useEffect(() => {
     fetch(`${API}/category`, { headers: { Authorization: `Bearer ${token}` } })
@@ -40,6 +46,13 @@ export default function ProductPage() {
       .then(setProducts)
       .catch((err) => console.error("Error loading products:", err));
   }, [API, token]);
+
+  // handle resize to detect mobile vs desktop
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // Debounce the search input (300ms)
   useEffect(() => {
@@ -152,17 +165,36 @@ export default function ProductPage() {
         setProducts((prev) => [saved, ...prev]);
       }
 
-      setShowModal(false);
-      setForm({
-        id: null,
-        name: "",
-        description: "",
-        price: "",
-        discountPrice: "",
-        cat_id: "",
-        image: null,
-        oldImage: null,
-      });
+      // close modal with animation
+      if (isMobile) {
+        // slide out first, then close
+        setModalSlideIn(false);
+        setTimeout(() => {
+          setShowModal(false);
+          setForm({
+            id: null,
+            name: "",
+            description: "",
+            price: "",
+            discountPrice: "",
+            cat_id: "",
+            image: null,
+            oldImage: null,
+          });
+        }, 300);
+      } else {
+        setShowModal(false);
+        setForm({
+          id: null,
+          name: "",
+          description: "",
+          price: "",
+          discountPrice: "",
+          cat_id: "",
+          image: null,
+          oldImage: null,
+        });
+      }
     } catch (error) {
       console.error("Save product error:", error);
       alert("Something went wrong. Please try again.");
@@ -173,6 +205,7 @@ export default function ProductPage() {
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
+    // play quick visual shake on the delete icon - we will trigger this by toggling a temporary state
     try {
       const res = await fetch(`${API}/products/${id}`, {
         method: "DELETE",
@@ -267,8 +300,9 @@ export default function ProductPage() {
                 <div className="w-10 h-5 bg-gray-200 rounded-full peer-checked:bg-emerald-500 relative after:content-[''] after:absolute after:left-[2px] after:top-[2px] after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-5"></div>
               </label>
 
+              {/* Edit icon (mobile card) */}
               <button
-                onClick={() =>
+                onClick={() => {
                   setForm({
                     id: p.id,
                     name: p.name,
@@ -278,15 +312,36 @@ export default function ProductPage() {
                     cat_id: p.cat_id,
                     image: null,
                     oldImage: p.image,
-                  }) || setShowModal(true)
-                }
-                className="text-sm text-blue-600 hover:text-blue-800"
+                  });
+                  // open modal with animation for mobile
+                  if (isMobile) {
+                    setShowModal(true);
+                    setModalSlideIn(false);
+                    // allow mount then slide in
+                    setTimeout(() => setModalSlideIn(true), 20);
+                  } else {
+                    setShowModal(true);
+                  }
+                }}
+                aria-label={`Edit ${p.name}`}
+                className="p-2 rounded-md hover:scale-105 transition-transform duration-150 inline-flex items-center justify-center focus:outline-none"
+                type="button"
               >
-                Edit
+                <svg className="w-5 h-5 text-blue-600 hover:text-blue-800 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M4 13.5V20h6.5L20.873 9.627a2 2 0 000-2.828L17.243 3.07a2 2 0 00-2.828 0L4 13.5z" />
+                </svg>
               </button>
 
-              <button onClick={() => handleDelete(p.id)} className="text-sm text-red-600 hover:text-red-800">
-                Delete
+              {/* Delete icon (mobile card) */}
+              <button
+                onClick={() => handleDelete(p.id)}
+                aria-label={`Delete ${p.name}`}
+                className="p-2 rounded-md hover:rotate-6 transition-transform duration-150 inline-flex items-center justify-center focus:outline-none"
+                type="button"
+              >
+                <svg className="w-5 h-5 text-red-600 hover:text-red-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+                </svg>
               </button>
             </div>
           </div>
@@ -313,7 +368,7 @@ export default function ProductPage() {
                 <p className="mt-1 text-sm text-gray-500">Manage menu items — prices, categories, and availability.</p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center gap-3">
                 <div className="w-full sm:w-auto">
                   <div className="relative">
                     <svg className="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -354,9 +409,16 @@ export default function ProductPage() {
                       image: null,
                       oldImage: null,
                     });
-                    setShowModal(true);
+                    if (isMobile) {
+                      // mount modal then slide up
+                      setShowModal(true);
+                      setModalSlideIn(false);
+                      setTimeout(() => setModalSlideIn(true), 20);
+                    } else {
+                      setShowModal(true);
+                    }
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
@@ -410,9 +472,10 @@ export default function ProductPage() {
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-4">
+                                {/* Edit icon (desktop) */}
                                 <button
                                   onClick={() =>
-                                    setForm({
+                                    (setForm({
                                       id: p.id,
                                       name: p.name,
                                       description: p.description,
@@ -421,14 +484,27 @@ export default function ProductPage() {
                                       cat_id: p.cat_id,
                                       image: null,
                                       oldImage: p.image,
-                                    }) || setShowModal(true)
+                                    }) || setShowModal(true))
                                   }
-                                  className="text-blue-600 hover:text-blue-800 font-medium"
+                                  aria-label={`Edit ${p.name}`}
+                                  className="p-1 rounded-md hover:scale-105 transition-transform duration-150 inline-flex items-center justify-center focus:outline-none"
+                                  type="button"
                                 >
-                                  Edit
+                                  <svg className="w-5 h-5 text-blue-600 hover:text-blue-800 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M4 13.5V20h6.5L20.873 9.627a2 2 0 000-2.828L17.243 3.07a2 2 0 00-2.828 0L4 13.5z" />
+                                  </svg>
                                 </button>
-                                <button onClick={() => handleDelete(p.id)} className="text-red-600 hover:text-red-800 font-medium">
-                                  Delete
+
+                                {/* Delete icon (desktop) */}
+                                <button
+                                  onClick={() => handleDelete(p.id)}
+                                  aria-label={`Delete ${p.name}`}
+                                  className="p-1 rounded-md hover:rotate-6 transition-transform duration-150 inline-flex items-center justify-center focus:outline-none"
+                                  type="button"
+                                >
+                                  <svg className="w-5 h-5 text-red-600 hover:text-red-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+                                  </svg>
                                 </button>
                               </div>
                             </td>
@@ -456,142 +532,316 @@ export default function ProductPage() {
       </div>
 
       {/* Modal */}
+      {/* We mount modal only when showModal is true to match previous behaviour,
+          but for mobile we control slide-in with modalSlideIn state to animate entry/exit. */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden md:rounded-2xl">
-            <div className="flex items-center justify-between p-5 border-b">
-              <h3 className="text-lg font-semibold">{form.id ? "Edit Product" : "Add Product"}</h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="text-sm text-gray-600">Product Name</label>
-                <input
-                  type="text"
-                  placeholder="Product Name"
-                  required
-                  className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="text-sm text-gray-600">Description</label>
-                <textarea
-                  placeholder="Description"
-                  required
-                  className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  rows="3"
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-gray-600">Price</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="Price"
-                  required
-                  className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  value={form.price}
-                  onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-gray-600">Discount Price</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="Discount Price"
-                  className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  value={form.discountPrice}
-                  onChange={(e) => setForm((f) => ({ ...f, discountPrice: e.target.value }))}
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-gray-600">Category</label>
-                <select
-                  required
-                  className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  value={form.cat_id}
-                  onChange={(e) => setForm((f) => ({ ...f, cat_id: e.target.value }))}
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm text-gray-600">Image</label>
-
-                <div className="mt-1 flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer bg-gray-50 border rounded-md px-3 py-2">
-                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v-6m0 0l-2 2m2-2 2 2" />
-                    </svg>
-                    <span className="text-sm text-gray-600">Choose Image</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          image: e.target.files && e.target.files[0] ? e.target.files[0] : null,
-                        }))
-                      }
-                    />
-                  </label>
-
-                  {imagePreviewUrl ? (
-                    <img src={imagePreviewUrl} alt="preview" className="h-16 w-16 rounded-md object-cover border" />
-                  ) : (
-                    <div className="h-16 w-16 rounded-md bg-gray-100 flex items-center justify-center text-xs text-gray-400 border">No image</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          aria-modal="true"
+          role="dialog"
+        >
+          {/* Desktop / centered modal */}
+          {!isMobile ? (
+            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden md:rounded-2xl">
+              <div className="flex items-center justify-between p-5 border-b">
+                <h3 className="text-lg font-semibold">{form.id ? "Edit Product" : "Add Product"}</h3>
                 <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    setForm({
-                      id: null,
-                      name: "",
-                      description: "",
-                      price: "",
-                      discountPrice: "",
-                      cat_id: "",
-                      image: null,
-                      oldImage: null,
-                    });
-                  }}
-                  className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+                  onClick={() => setShowModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                  aria-label="Close modal"
                 >
-                  Cancel
-                </button>
-
-                <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
-                  {form.id ? "Update" : "Save"}
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
-            </form>
-          </div>
+
+              <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="text-sm text-gray-600">Product Name</label>
+                  <input
+                    type="text"
+                    placeholder="Product Name"
+                    required
+                    className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-sm text-gray-600">Description</label>
+                  <textarea
+                    placeholder="Description"
+                    required
+                    className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    rows="3"
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-600">Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Price"
+                    required
+                    className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    value={form.price}
+                    onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-600">Discount Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Discount Price"
+                    className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    value={form.discountPrice}
+                    onChange={(e) => setForm((f) => ({ ...f, discountPrice: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-600">Category</label>
+                  <select
+                    required
+                    className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    value={form.cat_id}
+                    onChange={(e) => setForm((f) => ({ ...f, cat_id: e.target.value }))}
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-600">Image</label>
+
+                  <div className="mt-1 flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer bg-gray-50 border rounded-md px-3 py-2">
+                      <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v-6m0 0l-2 2m2-2 2 2" />
+                      </svg>
+                      <span className="text-sm text-gray-600">Choose Image</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            image: e.target.files && e.target.files[0] ? e.target.files[0] : null,
+                          }))
+                        }
+                      />
+                    </label>
+
+                    {imagePreviewUrl ? (
+                      <img src={imagePreviewUrl} alt="preview" className="h-16 w-16 rounded-md object-cover border" />
+                    ) : (
+                      <div className="h-16 w-16 rounded-md bg-gray-100 flex items-center justify-center text-xs text-gray-400 border">No image</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModal(false);
+                      setForm({
+                        id: null,
+                        name: "",
+                        description: "",
+                        price: "",
+                        discountPrice: "",
+                        cat_id: "",
+                        image: null,
+                        oldImage: null,
+                      });
+                    }}
+                    className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+
+                  <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
+                    {form.id ? "Update" : "Save"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            /* Mobile bottom-sheet modal */
+            <div
+              // container transforms for slide animation
+              className={`fixed inset-x-0 bottom-0 z-50 max-h-[92vh] ${
+                modalSlideIn ? "translate-y-0" : "translate-y-full"
+              } transform transition-transform duration-300`}
+              style={{ display: "block" }}
+            >
+              <div className="bg-white w-full rounded-t-2xl shadow-xl overflow-auto max-h-[92vh]">
+                <div className="flex items-center justify-between p-4 border-b">
+                  <div className="flex items-center gap-3">
+                    <div className="h-1.5 w-10 bg-gray-200 rounded-full" />
+                    <h3 className="text-lg font-semibold">{form.id ? "Edit Product" : "Add Product"}</h3>
+                  </div>
+                  <button
+                    onClick={() => {
+                      // slide out first then unmount
+                      setModalSlideIn(false);
+                      setTimeout(() => setShowModal(false), 300);
+                    }}
+                    className="text-gray-500 hover:text-gray-700"
+                    aria-label="Close"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-4 grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="text-sm text-gray-600">Product Name</label>
+                    <input
+                      type="text"
+                      placeholder="Product Name"
+                      required
+                      className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      value={form.name}
+                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-gray-600">Description</label>
+                    <textarea
+                      placeholder="Description"
+                      required
+                      className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      rows="3"
+                      value={form.description}
+                      onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm text-gray-600">Price</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Price"
+                        required
+                        className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        value={form.price}
+                        onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-600">Discount Price</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Discount Price"
+                        className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        value={form.discountPrice}
+                        onChange={(e) => setForm((f) => ({ ...f, discountPrice: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-gray-600">Category</label>
+                    <select
+                      required
+                      className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      value={form.cat_id}
+                      onChange={(e) => setForm((f) => ({ ...f, cat_id: e.target.value }))}
+                    >
+                      <option value="">Select Category</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-gray-600">Image</label>
+
+                    <div className="mt-1 flex items-center gap-3">
+                      <label className="flex items-center gap-2 cursor-pointer bg-gray-50 border rounded-md px-3 py-2">
+                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v-6m0 0l-2 2m2-2 2 2" />
+                        </svg>
+                        <span className="text-sm text-gray-600">Choose Image</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              image: e.target.files && e.target.files[0] ? e.target.files[0] : null,
+                            }))
+                          }
+                        />
+                      </label>
+
+                      {imagePreviewUrl ? (
+                        <img src={imagePreviewUrl} alt="preview" className="h-16 w-16 rounded-md object-cover border" />
+                      ) : (
+                        <div className="h-16 w-16 rounded-md bg-gray-100 flex items-center justify-center text-xs text-gray-400 border">No image</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // slide out then unmount
+                        setModalSlideIn(false);
+                        setTimeout(() => {
+                          setShowModal(false);
+                          setForm({
+                            id: null,
+                            name: "",
+                            description: "",
+                            price: "",
+                            discountPrice: "",
+                            cat_id: "",
+                            image: null,
+                            oldImage: null,
+                          });
+                        }, 300);
+                      }}
+                      className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+
+                    <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
+                      {form.id ? "Update" : "Save"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

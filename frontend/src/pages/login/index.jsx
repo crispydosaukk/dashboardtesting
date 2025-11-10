@@ -67,7 +67,7 @@ export default function LoginPage() {
 
         .underline-input {
           width: 100%;
-          padding: 8px 2px;
+          padding: 10px 2px;
           font-size: 14px;
           outline: none;
           border: none;
@@ -94,27 +94,27 @@ export default function LoginPage() {
       `}</style>
 
       <div className="min-h-screen w-full bg-white flex items-center justify-center px-3 py-6">
-        <div className={`animated-border shadow-xl flex w-full max-w-5xl rounded-xl transition-all ${
+        <div className={`animated-border shadow-xl w-full max-w-5xl rounded-xl transition-all flex flex-col md:flex-row ${
           mounted ? "scale-100 opacity-100" : "scale-95 opacity-0"
         }`}>
 
-          {/* LEFT */}
-          <div className="hidden md:flex flex-col justify-center items-center w-1/2 px-10 py-12 bg-gradient-to-br from-[#e9faff] via-[#dff3ff] to-[#cfeaff] text-center">
+          {/* LEFT (Hidden on small screens) */}
+          <div className="hidden md:flex flex-col justify-center items-center w-1/2 px-6 py-10 bg-gradient-to-br from-[#e9faff] via-[#dff3ff] to-[#cfeaff] text-center">
             <h2 className="leading-tight font-extrabold">
-              <span className="block text-xl md:text-2xl text-emerald-700">Welcome to</span>
-              <span className="block text-2xl md:text-3xl text-emerald-600">Crispy Dosa Admin</span>
+              <span className="block text-lg text-emerald-700">Welcome to</span>
+              <span className="block text-2xl text-emerald-600">Crispy Dosa Admin</span>
             </h2>
-            <img src="/login-side.png" className="w-64 mt-8" style={{ animation:"floatUpDown 4s ease-in-out infinite" }} draggable="false" />
+            <img src="/login-side.png" className="w-72 mt-8 ml-8" style={{ animation:"floatUpDown 4s ease-in-out infinite" }} draggable="false" />
           </div>
 
           {/* RIGHT */}
           <div className="flex-1 px-6 sm:px-10 py-10 bg-white">
             <div className="flex justify-center">
-              <img src="/Crispy-Dosalogo.png" alt="logo" className="h-16 object-contain" />
+              <img src="/Crispy-Dosalogo.png" alt="logo" className="h-14 object-contain" />
             </div>
             
-            <h2 className="text-center mt-8 font-extrabold leading-tight">
-              <span className="block text-xl md:text-2xl text-emerald-700">Login to start your session</span>
+            <h2 className="text-center mt-6 font-extrabold">
+              <span className="block text-lg text-emerald-700">Login to start your session</span>
             </h2>
 
             {err && (
@@ -123,7 +123,6 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-6">
 
-              {/* EMAIL */}
               <div>
                 <input
                   type="email"
@@ -136,7 +135,6 @@ export default function LoginPage() {
                 <span className="underline-focus-line"></span>
               </div>
 
-              {/* PASSWORD */}
               <div className="relative">
                 <input
                   type={showPwd ? "text" : "password"}
@@ -157,7 +155,7 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <label className="flex items-center gap-2 text-sm text-gray-700">
                   <input type="checkbox" checked={remember} onChange={(e)=>setRemember(e.target.checked)} className="h-4 w-4"/>
                   Remember me
@@ -166,12 +164,11 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex items-center justify-center bg-emerald-700 hover:bg-emerald-800 text-white px-5 py-2 rounded-md text-sm"
+                  className="w-full sm:w-auto flex items-center justify-center bg-emerald-700 hover:bg-emerald-800 text-white px-5 py-2 rounded-md text-sm"
                 >
                   {loading ? <><ImSpinner2 className="animate-spin mr-2" /> Logging in…</> : <><FiLogIn className="mr-2" /> Login</>}
                 </button>
               </div>
-
             </form>
 
             <p className="mt-6 text-center text-xs text-gray-500">Forgot password? Contact admin</p>
