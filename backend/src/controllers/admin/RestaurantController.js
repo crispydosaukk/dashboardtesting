@@ -41,37 +41,35 @@ export async function show(req, res) {
 
 export async function upsert(req, res) {
   const userId = extractUserId(req);
-  if (!userId) return res.status(401).json({ success: false, message: "Unauthorized: invalid or missing token" });
+  if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
 
-  // req.body may contain strings if multipart/form-data is used.
-  // Parse timings if it's a JSON string.
   let body = req.body || {};
-  try {
-    if (body.timings && typeof body.timings === "string") {
-      body.timings = JSON.parse(body.timings);
+
+  // When multipart is used, data will come inside req.body.payload
+  if (body.payload) {
+    try {
+      body = JSON.parse(body.payload);
+    } catch (err) {
+      return res.status(400).json({ success: false, message: "Invalid payload JSON" });
     }
-  } catch (err) {
-    console.warn("Could not parse timings from request body:", err);
-    return res.status(400).json({ success: false, message: "Invalid timings format" });
   }
 
-  // If a file is uploaded via upload.single('photo'), multer populates req.file
+  // Parse timings if still string
+  if (body.timings && typeof body.timings === "string") {
+    try { body.timings = JSON.parse(body.timings); } catch {}
+  }
+
+  // Handle uploaded photo
   if (req.file && req.file.filename) {
-    // store the public path for frontend
     body.restaurant_photo = `/uploads/${req.file.filename}`;
   }
 
-  // Basic payload validation
-  if (!body || typeof body !== "object") {
-    return res.status(400).json({ success: false, message: "Invalid payload" });
-  }
-  
   try {
     const updated = await upsertRestaurantForUser(userId, body);
-    return res.json({ success: true, message: "Saved successfully", data: updated });
+    return res.json({ success: true, data: updated });
   } catch (err) {
-    console.error("Error upserting restaurant:", err);
-    console.error("Request body (truncated):", JSON.stringify(body).slice(0, 2000));
+    console.log(err);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 }
+

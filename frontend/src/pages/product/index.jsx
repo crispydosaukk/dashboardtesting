@@ -112,94 +112,109 @@ export default function ProductPage() {
   }, [products, categories, debouncedQuery]);
 
   // --- Submit (Add / Edit)
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // --- Submit (Add / Edit)
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    const nameTrim = form.name?.trim();
-    if (!nameTrim) {
-      alert("Please enter product name");
-      return;
+  const nameTrim = form.name?.trim();
+  if (!nameTrim) {
+    alert("Please enter product name");
+    return;
+  }
+
+  const localExists = products.some(
+    (p) => p.id !== form.id && p.name?.trim().toLowerCase() === nameTrim.toLowerCase()
+  );
+  if (localExists) {
+    alert("Product name already exists");
+    return;
+  }
+
+  const rawPrice = parseFloat(form.price || 0);
+  let priceToSend = rawPrice;
+  let discountPriceToSend = "";
+
+  // only handle discount if user entered something
+  if (form.discountPrice && form.discountPrice.toString().trim() !== "") {
+    const rawDiscount = parseFloat(form.discountPrice.toString().replace("%", "").trim());
+    if (!Number.isNaN(rawDiscount) && rawDiscount > 0) {
+      if (rawDiscount <= 100) {
+        // percentage discount
+        const discountedSellingPrice = +(rawPrice - (rawPrice * rawDiscount) / 100).toFixed(2);
+        priceToSend = discountedSellingPrice < 0 ? 0 : discountedSellingPrice;
+        discountPriceToSend = rawPrice; // keep original
+      } else {
+        // absolute price input
+        priceToSend = rawPrice;
+        discountPriceToSend = rawDiscount;
+      }
     }
+  }
 
-    const localExists = products.some(
-      (p) => p.id !== form.id && p.name?.trim().toLowerCase() === nameTrim.toLowerCase()
-    );
-    if (localExists) {
-      alert("Product name already exists");
-      return;
-    }
+  const fd = new FormData();
+  fd.append("name", nameTrim);
+  fd.append("description", form.description || "");
+  fd.append("price", priceToSend);
+  fd.append("discountPrice", discountPriceToSend);
+  fd.append("cat_id", form.cat_id || "");
+  if (form.image instanceof File) fd.append("image", form.image);
 
-    const fd = new FormData();
-    fd.append("name", nameTrim);
-    fd.append("description", form.description || "");
-    fd.append("price", form.price || "");
-    fd.append("discountPrice", form.discountPrice || "");
-    fd.append("cat_id", form.cat_id || "");
-    if (form.image instanceof File) fd.append("image", form.image);
+  const method = form.id ? "PUT" : "POST";
+  const url = form.id ? `${API}/products/${form.id}` : `${API}/products`;
 
-    const method = form.id ? "PUT" : "POST";
-    const url = form.id ? `${API}/products/${form.id}` : `${API}/products`;
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    });
 
-    try {
-      const res = await fetch(url, {
-        method,
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: "Server error" }));
-        if (res.status === 409) {
-          alert(err.message || "Product name already exists");
-          return;
-        }
-        alert(err.message || "Failed to save product");
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Server error" }));
+      if (res.status === 409) {
+        alert(err.message || "Product name already exists");
         return;
       }
-
-      const saved = await res.json();
-
-      if (form.id) {
-        setProducts((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
-      } else {
-        setProducts((prev) => [saved, ...prev]);
-      }
-
-      // close modal with animation
-      if (isMobile) {
-        // slide out first, then close
-        setModalSlideIn(false);
-        setTimeout(() => {
-          setShowModal(false);
-          setForm({
-            id: null,
-            name: "",
-            description: "",
-            price: "",
-            discountPrice: "",
-            cat_id: "",
-            image: null,
-            oldImage: null,
-          });
-        }, 300);
-      } else {
-        setShowModal(false);
-        setForm({
-          id: null,
-          name: "",
-          description: "",
-          price: "",
-          discountPrice: "",
-          cat_id: "",
-          image: null,
-          oldImage: null,
-        });
-      }
-    } catch (error) {
-      console.error("Save product error:", error);
-      alert("Something went wrong. Please try again.");
+      alert(err.message || "Failed to save product");
+      return;
     }
-  };
+
+    const saved = await res.json();
+
+    setProducts((prev) =>
+      form.id ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev]
+    );
+
+    // close modal
+    if (isMobile) {
+      setModalSlideIn(false);
+      setTimeout(() => {
+        setShowModal(false);
+        resetForm();
+      }, 300);
+    } else {
+      setShowModal(false);
+      resetForm();
+    }
+  } catch (error) {
+    console.error("Save product error:", error);
+    alert("Something went wrong. Please try again.");
+  }
+};
+
+// helper to reset form cleanly
+const resetForm = () =>
+  setForm({
+    id: null,
+    name: "",
+    description: "",
+    price: "",
+    discountPrice: "",
+    cat_id: "",
+    image: null,
+    oldImage: null,
+  });
+
 
   // --- Delete
   const handleDelete = async (id) => {
