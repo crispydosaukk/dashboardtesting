@@ -11,9 +11,11 @@ const Item = ({ to = "#", icon, label }) => (
       `
       flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium tracking-wide
       transition-all duration-200 border border-transparent
-      ${isActive
-        ? "bg-emerald-600 text-white shadow-[0_6px_20px_rgba(16,185,129,0.12)] scale-[1.02]"
-        : "text-emerald-800 hover:bg-emerald-50 hover:border-emerald-100"}
+      ${
+        isActive
+          ? "bg-emerald-600 text-white shadow-[0_6px_20px_rgba(16,185,129,0.12)] scale-[1.02]"
+          : "text-emerald-800 hover:bg-emerald-50 hover:border-emerald-100"
+      }
       `
     }
   >
@@ -26,7 +28,6 @@ const Item = ({ to = "#", icon, label }) => (
 function Group({ label, icon, children, defaultOpen = false, hidden = false, openProp }) {
   const [open, setOpen] = useState(defaultOpen);
 
-  // If parent provides explicit openProp (used for auto-expand on search), sync it
   useEffect(() => {
     if (typeof openProp === "boolean") setOpen(openProp);
   }, [openProp]);
@@ -67,10 +68,8 @@ function Group({ label, icon, children, defaultOpen = false, hidden = false, ope
 export default function Sidebar({ open, onClose }) {
   const location = useLocation();
 
-  // close mobile when route changes
   useEffect(() => {
     if (open) onClose?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   const escHandler = useCallback(
@@ -84,18 +83,25 @@ export default function Sidebar({ open, onClose }) {
     return () => document.removeEventListener("keydown", escHandler);
   }, [escHandler]);
 
-  // base (raw) menu items (unchanged)
+  /* TOP LEVEL MENU (Category & Product removed here) */
   const rawMenu = useMemo(
     () => [
       { label: "Dashboard", to: "/dashboard", icon: iconDashboard(), perm: "dashboard" },
       { label: "Restaurant", to: "/restuarent", icon: iconRestaurant(), perm: "restaurant" },
+    ],
+    []
+  );
+
+  /* NEW GROUP: MENU MANAGEMENT (Category + Product) */
+  const rawMenuManagementChildren = useMemo(
+    () => [
       { label: "Category", to: "/category", icon: iconCategory(), perm: "category" },
       { label: "Product", to: "/product", icon: iconProduct(), perm: "product" },
     ],
     []
   );
 
-  // access children (unchanged)
+  /* ACCESS CONTROL (unchanged) */
   const rawAccessChildren = useMemo(
     () => [
       { label: "Permissions", to: "/access", icon: iconLock(), perm: "access" },
@@ -105,7 +111,6 @@ export default function Sidebar({ open, onClose }) {
     []
   );
 
-  // search state (with tiny debounce)
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   useEffect(() => {
@@ -113,7 +118,6 @@ export default function Sidebar({ open, onClose }) {
     return () => clearTimeout(t);
   }, [query]);
 
-  // menus filtered by permission AND search
   const visibleMenu = useMemo(() => {
     const q = debouncedQuery;
     return rawMenu.filter((m) => {
@@ -123,7 +127,15 @@ export default function Sidebar({ open, onClose }) {
     });
   }, [rawMenu, debouncedQuery]);
 
-  // access children filtered (also respect can())
+  const filteredMenuManagement = useMemo(() => {
+    const q = debouncedQuery;
+    return rawMenuManagementChildren.filter((c) => {
+      if (!can(c.perm)) return false;
+      if (!q) return true;
+      return c.label.toLowerCase().includes(q);
+    });
+  }, [rawMenuManagementChildren, debouncedQuery]);
+
   const filteredAccessChildren = useMemo(() => {
     const q = debouncedQuery;
     return rawAccessChildren.filter((c) => {
@@ -133,14 +145,21 @@ export default function Sidebar({ open, onClose }) {
     });
   }, [rawAccessChildren, debouncedQuery]);
 
-  // decide if Access group should be shown
-  const accessMatchesGroupLabel = (debouncedQuery && "access control".includes(debouncedQuery)) || (debouncedQuery && "access".includes(debouncedQuery));
-  const showAccessGroup = filteredAccessChildren.length > 0 || accessMatchesGroupLabel || location.pathname.startsWith("/access");
+  const accessMatchesGroupLabel =
+    (debouncedQuery && "access control".includes(debouncedQuery)) ||
+    (debouncedQuery && "access".includes(debouncedQuery));
 
-  // auto-open the access group when search is active and matches
-  const accessAutoOpen = Boolean(debouncedQuery ? (filteredAccessChildren.length > 0 || accessMatchesGroupLabel) : location.pathname.startsWith("/access"));
+  const showAccessGroup =
+    filteredAccessChildren.length > 0 ||
+    accessMatchesGroupLabel ||
+    location.pathname.startsWith("/access");
 
-  // user preview from localStorage (best-effort)
+  const accessAutoOpen = Boolean(
+    debouncedQuery
+      ? filteredAccessChildren.length > 0 || accessMatchesGroupLabel
+      : location.pathname.startsWith("/access")
+  );
+
   const [user] = useState(() => {
     try {
       const u = localStorage.getItem("user");
@@ -150,37 +169,22 @@ export default function Sidebar({ open, onClose }) {
     }
   });
 
-  // clear search helper
   const clearSearch = () => setQuery("");
 
   return (
     <>
-      {/* small styles for animation + scrollbar */}
+      {/* small styles unchanged */}
       <style>{`
         .animate-fadeIn { animation: fadeIn 240ms ease both; }
         @keyframes fadeIn { from { opacity:0; transform: translateY(-6px) } to { opacity:1; transform: translateY(0) } }
-        /* Animated glow on focus */
-        input[type="search"]:focus {
-          box-shadow:
-            0 0 0 1px rgba(16,185,129,0.4),
-            0 0 12px rgba(16,185,129,0.5);
-        }
-
-        /* Floating subtle highlight pulse */
-        input[type="search"]::placeholder {
-          transition: opacity 0.4s ease;
-        }
-        input[type="search"]:focus::placeholder {
-          opacity: 0.25;
-        }
-
-        /* Thin custom scrollbar for the sidebar */
+        input[type="search"]:focus { box-shadow: 0 0 0 1px rgba(16,185,129,0.4), 0 0 12px rgba(16,185,129,0.5); }
+        input[type="search"]::placeholder { transition: opacity 0.4s ease; }
+        input[type="search"]:focus::placeholder { opacity: 0.25; }
         .sidebar-scroll::-webkit-scrollbar { width: 8px; }
-        .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
         .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(15, 118, 110, 0.12); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
       `}</style>
 
-      {/* Mobile Overlay */}
+      {/* overlay + aside unchanged */}
       <div
         onClick={onClose}
         className={`fixed inset-0 top-16 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity ${
@@ -196,35 +200,30 @@ export default function Sidebar({ open, onClose }) {
           transform transition-transform duration-300
           ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
-        aria-label="Main navigation"
       >
         <div className="p-4 border-b border-emerald-100">
           <div className="mt-3 relative">
             <label className="relative block">
               <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search..."
-              className="
-                w-full text-sm rounded-xl px-8 py-2.5
-                bg-white/40 backdrop-blur-md
-                border border-emerald-200/40
-                text-emerald-900 placeholder:text-emerald-600/50
-                shadow-[inset_0_0_0_1px_rgba(16,185,129,0.25)]
-                focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400
-                transition-all
-              "
-              aria-label="Search sidebar"
-            />
-
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search..."
+                className="
+                  w-full text-sm rounded-xl px-8 py-2.5
+                  bg-white/40 backdrop-blur-md
+                  border border-emerald-200/40
+                  text-emerald-900 placeholder:text-emerald-600/50
+                  shadow-[inset_0_0_0_1px_rgba(16,185,129,0.25)]
+                  focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400
+                  transition-all
+                "
+              />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">⌕</span>
-
               {query && (
                 <button
                   type="button"
                   onClick={clearSearch}
-                  aria-label="Clear search"
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs px-1"
                 >
                   ✕
@@ -233,16 +232,37 @@ export default function Sidebar({ open, onClose }) {
             </label>
           </div>
         </div>
-        {/* Nav items */}
+
         <nav className="p-4 space-y-3 overflow-y-auto h-[calc(100%-220px)] sidebar-scroll">
-          {visibleMenu.length === 0 && !filteredAccessChildren.length && debouncedQuery ? (
-            <div className="text-xs text-slate-400 px-2">No results for “{debouncedQuery}”</div>
-          ) : null}
+          {visibleMenu.length === 0 &&
+            !filteredMenuManagement.length &&
+            !filteredAccessChildren.length &&
+            debouncedQuery && (
+              <div className="text-xs text-slate-400 px-2">
+                No results for “{debouncedQuery}”
+              </div>
+            )}
 
           {visibleMenu.map((m) => (
             <Item key={m.label} to={m.to} label={m.label} icon={m.icon} />
           ))}
 
+          {/* NEW MENU MANAGEMENT GROUP INSERTED HERE */}
+          <Group
+            label="Menu Management"
+            icon={iconCategory()}
+            hidden={filteredMenuManagement.length === 0}
+            openProp={
+              location.pathname.startsWith("/category") ||
+              location.pathname.startsWith("/product")
+            }
+          >
+            {filteredMenuManagement.map((m) => (
+              <Item key={m.label} to={m.to} label={m.label} icon={m.icon} />
+            ))}
+          </Group>
+
+          {/* ACCESS CONTROL GROUP UNCHANGED */}
           <Group
             label="Access Control"
             icon={iconShield()}
@@ -256,7 +276,7 @@ export default function Sidebar({ open, onClose }) {
           </Group>
         </nav>
 
-        {/* Footer area with user preview + logout */}
+        {/* FOOTER UNCHANGED */}
         <div className="p-4 pt-3 border-t border-emerald-100 bg-gradient-to-t from-[#f6fffb] to-white">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-11 w-11 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 font-semibold text-sm">
@@ -266,7 +286,6 @@ export default function Sidebar({ open, onClose }) {
               <div className="text-sm font-semibold text-emerald-800 truncate">{user?.name || "Admin"}</div>
               <div className="text-xs text-slate-500 truncate">{user?.email || "admin@crispy.dosa"}</div>
             </div>
-
           </div>
 
           <div className="flex gap-2">
@@ -283,7 +302,6 @@ export default function Sidebar({ open, onClose }) {
 
             <button
               onClick={() => {
-                // quick settings shortcut — customize if needed
                 window.location.href = "/profile";
               }}
               className="w-12 h-10 rounded-lg border border-emerald-100 bg-white flex items-center justify-center text-emerald-700 hover:bg-emerald-50 transition"
@@ -298,7 +316,7 @@ export default function Sidebar({ open, onClose }) {
   );
 }
 
-/* Icons (inline SVGs) */
+/* icons unchanged */
 function iconDashboard() {
   return (
     <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
