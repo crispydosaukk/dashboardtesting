@@ -7,18 +7,32 @@ export const register = async (req, res) => {
   try {
     const { full_name, country_code, mobile_number, email, password } = req.body;
 
+    // 🔹 Basic field validation
     if (!full_name || !country_code || !mobile_number || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const [[exists]] = await db.execute(
-      "SELECT id FROM customers WHERE mobile_number = ? OR email = ?",
-      [mobile_number, email]
+    // 🔹 Check for duplicates (email or phone)
+    const [existingUsers] = await db.execute(
+      "SELECT id, email, mobile_number FROM customers WHERE email = ? OR mobile_number = ?",
+      [email, mobile_number]
     );
 
-    if (exists) return res.status(409).json({ message: "User already exists" });
+    if (existingUsers.length > 0) {
+      const duplicate = existingUsers[0];
+      if (duplicate.email === email && duplicate.mobile_number === mobile_number) {
+        return res.status(409).json({ message: "Email and mobile number already registered" });
+      } else if (duplicate.email === email) {
+        return res.status(409).json({ message: "Email already registered" });
+      } else {
+        return res.status(409).json({ message: "Mobile number already registered" });
+      }
+    }
 
+    // 🔹 Hash password
     const hash = await bcrypt.hash(password, 10);
+
+    // 🔹 Insert new user
     const [result] = await db.execute(
       `INSERT INTO customers 
        (full_name, country_code, mobile_number, email, password, created_at, updated_at)
@@ -26,11 +40,15 @@ export const register = async (req, res) => {
       [full_name, country_code, mobile_number, email, hash]
     );
 
-    const token = jwt.sign({ id: result.insertId }, process.env.JWT_SECRET || "devsecret", {
-      expiresIn: "7d",
-    });
+    // 🔹 Create token
+    const token = jwt.sign(
+      { id: result.insertId },
+      process.env.JWT_SECRET || "devsecret",
+      { expiresIn: "7d" }
+    );
 
-    res.json({
+    // 🔹 Success response
+    res.status(201).json({
       message: "Registration successful",
       token,
       user: { id: result.insertId, full_name, country_code, mobile_number, email },
@@ -40,6 +58,7 @@ export const register = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // 🟢 Login
 export const login = async (req, res) => {
