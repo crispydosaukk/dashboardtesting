@@ -43,6 +43,16 @@ import {
   updateCategory
 } from "../controllers/admin/CategoryController.js";
 
+import {
+  getCustomers,
+  getCustomerByIdCtrl,
+  addCustomer,
+  editCustomer,
+  removeCustomer,
+} from "../controllers/admin/CustomerController.js";
+
+
+
 
 const router = express.Router();
 
@@ -82,5 +92,12 @@ router.get("/products", auth, getProducts);
 router.post("/products", auth, upload.single("image"), addProduct);
 router.delete("/products/:id", auth, removeProduct);
 router.put("/products/:id", auth, upload.single("image"), updateProduct);
+
+router.get("/customers", getCustomers);
+router.get("/customers/:id", getCustomerByIdCtrl);
+router.post("/customers", addCustomer);
+router.put("/customers/:id", editCustomer);
+router.delete("/customers/:id", removeCustomer);
+
 
 export default router;

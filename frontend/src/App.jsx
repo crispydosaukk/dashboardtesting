@@ -9,6 +9,7 @@ import ManualOrders from "./pages/manual-orders/index.jsx"; // ← NEW
 import RequirePerm from "./components/RequirePerm.jsx";
 import Category from "./pages/category/index.jsx";
 import Product from "./pages/product/index.jsx";
+import CustomerInfo from "./pages/customerinfo/index.jsx";
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -87,6 +88,17 @@ export default function App() {
           element={
             <PrivateRoute>
               <RequirePerm perm="product"><Product /></RequirePerm>
+            </PrivateRoute>
+          }
+        />
+
+         <Route
+          path="/customerinfo"
+          element={
+            <PrivateRoute>
+              <RequirePerm perm="customer_info">
+                <CustomerInfo />
+              </RequirePerm>
             </PrivateRoute>
           }
         />

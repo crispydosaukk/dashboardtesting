@@ -85,12 +85,14 @@ export default function Sidebar({ open, onClose }) {
 
   /* TOP LEVEL MENU (Category & Product removed here) */
   const rawMenu = useMemo(
-    () => [
-      { label: "Dashboard", to: "/dashboard", icon: iconDashboard(), perm: "dashboard" },
-      { label: "Restaurant", to: "/restuarent", icon: iconRestaurant(), perm: "restaurant" },
-    ],
-    []
-  );
+  () => [
+    { label: "Dashboard", to: "/dashboard", icon: iconDashboard(), perm: "dashboard" },
+    { label: "Restaurant", to: "/restuarent", icon: iconRestaurant(), perm: "restaurant" },
+    { label: "Customer Info", to: "/customerinfo", icon: iconCustomer(), perm: "customer_info" }, 
+  ],
+  []
+);
+
 
   /* NEW GROUP: MENU MANAGEMENT (Category + Product) */
   const rawMenuManagementChildren = useMemo(
@@ -380,6 +382,20 @@ function iconLogout() {
       <path d="M16 17l5-5-5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M21 12H9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M12 19H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function iconCustomer() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+      <path
+        d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zM3 21a9 9 0 0 1 18 0"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
