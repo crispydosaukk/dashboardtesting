@@ -5,11 +5,21 @@ import db from "../../config/db.js";
 // 🟢 Register (Signup)
 export const register = async (req, res) => {
   try {
-    const { full_name, country_code, mobile_number, email, password } = req.body;
+    const {
+      full_name,
+      country_code,
+      mobile_number,
+      email,
+      password,
+      preferred_restaurant,
+      date_of_birth,
+      referral_code,
+      gender,
+    } = req.body;
 
     // 🔹 Basic field validation
     if (!full_name || !country_code || !mobile_number || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: "Full name, country code, mobile number, email, and password are required" });
     }
 
     // 🔹 Check for duplicates (email or phone)
@@ -35,9 +45,19 @@ export const register = async (req, res) => {
     // 🔹 Insert new user
     const [result] = await db.execute(
       `INSERT INTO customers 
-       (full_name, country_code, mobile_number, email, password, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
-      [full_name, country_code, mobile_number, email, hash]
+       (full_name, country_code, mobile_number, email, preferred_restaurant, date_of_birth, referral_code, gender, password, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [
+        full_name,
+        country_code,
+        mobile_number,
+        email,
+        preferred_restaurant || null,
+        date_of_birth || null,
+        referral_code || null,
+        gender || null,
+        hash,
+      ]
     );
 
     // 🔹 Create token
@@ -51,14 +71,23 @@ export const register = async (req, res) => {
     res.status(201).json({
       message: "Registration successful",
       token,
-      user: { id: result.insertId, full_name, country_code, mobile_number, email },
+      user: {
+        id: result.insertId,
+        full_name,
+        country_code,
+        mobile_number,
+        email,
+        preferred_restaurant: preferred_restaurant || null,
+        date_of_birth: date_of_birth || null,
+        referral_code: referral_code || null,
+        gender: gender || null,
+      },
     });
   } catch (err) {
     console.error("register error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 // 🟢 Login
 export const login = async (req, res) => {
@@ -84,6 +113,10 @@ export const login = async (req, res) => {
         country_code: user.country_code,
         mobile_number: user.mobile_number,
         email: user.email,
+        preferred_restaurant: user.preferred_restaurant,
+        date_of_birth: user.date_of_birth,
+        referral_code: user.referral_code,
+        gender: user.gender,
       },
     });
   } catch (err) {
@@ -97,7 +130,9 @@ export const profile = async (req, res) => {
   try {
     const userId = req.user.id;
     const [[user]] = await db.execute(
-      "SELECT id, full_name, country_code, mobile_number, email FROM customers WHERE id = ?",
+      `SELECT id, full_name, country_code, mobile_number, email, preferred_restaurant, date_of_birth, referral_code, gender 
+       FROM customers 
+       WHERE id = ?`,
       [userId]
     );
 

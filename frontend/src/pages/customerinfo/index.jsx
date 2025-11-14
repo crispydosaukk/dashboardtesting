@@ -3,7 +3,6 @@ import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
 import { motion } from "framer-motion";
-import axios from "axios";
 import api from "../../api.js";
 
 export default function CustomerInfo() {
@@ -11,7 +10,6 @@ export default function CustomerInfo() {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
 
-  // Example API call – replace URL with your actual endpoint
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
@@ -32,15 +30,12 @@ export default function CustomerInfo() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-slate-100 font-jakarta flex flex-col">
-      {/* Header */}
       <Header onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col pt-16 lg:pl-72">
         <main className="flex-1 px-4 sm:px-6 lg:px-10 py-6 sm:py-8">
           <div className="max-w-7xl mx-auto">
-            {/* Page Header */}
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -71,6 +66,10 @@ export default function CustomerInfo() {
                     <th className="px-6 py-3 text-left text-sm font-semibold tracking-wide">Country Code</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold tracking-wide">Mobile Number</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold tracking-wide">Email</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold tracking-wide">Preferred Restaurant</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold tracking-wide">Date of Birth</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold tracking-wide">Referral Code</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold tracking-wide">Gender</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold tracking-wide">Created At</th>
                   </tr>
                 </thead>
@@ -78,37 +77,29 @@ export default function CustomerInfo() {
                 <tbody className="divide-y divide-gray-100 bg-white">
                   {filteredCustomers.length > 0 ? (
                     filteredCustomers.map((c, i) => (
-                      <tr
-                        key={c.id}
-                        className="hover:bg-emerald-50 transition duration-200 ease-in-out"
-                      >
+                      <tr key={c.id} className="hover:bg-emerald-50 transition duration-200 ease-in-out">
                         <td className="px-6 py-3 text-sm text-gray-700">{i + 1}</td>
-
-                        {/* Avatar + Name */}
                         <td className="px-6 py-3 flex items-center space-x-3">
                           <img
                             src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
                             alt="avatar"
                             className="w-10 h-10 rounded-full border border-gray-200 shadow-sm object-cover"
                           />
-                          <span className="text-sm font-semibold text-gray-900">
-                            {c.full_name}
-                          </span>
+                          <span className="text-sm font-semibold text-gray-900">{c.full_name}</span>
                         </td>
-
                         <td className="px-6 py-3 text-sm text-gray-700">{c.country_code}</td>
                         <td className="px-6 py-3 text-sm text-gray-700">{c.mobile_number}</td>
                         <td className="px-6 py-3 text-sm text-gray-700">{c.email || "—"}</td>
-                        <td className="px-6 py-3 text-sm text-gray-500">
-                          {new Date(c.created_at).toLocaleString()}
-                        </td>
+                        <td className="px-6 py-3 text-sm text-gray-700">{c.preferred_restaurant || "—"}</td>
+                        <td className="px-6 py-3 text-sm text-gray-700">{c.date_of_birth ? new Date(c.date_of_birth).toLocaleDateString() : "—"}</td>
+                        <td className="px-6 py-3 text-sm text-gray-700">{c.referral_code || "—"}</td>
+                        <td className="px-6 py-3 text-sm text-gray-700">{c.gender || "—"}</td>
+                        <td className="px-6 py-3 text-sm text-gray-500">{new Date(c.created_at).toLocaleString()}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
-                        No customers found
-                      </td>
+                      <td colSpan="10" className="px-6 py-8 text-center text-gray-400">No customers found</td>
                     </tr>
                   )}
                 </tbody>
@@ -131,20 +122,16 @@ export default function CustomerInfo() {
                           alt="avatar"
                           className="w-12 h-12 rounded-full border border-gray-200 shadow-sm object-cover"
                         />
-                        <h3 className="text-lg font-semibold text-emerald-700">
-                          {c.full_name}
-                        </h3>
+                        <h3 className="text-lg font-semibold text-emerald-700">{c.full_name}</h3>
                       </div>
 
-                      <p className="text-gray-600 text-sm">
-                        <strong>Mobile:</strong> {c.country_code} {c.mobile_number}
-                      </p>
-                      <p className="text-gray-600 text-sm mt-1">
-                        <strong>Email:</strong> {c.email || "N/A"}
-                      </p>
-                      <p className="text-gray-500 text-xs mt-2">
-                        Created: {new Date(c.created_at).toLocaleString()}
-                      </p>
+                      <p className="text-gray-600 text-sm"><strong>Mobile:</strong> {c.country_code} {c.mobile_number}</p>
+                      <p className="text-gray-600 text-sm mt-1"><strong>Email:</strong> {c.email || "N/A"}</p>
+                      <p className="text-gray-600 text-sm mt-1"><strong>Preferred Restaurant:</strong> {c.preferred_restaurant || "N/A"}</p>
+                      <p className="text-gray-600 text-sm mt-1"><strong>DOB:</strong> {c.date_of_birth ? new Date(c.date_of_birth).toLocaleDateString() : "N/A"}</p>
+                      <p className="text-gray-600 text-sm mt-1"><strong>Referral:</strong> {c.referral_code || "N/A"}</p>
+                      <p className="text-gray-600 text-sm mt-1"><strong>Gender:</strong> {c.gender || "N/A"}</p>
+                      <p className="text-gray-500 text-xs mt-2">Created: {new Date(c.created_at).toLocaleString()}</p>
                     </motion.div>
                   ))
                 ) : (
@@ -152,8 +139,6 @@ export default function CustomerInfo() {
                 )}
               </div>
             </div>
-
-
           </div>
         </main>
         <Footer />

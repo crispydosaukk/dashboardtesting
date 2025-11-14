@@ -5,7 +5,8 @@ import db from "../../config/db.js";
 export const getCustomers = async (req, res) => {
   try {
     const [rows] = await db.execute(`
-      SELECT id, full_name, country_code, mobile_number, email, created_at
+      SELECT id, full_name, country_code, mobile_number, email, preferred_restaurant,
+             date_of_birth, referral_code, gender, created_at
       FROM customers
       ORDER BY id DESC
     `);
@@ -21,7 +22,8 @@ export const getCustomerByIdCtrl = async (req, res) => {
   try {
     const { id } = req.params;
     const [[customer]] = await db.execute(
-      `SELECT id, full_name, country_code, mobile_number, email, created_at 
+      `SELECT id, full_name, country_code, mobile_number, email, preferred_restaurant,
+              date_of_birth, referral_code, gender, created_at
        FROM customers WHERE id = ?`,
       [id]
     );
@@ -39,10 +41,20 @@ export const getCustomerByIdCtrl = async (req, res) => {
 // Add a new customer
 export const addCustomer = async (req, res) => {
   try {
-    const { full_name, country_code, mobile_number, email, password } = req.body;
+    const {
+      full_name,
+      country_code,
+      mobile_number,
+      email,
+      password,
+      preferred_restaurant,
+      date_of_birth,
+      referral_code,
+      gender,
+    } = req.body;
 
     if (!full_name || !country_code || !mobile_number || !email || !password)
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: "All required fields are required" });
 
     const [[exists]] = await db.query(
       "SELECT id FROM customers WHERE mobile_number = ? OR email = ?",
@@ -55,12 +67,33 @@ export const addCustomer = async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const [result] = await db.execute(
       `INSERT INTO customers 
-       (full_name, country_code, mobile_number, email, password, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
-      [full_name, country_code, mobile_number, email, hash]
+       (full_name, country_code, mobile_number, email, password,
+        preferred_restaurant, date_of_birth, referral_code, gender, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [
+        full_name,
+        country_code,
+        mobile_number,
+        email,
+        hash,
+        preferred_restaurant || null,
+        date_of_birth || null,
+        referral_code || null,
+        gender || null,
+      ]
     );
 
-    res.json({ id: result.insertId, full_name, country_code, mobile_number, email });
+    res.json({
+      id: result.insertId,
+      full_name,
+      country_code,
+      mobile_number,
+      email,
+      preferred_restaurant,
+      date_of_birth,
+      referral_code,
+      gender,
+    });
   } catch (err) {
     console.error("addCustomer error:", err);
     res.status(500).json({ message: "Server error" });
@@ -71,29 +104,30 @@ export const addCustomer = async (req, res) => {
 export const editCustomer = async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, country_code, mobile_number, email, password } = req.body;
+    const updates = req.body;
 
     const fields = [];
     const params = [];
 
-    if (full_name) { fields.push("full_name = ?"); params.push(full_name); }
-    if (country_code) { fields.push("country_code = ?"); params.push(country_code); }
-    if (mobile_number) { fields.push("mobile_number = ?"); params.push(mobile_number); }
-    if (email) { fields.push("email = ?"); params.push(email); }
-    if (password) {
-      const hash = await bcrypt.hash(password, 10);
+    if (updates.full_name) { fields.push("full_name = ?"); params.push(updates.full_name); }
+    if (updates.country_code) { fields.push("country_code = ?"); params.push(updates.country_code); }
+    if (updates.mobile_number) { fields.push("mobile_number = ?"); params.push(updates.mobile_number); }
+    if (updates.email) { fields.push("email = ?"); params.push(updates.email); }
+    if (updates.password) {
+      const hash = await bcrypt.hash(updates.password, 10);
       fields.push("password = ?");
       params.push(hash);
     }
+    if (updates.preferred_restaurant) { fields.push("preferred_restaurant = ?"); params.push(updates.preferred_restaurant); }
+    if (updates.date_of_birth) { fields.push("date_of_birth = ?"); params.push(updates.date_of_birth); }
+    if (updates.referral_code) { fields.push("referral_code = ?"); params.push(updates.referral_code); }
+    if (updates.gender) { fields.push("gender = ?"); params.push(updates.gender); }
 
     if (!fields.length)
       return res.status(400).json({ message: "No fields provided for update" });
 
     params.push(id);
-    const sql = `
-      UPDATE customers 
-      SET ${fields.join(", ")}, updated_at = NOW()
-      WHERE id = ?`;
+    const sql = `UPDATE customers SET ${fields.join(", ")}, updated_at = NOW() WHERE id = ?`;
     await db.execute(sql, params);
 
     res.json({ message: "Customer updated successfully" });
