@@ -60,9 +60,12 @@ export async function upsert(req, res) {
   }
 
   // Handle uploaded photo
-  if (req.file && req.file.filename) {
-    body.restaurant_photo = `/uploads/${req.file.filename}`;
-  }
+  // Handle uploaded photo
+if (req.file && req.file.filename) {
+    // Store only the filename
+    body.restaurant_photo = req.file.filename;
+}
+
 
   try {
     const updated = await upsertRestaurantForUser(userId, body);
