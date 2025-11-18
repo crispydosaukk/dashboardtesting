@@ -9,7 +9,7 @@ export const getRestaurants = async (req, res) => {
   `;
 
   try {
-    const [results] = await db.query(query); // <-- await & destructure
+    const [results] = await db.query(query);
     // If no photo, set default placeholder
     const data = results.map(r => ({
       userid: r.user_id,

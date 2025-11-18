@@ -1,8 +1,7 @@
 import db from "../../config/db.js";
 
-// Get categories for a specific user
 export const getCategories = async (req, res) => {
-  const userId = req.query.user_id; // get user_id from query param
+  const userId = req.query.user_id;
 
   if (!userId) {
     return res.status(400).json({ status: 0, message: "user_id is required", data: [] });
@@ -18,12 +17,13 @@ export const getCategories = async (req, res) => {
   try {
     const [results] = await db.query(query, [userId]);
 
-    // prepend base URL for image if exists
-    const data = results.map(cat => ({
+    const data = results.map((cat) => ({
       id: cat.id,
       user_id: cat.user_id,
       name: cat.name,
-      image: cat.image ? `${process.env.BASE_URL}/${cat.image}` : null,
+      image: cat.image
+        ? `${process.env.BASE_URL}/uploads/${cat.image}`
+        : null,
     }));
 
     res.json({ status: 1, data });

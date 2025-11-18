@@ -610,7 +610,7 @@ const resetForm = () =>
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-600">Discount Price</label>
+                  <label className="text-sm text-gray-600">Discount Price in %</label>
                   <input
                     type="number"
                     step="0.01"
@@ -765,7 +765,7 @@ const resetForm = () =>
                     </div>
 
                     <div>
-                      <label className="text-sm text-gray-600">Discount Price</label>
+                      <label className="text-sm text-gray-600">Discount Price in %</label>
                       <input
                         type="number"
                         step="0.01"
