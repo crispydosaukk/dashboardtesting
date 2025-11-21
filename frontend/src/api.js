@@ -17,8 +17,6 @@ api.interceptors.response.use(
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       localStorage.removeItem("perms");
-      // don't spam navigation here—just let your PrivateRoute handle redirect,
-      // or you can force a reload:
       window.location.href = "/login";
     }
     return Promise.reject(err);

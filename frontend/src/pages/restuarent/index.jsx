@@ -213,7 +213,8 @@ export default function Restuarent() {
                     {photoPreview
                       ? <img src={photoPreview} className="w-full h-full object-cover" />
                       : info.photo
-                        ? <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}${info.photo}`} className="w-full h-full object-cover" />
+                        ? <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/uploads/${info.photo}`} />
+
                         : <span className="text-sm text-slate-400">No Image Uploaded</span>}
                   </div>
 

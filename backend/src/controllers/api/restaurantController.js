@@ -10,13 +10,17 @@ export const getRestaurants = async (req, res) => {
 
   try {
     const [results] = await db.query(query);
-    // If no photo, set default placeholder
-    const data = results.map(r => ({
-      userid: r.user_id,
-      name: r.name,
-      address: r.address,
-      photo: r.photo || "default_restaurant.png"
-    }));
+
+    const data = results.map(r => {
+      let cleanPhoto = r.photo ? r.photo.replace(/^\/?uploads\//, "") : null;
+
+      return {
+        userid: r.user_id,
+        name: r.name,
+        address: r.address,
+        photo: cleanPhoto || "default_restaurant.png",
+      };
+    });
 
     res.json({ status: 1, data });
   } catch (err) {
@@ -24,3 +28,4 @@ export const getRestaurants = async (req, res) => {
     res.status(500).json({ status: 0, message: "Database error", data: [] });
   }
 };
+

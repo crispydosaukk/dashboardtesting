@@ -111,8 +111,6 @@ export default function ProductPage() {
     });
   }, [products, categories, debouncedQuery]);
 
-  // --- Submit (Add / Edit)
-  // --- Submit (Add / Edit)
 const handleSubmit = async (e) => {
   e.preventDefault();
 
@@ -131,30 +129,37 @@ const handleSubmit = async (e) => {
   }
 
   const rawPrice = parseFloat(form.price || 0);
-  let priceToSend = rawPrice;
-  let discountPriceToSend = "";
+  if (rawPrice <= 0) {
+    alert("Price must be greater than zero");
+    return;
+  }
 
-  // only handle discount if user entered something
+  let finalPrice = rawPrice;
+  let discountPriceToSend = ""; // original price
+
   if (form.discountPrice && form.discountPrice.toString().trim() !== "") {
-    const rawDiscount = parseFloat(form.discountPrice.toString().replace("%", "").trim());
-    if (!Number.isNaN(rawDiscount) && rawDiscount > 0) {
-      if (rawDiscount <= 100) {
-        // percentage discount
-        const discountedSellingPrice = +(rawPrice - (rawPrice * rawDiscount) / 100).toFixed(2);
-        priceToSend = discountedSellingPrice < 0 ? 0 : discountedSellingPrice;
-        discountPriceToSend = rawPrice; // keep original
-      } else {
-        // absolute price input
-        priceToSend = rawPrice;
-        discountPriceToSend = rawDiscount;
-      }
+    const discountInput = parseFloat(form.discountPrice.toString().replace("%", "").trim());
+
+    if (Number.isNaN(discountInput) || discountInput < 0) {
+      alert("Invalid discount value");
+      return;
+    }
+
+    if (discountInput > 0 && discountInput <= 100) {
+      // percentage discount
+      finalPrice = +(rawPrice - (rawPrice * discountInput) / 100).toFixed(2);
+      discountPriceToSend = rawPrice; // keep original price for display
+    } else if (discountInput > 100) {
+      // treat as absolute discount price if entered > 100
+      finalPrice = rawPrice;
+      discountPriceToSend = discountInput;
     }
   }
 
   const fd = new FormData();
   fd.append("name", nameTrim);
   fd.append("description", form.description || "");
-  fd.append("price", priceToSend);
+  fd.append("price", finalPrice);
   fd.append("discountPrice", discountPriceToSend);
   fd.append("cat_id", form.cat_id || "");
   if (form.image instanceof File) fd.append("image", form.image);
@@ -180,12 +185,11 @@ const handleSubmit = async (e) => {
     }
 
     const saved = await res.json();
-
     setProducts((prev) =>
       form.id ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev]
     );
 
-    // close modal
+    // Close modal
     if (isMobile) {
       setModalSlideIn(false);
       setTimeout(() => {
@@ -201,6 +205,7 @@ const handleSubmit = async (e) => {
     alert("Something went wrong. Please try again.");
   }
 };
+
 
 // helper to reset form cleanly
 const resetForm = () =>
@@ -269,6 +274,16 @@ const resetForm = () =>
     }
   };
 
+  const calculateDiscountPercent = (price, discountPrice) => {
+  const rawPrice = parseFloat(price || 0);
+  const discountedPrice = parseFloat(discountPrice || 0);
+  if (rawPrice > 0 && discountedPrice > 0) {
+    return Math.round(((rawPrice - discountedPrice) / rawPrice) * 100);
+  }
+  return 0;
+};
+
+
   // Render helpers for small screens: product card
   const ProductCard = ({ p }) => {
     const imgUrl = p.image ? `${API_BASE}/uploads/${p.image}` : null;
@@ -295,9 +310,10 @@ const resetForm = () =>
             </div>
             <div className="text-right">
               <div className="font-semibold text-gray-900">{formatGBP(p.price)}</div>
-              {p.discountPrice && Number(p.discountPrice) > 0 && (
-                <div className="text-sm text-gray-400 line-through">{formatGBP(p.discountPrice)}</div>
-              )}
+                {p.discountPrice && Number(p.discountPrice) > 0 && (
+                  <div className="text-sm text-gray-400 line-through">{formatGBP(p.discountPrice)}</div>
+                )}
+
             </div>
           </div>
 
@@ -323,7 +339,7 @@ const resetForm = () =>
                     name: p.name,
                     description: p.description,
                     price: p.price,
-                    discountPrice: p.discountPrice,
+                    discountPrice: calculateDiscountPercent(p.price, p.discountPrice),
                     cat_id: p.cat_id,
                     image: null,
                     oldImage: p.image,
@@ -495,7 +511,7 @@ const resetForm = () =>
                                       name: p.name,
                                       description: p.description,
                                       price: p.price,
-                                      discountPrice: p.discountPrice,
+                                      discountPrice: calculateDiscountPercent(p.price, p.discountPrice),
                                       cat_id: p.cat_id,
                                       image: null,
                                       oldImage: p.image,
