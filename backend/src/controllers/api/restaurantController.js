@@ -18,7 +18,9 @@ export const getRestaurants = async (req, res) => {
         userid: r.user_id,
         name: r.name,
         address: r.address,
-        photo: cleanPhoto || "default_restaurant.png",
+        photo: cleanPhoto 
+          ? `${req.protocol}://${req.get("host")}/uploads/${cleanPhoto}`
+          : `${req.protocol}://${req.get("host")}/uploads/default_restaurant.png`
       };
     });
 

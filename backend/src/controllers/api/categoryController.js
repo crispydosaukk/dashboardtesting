@@ -3,10 +3,6 @@ import db from "../../config/db.js";
 export const getCategories = async (req, res) => {
   const userId = req.query.user_id;
 
-  if (!userId) {
-    return res.status(400).json({ status: 0, message: "user_id is required", data: [] });
-  }
-
   const query = `
     SELECT id, user_id, category_name AS name, category_image AS image
     FROM categories
@@ -17,13 +13,11 @@ export const getCategories = async (req, res) => {
   try {
     const [results] = await db.query(query, [userId]);
 
-    const data = results.map((cat) => ({
+    const data = results.map(cat => ({
       id: cat.id,
       user_id: cat.user_id,
       name: cat.name,
-      image: cat.image
-        ? `${process.env.BASE_URL}/uploads/${cat.image}`
-        : null,
+      image: cat.image || null,   // NO CLEANING (DB ALREADY HAS CORRECT NAME)
     }));
 
     res.json({ status: 1, data });
