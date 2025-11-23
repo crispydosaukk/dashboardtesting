@@ -13,12 +13,18 @@ export const getCategories = async (req, res) => {
   try {
     const [results] = await db.query(query, [userId]);
 
-    const data = results.map(cat => ({
-      id: cat.id,
-      user_id: cat.user_id,
-      name: cat.name,
-      image: cat.image || null,   // NO CLEANING (DB ALREADY HAS CORRECT NAME)
-    }));
+    const data = results.map(cat => {
+      let cleanImage = cat.image ? cat.image.replace(/^\/?uploads\//, "") : null;
+
+      return {
+        id: cat.id,
+        user_id: cat.user_id,
+        name: cat.name,
+        image: cleanImage
+          ? `${req.protocol}://${req.get("host")}/uploads/${cleanImage}`
+          : `${req.protocol}://${req.get("host")}/uploads/default_category.png`
+      };
+    });
 
     res.json({ status: 1, data });
   } catch (err) {
