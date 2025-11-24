@@ -1,4 +1,3 @@
-// routes/api.js
 import express from "express";
 import { register, login, profile } from "../controllers/api/auth.js";
 import auth from "../middleware/auth.js";
@@ -9,11 +8,8 @@ import { addToCart, getCart, removeFromCart } from "../controllers/api/cartContr
 
 const router = express.Router();
 
-// Public
 router.post("/register", register);
 router.post("/login", login);
-
-// Protected
 router.get("/profile", auth, profile);
 router.get("/restaurants", getRestaurants);
 router.get("/categories", getCategories);
