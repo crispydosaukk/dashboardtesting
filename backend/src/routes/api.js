@@ -5,6 +5,7 @@ import { getRestaurants } from "../controllers/api/restaurantController.js";
 import { getCategories } from "../controllers/api/categoryController.js";
 import { getProducts } from "../controllers/api/productController.js";
 import { addToCart, getCart, removeFromCart } from "../controllers/api/cartController.js";
+import { createOrder } from "../controllers/api/OrderController.js";
 
 const router = express.Router();
 
@@ -17,5 +18,6 @@ router.get("/products", getProducts);
 router.post("/cart/add", addToCart);
 router.get("/cart", getCart);
 router.post("/cart/remove", removeFromCart);
+router.post("/create-order", createOrder);
 
 export default router;
