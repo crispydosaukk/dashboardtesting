@@ -69,6 +69,9 @@ export const createOrder = async (req, res) => {
       await db.query(sql, values);
     }
 
+    // ✅ CLEAR USER CART AFTER ORDER SUCCESS
+    await db.query("DELETE FROM cart WHERE customer_id = ?", [customer_id]);
+
     return res.status(200).json({
       status: 1,
       message: "Order Placed Successfully",
