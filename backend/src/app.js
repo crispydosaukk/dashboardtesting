@@ -15,11 +15,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded images correctly: /backend/uploads/...
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "../public/uploads"))
-);
+app.use("/uploads", express.static(path.join(__dirname, "../../public/uploads")));
+
 
 // Simple test route – for https://crispydosa.info/backend/
 app.get("/", (req, res) => {
