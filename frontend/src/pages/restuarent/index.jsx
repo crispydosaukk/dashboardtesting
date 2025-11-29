@@ -130,25 +130,40 @@ export default function Restuarent() {
   }
 
   async function saveAll() {
-    setSaving(true);
-    try {
-      const payload = frontendToApiPayload();
+  setSaving(true);
+  try {
+    const payload = frontendToApiPayload();
+    let res;
 
-      if (photoFile) {
-        const fd = new FormData();
-        fd.append("photo", photoFile);
-        fd.append("payload", JSON.stringify(payload));
-        await api.post("/restaurant", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      } else {
-        await api.post("/restaurant", payload);
-      }
-      alert("Saved Successfully!");
-    } catch {
-      alert("Save failed");
-    } finally {
-      setSaving(false);
+    if (photoFile) {
+      const fd = new FormData();
+      fd.append("photo", photoFile);
+      fd.append("payload", JSON.stringify(payload));
+
+      res = await api.post("/restaurant", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+    } else {
+      res = await api.post("/restaurant", payload);
     }
+
+    // 🔑 VERY IMPORTANT: refresh local state with latest data from backend
+    if (res?.data?.data) {
+      apiToFrontend(res.data.data);
+    }
+
+    // Clear local file/preview after successful save
+    setPhotoFile(null);
+    setPhotoPreview(null);
+
+    alert("Saved Successfully!");
+  } catch (e) {
+    console.error(e);
+    alert("Save failed");
+  } finally {
+    setSaving(false);
   }
+}
 
   return (
     <div className="font-jakarta min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800">
