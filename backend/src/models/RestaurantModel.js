@@ -63,44 +63,56 @@ async function insertRestaurant(conn, userId, payload) {
   }
 }
 
-/**
- * Update restaurant row
- */
 async function updateRestaurant(conn, restaurantId, payload) {
   try {
+    // base fields
+    const fields = [
+      "restaurant_name",
+      "restaurant_address",
+      "restaurant_phonenumber",
+      "restaurant_email",
+      "restaurant_facebook",
+      "restaurant_twitter",
+      "restaurant_instagram",
+      "restaurant_linkedin",
+      "parking_info",
+    ];
+
+    const values = [
+      payload.restaurant_name ?? null,
+      payload.restaurant_address ?? null,
+      payload.restaurant_phonenumber ?? null,
+      payload.restaurant_email ?? null,
+      payload.restaurant_facebook ?? null,
+      payload.restaurant_twitter ?? null,
+      payload.restaurant_instagram ?? null,
+      payload.restaurant_linkedin ?? null,
+      payload.parking_info ?? null,
+    ];
+
+    // 👇 Only update restaurant_photo if it exists in payload
+    if (Object.prototype.hasOwnProperty.call(payload, "restaurant_photo")) {
+      fields.splice(8, 0, "restaurant_photo"); // before parking_info
+      values.splice(8, 0, payload.restaurant_photo ?? null);
+    }
+
+    const setClause = fields.map((f) => `${f} = ?`).join(", ");
+
     await conn.query(
-      `UPDATE restaurant_details SET
-        restaurant_name = ?,
-        restaurant_address = ?,
-        restaurant_phonenumber = ?,
-        restaurant_email = ?,
-        restaurant_facebook = ?,
-        restaurant_twitter = ?,
-        restaurant_instagram = ?,
-        restaurant_linkedin = ?,
-        restaurant_photo = ?,
-        parking_info = ?,
-        updated_at = CURRENT_TIMESTAMP
+      `UPDATE restaurant_details
+       SET ${setClause}, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [
-        payload.restaurant_name ?? null,
-        payload.restaurant_address ?? null,
-        payload.restaurant_phonenumber ?? null,
-        payload.restaurant_email ?? null,
-        payload.restaurant_facebook ?? null,
-        payload.restaurant_twitter ?? null,
-        payload.restaurant_instagram ?? null,
-        payload.restaurant_linkedin ?? null,
-        payload.restaurant_photo ?? null,
-        payload.parking_info ?? null,
-        restaurantId,
-      ]
+      [...values, restaurantId]
     );
   } catch (err) {
-    console.error("updateRestaurant error:", err && (err.sqlMessage || err.message) ? (err.sqlMessage || err.message) : err);
+    console.error(
+      "updateRestaurant error:",
+      err && (err.sqlMessage || err.message) ? (err.sqlMessage || err.message) : err
+    );
     throw err;
   }
 }
+
 
 /**
  * Synchronize timings for a restaurant:
