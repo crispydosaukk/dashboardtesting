@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import api from "../../api.js";
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const BASE_URL = import.meta.env.VITE_API_URL.replace("/api", "");
+const BASE_URL = import.meta.env.VITE_API_URL;
 
 export default function Restuarent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -226,15 +226,16 @@ export default function Restuarent() {
                 <h3 className="text-lg font-semibold mb-2">Restaurant Photo</h3>
                 <div className="border-2 border-dashed rounded-lg p-4 text-center">
                   <div className="h-48 bg-slate-50 rounded-lg overflow-hidden flex items-center justify-center">
-                    {photoPreview
-                      ? <img src={photoPreview} className="w-full h-full object-cover" />
-                      : info.photo
-                        ? <img
-                            src={`${BASE_URL}/uploads/${info.photo}`}
-                            className="w-full h-full object-cover"
-                          />
-
-                        : <span className="text-sm text-slate-400">No Image Uploaded</span>}
+                    {photoPreview ? (
+                      <img src={photoPreview} className="w-full h-full object-cover" />
+                    ) : info.photo ? (
+                      <img
+                        src={`${BASE_URL}/uploads/${info.photo}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-sm text-slate-400">No Image Uploaded</span>
+                    )}
                   </div>
 
                   <input ref={fileInputRef} type="file" accept="image/*" onChange={(e)=>setPhotoFile(e.target.files[0])} className="hidden" />
