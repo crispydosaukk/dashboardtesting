@@ -8,6 +8,8 @@ import api from "../../api.js";
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const BASE_URL = import.meta.env.VITE_API_URL;
 const IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_URL;
+const API = import.meta.env.VITE_API_URL;
+const API_BASE = API ? API.replace(/\/api\/?$/i, "") : "";
 
 export default function Restuarent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -230,7 +232,7 @@ export default function Restuarent() {
                     {photoPreview ? (
                       <img src={photoPreview} className="w-full h-full object-cover" />
                     ) : info.photo ? (
-                      <img src={`${IMAGE_BASE_URL}/uploads/${info.photo}`}
+                      <img src={`${API_BASE}/uploads/${info.photo}`}
                         className="w-full h-full object-cover"
                       />
                     ) : (
