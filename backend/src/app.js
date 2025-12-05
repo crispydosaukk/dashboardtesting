@@ -24,6 +24,7 @@ app.get("/", (req, res) => {
   res.send("Crispydosa backend is running ✅");
 });
 
+app.use("/api/mobile", apiRoutes);
 app.use("/api", webRoutes);
 app.use("/mobile", apiRoutes);
 

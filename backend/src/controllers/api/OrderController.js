@@ -1,5 +1,8 @@
 import db from "../../config/db.js";
 
+/* ============================================================
+   CREATE ORDER
+   ============================================================ */
 export const createOrder = async (req, res) => {
   try {
     const {
@@ -40,7 +43,7 @@ export const createOrder = async (req, res) => {
       const sql = `
         INSERT INTO orders 
         (user_id, order_number, customer_id, product_id, payment_mode, razorpay_payment_requestid, 
-         product_name, price, discount_amount, vat, quantity, grand_total, order_status, 
+         product_name, price, discount_amount, vat, quantity, grand_total, order_status,
          delivery_estimate_time, car_color, reg_number, owner_name, mobile_number, instore, allergy_note)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, ?, ?)
       `;
@@ -69,7 +72,7 @@ export const createOrder = async (req, res) => {
       await db.query(sql, values);
     }
 
-    // ✅ CLEAR USER CART AFTER ORDER SUCCESS
+    // Clear the cart
     await db.query("DELETE FROM cart WHERE customer_id = ?", [customer_id]);
 
     return res.status(200).json({
@@ -83,6 +86,59 @@ export const createOrder = async (req, res) => {
     return res.status(500).json({
       status: 0,
       message: "Server Error",
+      error: error.message
+    });
+  }
+};
+
+/* ============================================================
+   GET ALL ORDERS — FULL DYNAMIC VERSION
+   Every field returned automatically except hidden ones.
+   ============================================================ */
+export const getAllOrders = async (req, res) => {
+  try {
+    const sql = `
+      SELECT 
+        *
+      FROM orders
+      ORDER BY id DESC
+    `;
+
+    const [rows] = await db.query(sql);
+
+    // Fields to hide in API response
+    const hiddenFields = [
+      "id",
+      "user_id",
+      "customer_id",
+      "product_id",
+      "razorpay_payment_requestid",
+      "created_at",
+      "updated_at"
+    ];
+
+    // Remove hidden fields
+    const cleaned = rows.map((row) => {
+      const newObj = {};
+      for (const key in row) {
+        if (!hiddenFields.includes(key)) {
+          newObj[key] = row[key];
+        }
+      }
+      return newObj;
+    });
+
+    return res.status(200).json({
+      status: 1,
+      message: "Orders fetched successfully",
+      orders: cleaned
+    });
+
+  } catch (error) {
+    console.error("Get orders error:", error);
+    return res.status(500).json({
+      status: 0,
+      message: "Server error",
       error: error.message
     });
   }
