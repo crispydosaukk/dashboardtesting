@@ -7,7 +7,6 @@ import api from "../../api.js";
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const BASE_URL = import.meta.env.VITE_API_URL;
-const IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_URL;
 const API = import.meta.env.VITE_API_URL;
 const API_BASE = API ? API.replace(/\/api\/?$/i, "") : "";
 
