@@ -5,11 +5,11 @@ import AccessManagement from "./pages/access/index.jsx";
 import Roles from "./pages/roles/index.jsx";
 import Users from "./pages/users/index.jsx";
 import Restuarent from "./pages/restuarent/index.jsx";      // ← NEW
-import ManualOrders from "./pages/manual-orders/index.jsx"; // ← NEW
 import RequirePerm from "./components/RequirePerm.jsx";
 import Category from "./pages/category/index.jsx";
 import Product from "./pages/product/index.jsx";
 import CustomerInfo from "./pages/customerinfo/index.jsx";
+import Orders from "./pages/orders/index.jsx";
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -31,14 +31,6 @@ export default function App() {
           }
         />
 
-        <Route
-          path="/manual-orders"
-          element={
-            <PrivateRoute>
-              <RequirePerm perm="order_management"><ManualOrders /></RequirePerm>
-            </PrivateRoute>
-          }
-        />
 
         <Route
           path="/restuarent"
@@ -113,6 +105,17 @@ export default function App() {
             )
           }
         />
+        <Route
+  path="/orders"
+  element={
+    <PrivateRoute>
+      <RequirePerm perm="order_management">
+        <Orders />
+      </RequirePerm>
+    </PrivateRoute>
+  }
+/>
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

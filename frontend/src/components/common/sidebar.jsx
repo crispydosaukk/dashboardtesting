@@ -89,6 +89,7 @@ export default function Sidebar({ open, onClose }) {
     { label: "Dashboard", to: "/dashboard", icon: iconDashboard(), perm: "dashboard" },
     { label: "Restaurant", to: "/restuarent", icon: iconRestaurant(), perm: "restaurant" },
     { label: "Customer Info", to: "/customerinfo", icon: iconCustomer(), perm: "customer_info" }, 
+    { label: "Order Management", to: "/orders", icon: iconOrders(), perm: "order_management" },
   ],
   []
 );
@@ -399,3 +400,20 @@ function iconCustomer() {
     </svg>
   );
 }
+
+function iconOrders() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+      <path
+        d="M4 6h16v12H4z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M4 10h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M9 14h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+

@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import api from "../../api.js";
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const BASE_URL = import.meta.env.VITE_API_URL;
+
 
 
 export default function Restuarent() {
