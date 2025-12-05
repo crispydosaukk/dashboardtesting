@@ -59,16 +59,18 @@ export async function upsert(req, res) {
     try { body.timings = JSON.parse(body.timings); } catch {}
   }
 
- if (req.file && req.file.filename) {
-  body.restaurant_photo = req.file.filename;
-} else {
-  // do NOT overwrite existing image
-  delete body.restaurant_photo;
-}
-
+  // ✅ FIX: Only set photo if file was uploaded, otherwise preserve existing
+  if (req.file && req.file.filename) {
+    body.restaurant_photo = req.file.filename;
+  } else {
+    // Do NOT delete or overwrite existing photo
+    delete body.restaurant_photo;
+  }
 
   try {
     const updated = await upsertRestaurantForUser(userId, body);
+    
+    // ✅ CRITICAL: Return the full updated restaurant with photo field
     return res.json({ success: true, data: updated });
   } catch (err) {
     console.log(err);

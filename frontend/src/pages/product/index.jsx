@@ -111,115 +111,116 @@ export default function ProductPage() {
     });
   }, [products, categories, debouncedQuery]);
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  const nameTrim = form.name?.trim();
-  if (!nameTrim) {
-    alert("Please enter product name");
-    return;
-  }
-
-  const localExists = products.some(
-    (p) => p.id !== form.id && p.name?.trim().toLowerCase() === nameTrim.toLowerCase()
-  );
-  if (localExists) {
-    alert("Product name already exists");
-    return;
-  }
-
-  const rawPrice = parseFloat(form.price || 0);
-  if (rawPrice <= 0) {
-    alert("Price must be greater than zero");
-    return;
-  }
-
-  let finalPrice = rawPrice;
-  let discountPriceToSend = ""; // original price
-
-  if (form.discountPrice && form.discountPrice.toString().trim() !== "") {
-    const discountInput = parseFloat(form.discountPrice.toString().replace("%", "").trim());
-
-    if (Number.isNaN(discountInput) || discountInput < 0) {
-      alert("Invalid discount value");
+    const nameTrim = form.name?.trim();
+    if (!nameTrim) {
+      alert("Please enter product name");
       return;
     }
 
-    if (discountInput > 0 && discountInput <= 100) {
-      // percentage discount
-      finalPrice = +(rawPrice - (rawPrice * discountInput) / 100).toFixed(2);
-      discountPriceToSend = rawPrice; // keep original price for display
-    } else if (discountInput > 100) {
-      // treat as absolute discount price if entered > 100
-      finalPrice = rawPrice;
-      discountPriceToSend = discountInput;
+    const localExists = products.some(
+      (p) => p.id !== form.id && p.name?.trim().toLowerCase() === nameTrim.toLowerCase()
+    );
+    if (localExists) {
+      alert("Product name already exists");
+      return;
     }
-  }
 
-  const fd = new FormData();
-  fd.append("name", nameTrim);
-  fd.append("description", form.description || "");
-  fd.append("price", finalPrice);
-  fd.append("discountPrice", discountPriceToSend);
-  fd.append("cat_id", form.cat_id || "");
-  if (form.image instanceof File) fd.append("image", form.image);
+    const rawPrice = parseFloat(form.price || 0);
+    if (rawPrice <= 0) {
+      alert("Price must be greater than zero");
+      return;
+    }
 
-  const method = form.id ? "PUT" : "POST";
-  const url = form.id ? `${API}/products/${form.id}` : `${API}/products`;
+    let finalPrice = rawPrice;
+    let discountPriceToSend = ""; // original price
 
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: { Authorization: `Bearer ${token}` },
-      body: fd,
-    });
+    if (form.discountPrice && form.discountPrice.toString().trim() !== "") {
+      const discountInput = parseFloat(form.discountPrice.toString().replace("%", "").trim());
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ message: "Server error" }));
-      if (res.status === 409) {
-        alert(err.message || "Product name already exists");
+      if (Number.isNaN(discountInput) || discountInput < 0) {
+        alert("Invalid discount value");
         return;
       }
-      alert(err.message || "Failed to save product");
-      return;
+
+      if (discountInput > 0 && discountInput <= 100) {
+        // percentage discount
+        finalPrice = +(rawPrice - (rawPrice * discountInput) / 100).toFixed(2);
+        discountPriceToSend = rawPrice; // keep original price for display
+      } else if (discountInput > 100) {
+        // treat as absolute discount price if entered > 100
+        finalPrice = rawPrice;
+        discountPriceToSend = discountInput;
+      }
     }
 
-    const saved = await res.json();
-    setProducts((prev) =>
-      form.id ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev]
-    );
+    const fd = new FormData();
+    fd.append("name", nameTrim);
+    fd.append("description", form.description || "");
+    fd.append("price", finalPrice);
+    fd.append("discountPrice", discountPriceToSend);
+    fd.append("cat_id", form.cat_id || "");
+    // ✅ ONLY append image if a new one was selected
+    if (form.image instanceof File) fd.append("image", form.image);
+    // ❌ DON'T send form.oldImage - let backend preserve existing
 
-    // Close modal
-    if (isMobile) {
-      setModalSlideIn(false);
-      setTimeout(() => {
+    const method = form.id ? "PUT" : "POST";
+    const url = form.id ? `${API}/products/${form.id}` : `${API}/products`;
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Server error" }));
+        if (res.status === 409) {
+          alert(err.message || "Product name already exists");
+          return;
+        }
+        alert(err.message || "Failed to save product");
+        return;
+      }
+
+      // ✅ CRITICAL: Update state with backend response
+      const saved = await res.json();
+      setProducts((prev) =>
+        form.id ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev]
+      );
+
+      // Close modal
+      if (isMobile) {
+        setModalSlideIn(false);
+        setTimeout(() => {
+          setShowModal(false);
+          resetForm();
+        }, 300);
+      } else {
         setShowModal(false);
         resetForm();
-      }, 300);
-    } else {
-      setShowModal(false);
-      resetForm();
+      }
+    } catch (error) {
+      console.error("Save product error:", error);
+      alert("Something went wrong. Please try again.");
     }
-  } catch (error) {
-    console.error("Save product error:", error);
-    alert("Something went wrong. Please try again.");
-  }
-};
+  };
 
-
-// helper to reset form cleanly
-const resetForm = () =>
-  setForm({
-    id: null,
-    name: "",
-    description: "",
-    price: "",
-    discountPrice: "",
-    cat_id: "",
-    image: null,
-    oldImage: null,
-  });
-
+  // helper to reset form cleanly
+  const resetForm = () =>
+    setForm({
+      id: null,
+      name: "",
+      description: "",
+      price: "",
+      discountPrice: "",
+      cat_id: "",
+      image: null,
+      oldImage: null,
+    });
 
   // --- Delete
   const handleDelete = async (id) => {
@@ -275,14 +276,13 @@ const resetForm = () =>
   };
 
   const calculateDiscountPercent = (price, discountPrice) => {
-  const rawPrice = parseFloat(price || 0);
-  const discountedPrice = parseFloat(discountPrice || 0);
-  if (rawPrice > 0 && discountedPrice > 0) {
-    return Math.round(((rawPrice - discountedPrice) / rawPrice) * 100);
-  }
-  return 0;
-};
-
+    const rawPrice = parseFloat(price || 0);
+    const discountedPrice = parseFloat(discountPrice || 0);
+    if (rawPrice > 0 && discountedPrice > 0) {
+      return Math.round(((rawPrice - discountedPrice) / rawPrice) * 100);
+    }
+    return 0;
+  };
 
   // Render helpers for small screens: product card
   const ProductCard = ({ p }) => {

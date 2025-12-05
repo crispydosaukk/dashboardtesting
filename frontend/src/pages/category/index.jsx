@@ -94,7 +94,9 @@ export default function Category() {
 
     const fd = new FormData();
     fd.append("name", nameTrim);
+    // ✅ ONLY append image if a new one was selected
     if (form.image) fd.append("image", form.image);
+    // ❌ DON'T send form.oldImage - let backend preserve existing
 
     try {
       let res;
@@ -134,6 +136,7 @@ export default function Category() {
           return;
         }
 
+        // ✅ CRITICAL: Update state with backend response
         const updated = await res.json();
         setCategories((prev) =>
           prev.map((c) =>

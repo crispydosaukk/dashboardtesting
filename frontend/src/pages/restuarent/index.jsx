@@ -86,7 +86,7 @@ export default function Restuarent() {
       restaurant_instagram: info.instagram || null,
       restaurant_linkedin: info.linkedin || null,
       parking_info: info.parking_info || null,
-      restaurant_photo: info.photo ?? undefined,
+      // ✅ REMOVED: restaurant_photo from payload - let multipart handle it
       timings: timings.map((t) => ({
         day: t.day,
         opening_time: toSqlTime(t.start),
@@ -134,40 +134,42 @@ export default function Restuarent() {
   }
 
   async function saveAll() {
-  setSaving(true);
-  try {
-    const payload = frontendToApiPayload();
-    let res;
+    setSaving(true);
+    try {
+      const payload = frontendToApiPayload();
+      let res;
 
-    if (photoFile) {
-      const fd = new FormData();
-      fd.append("photo", photoFile);
-      fd.append("payload", JSON.stringify(payload));
+      if (photoFile) {
+        const fd = new FormData();
+        fd.append("photo", photoFile);
+        fd.append("payload", JSON.stringify(payload));
 
-      res = await api.post("/restaurant", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-    } else {
-      res = await api.post("/restaurant", payload);
+        res = await api.post("/restaurant", fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        // ✅ FIX: When no new photo, don't send restaurant_photo field
+        // Backend will preserve existing photo
+        res = await api.post("/restaurant", payload);
+      }
+
+      // ✅ CRITICAL: Refresh state with backend response
+      if (res?.data?.data) {
+        apiToFrontend(res.data.data);
+      }
+
+      // Clear local file/preview after successful save
+      setPhotoFile(null);
+      setPhotoPreview(null);
+
+      alert("Saved Successfully!");
+    } catch (e) {
+      console.error(e);
+      alert("Save failed");
+    } finally {
+      setSaving(false);
     }
-
-    // 🔑 VERY IMPORTANT: refresh local state with latest data from backend
-    if (res?.data?.data) {
-      apiToFrontend(res.data.data);
-    }
-
-    // Clear local file/preview after successful save
-    setPhotoFile(null);
-    setPhotoPreview(null);
-
-    alert("Saved Successfully!");
-  } catch (e) {
-    console.error(e);
-    alert("Save failed");
-  } finally {
-    setSaving(false);
   }
-}
 
   return (
     <div className="font-jakarta min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800">
@@ -232,8 +234,17 @@ export default function Restuarent() {
                     {photoPreview ? (
                       <img src={photoPreview} className="w-full h-full object-cover" />
                     ) : info.photo ? (
-                      <img src={`${API_BASE}/uploads/${info.photo}`}
+                      <img 
+                        src={
+                          info.photo.startsWith('http')
+                            ? info.photo
+                            : `${API_BASE}/uploads/${info.photo}`
+                        }
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.error("Image load failed:", e.target.src);
+                          e.target.src = "";
+                        }}
                       />
                     ) : (
                       <span className="text-sm text-slate-400">No Image Uploaded</span>
