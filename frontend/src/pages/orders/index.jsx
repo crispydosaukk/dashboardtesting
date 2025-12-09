@@ -8,6 +8,10 @@ export default function Orders() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [orders, setOrders] = useState([]);
 
+  // 🔥 Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10; // You can change to 20 or 50
+
   useEffect(() => {
     loadOrders();
   }, []);
@@ -26,14 +30,26 @@ export default function Orders() {
 
   const statusColor = (status) => {
     switch (status) {
-      case 1: return "text-blue-600";     // Accepted
-      case 2: return "text-red-600";      // Rejected
-      case 3: return "text-purple-600";   // Ready
-      case 4: return "text-green-700";    // Delivered
-      case 5: return "text-red-700";      // Cancelled
-      default: return "text-yellow-600";  // Placed
+      case 1:
+        return "text-blue-600"; // Accepted
+      case 2:
+        return "text-red-600"; // Rejected
+      case 3:
+        return "text-purple-600"; // Ready
+      case 4:
+        return "text-green-700"; // Delivered
+      case 5:
+        return "text-red-700"; // Cancelled
+      default:
+        return "text-yellow-600"; // Placed
     }
   };
+
+  // 🔥 Pagination calculations
+  const totalPages = Math.ceil(orders.length / rowsPerPage);
+  const indexOfLast = currentPage * rowsPerPage;
+  const indexOfFirst = indexOfLast - rowsPerPage;
+  const currentOrders = orders.slice(indexOfFirst, indexOfLast);
 
   return (
     <>
@@ -41,7 +57,9 @@ export default function Orders() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="p-6 lg:ml-72 mt-16">
-        <h1 className="text-3xl font-bold text-emerald-700 mb-6">Order Management</h1>
+        <h1 className="text-3xl font-bold text-emerald-700 mb-6">
+          Order Management
+        </h1>
 
         <div className="overflow-x-auto shadow-md rounded-lg">
           <table className="min-w-full bg-white text-sm">
@@ -59,17 +77,17 @@ export default function Orders() {
                 <th className="px-4 py-3 text-left">Total (£)</th>
 
                 <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Car Name</th>
                 <th className="px-4 py-3 text-left">Car Color</th>
                 <th className="px-4 py-3 text-left">Reg Number</th>
-                <th className="px-4 py-3 text-left">Owner Name</th>
                 <th className="px-4 py-3 text-left">Mobile</th>
-                <th className="px-4 py-3 text-left">InStore</th>
+                <th className="px-4 py-3 text-left">Collection Method</th>
                 <th className="px-4 py-3 text-left">Allergy Note</th>
               </tr>
             </thead>
 
             <tbody>
-              {orders.map((o, index) => (
+              {currentOrders.map((o, index) => (
                 <tr
                   key={`${o.order_number}_${index}`}
                   className="border-b hover:bg-emerald-50"
@@ -103,7 +121,7 @@ export default function Orders() {
                   <td className="px-4 py-3">{o.mobile_number || "-"}</td>
 
                   <td className="px-4 py-3">
-                    {o.instore === 1 ? "Yes" : "No"}
+                    {o.instore === 1 ? "Kerbside" : "Instore"}
                   </td>
 
                   <td className="px-4 py-3">{o.allergy_note || "-"}</td>
@@ -111,6 +129,51 @@ export default function Orders() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* 🔥 PAGINATION UI */}
+        <div className="flex justify-center items-center mt-6 gap-3 select-none">
+
+          {/* Previous Button */}
+          <button
+            onClick={() => setCurrentPage((p) => p - 1)}
+            disabled={currentPage === 1}
+            className={`px-4 py-2 rounded-lg border ${
+              currentPage === 1
+                ? "bg-gray-200 text-gray-400"
+                : "bg-white hover:bg-gray-100 text-gray-700"
+            }`}
+          >
+            Previous
+          </button>
+
+          {/* Page Numbers */}
+          {[...Array(totalPages).keys()].map((num) => (
+            <button
+              key={num}
+              onClick={() => setCurrentPage(num + 1)}
+              className={`px-4 py-2 rounded-lg border ${
+                currentPage === num + 1
+                  ? "bg-emerald-600 text-white"
+                  : "bg-white hover:bg-gray-100"
+              }`}
+            >
+              {num + 1}
+            </button>
+          ))}
+
+          {/* Next Button */}
+          <button
+            onClick={() => setCurrentPage((p) => p + 1)}
+            disabled={currentPage === totalPages}
+            className={`px-4 py-2 rounded-lg border ${
+              currentPage === totalPages
+                ? "bg-gray-200 text-gray-400"
+                : "bg-white hover:bg-gray-100 text-gray-700"
+            }`}
+          >
+            Next
+          </button>
         </div>
 
         <Footer />
