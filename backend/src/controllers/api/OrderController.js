@@ -1,8 +1,22 @@
 import db from "../../config/db.js";
 
-/* ============================================================
-   CREATE ORDER
-   ============================================================ */
+function generateOrderNumber(restaurantName = "") {
+  let cleaned = restaurantName
+    .toLowerCase()
+    .replace("crispy dosa", "")
+    .trim();
+
+  let firstLetter = cleaned[0] ? cleaned[0].toUpperCase() : "X";
+
+  const now = new Date();
+  const DD = String(now.getDate()).padStart(2, "0");
+  const MM = String(now.getMonth() + 1).padStart(2, "0");
+  const HH = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+
+  return `CD${firstLetter}${DD}${MM}${HH}${mm}`;
+}
+
 export const createOrder = async (req, res) => {
   try {
     const {
@@ -23,7 +37,14 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ status: 0, message: "Items are required" });
     }
 
-    const order_number = "ORD" + Date.now();
+    const [rData] = await db.query(
+      "SELECT restaurant_name FROM restaurant_details WHERE user_id = ? LIMIT 1",
+      [user_id]
+    );
+
+    let restaurantName = rData.length ? rData[0].restaurant_name : "";
+
+    const order_number = generateOrderNumber(restaurantName);
 
     for (const item of items) {
       const {
@@ -72,7 +93,6 @@ export const createOrder = async (req, res) => {
       await db.query(sql, values);
     }
 
-    // Clear the cart
     await db.query("DELETE FROM cart WHERE customer_id = ?", [customer_id]);
 
     return res.status(200).json({
@@ -91,22 +111,16 @@ export const createOrder = async (req, res) => {
   }
 };
 
-/* ============================================================
-   GET ALL ORDERS — FULL DYNAMIC VERSION
-   Every field returned automatically except hidden ones.
-   ============================================================ */
 export const getAllOrders = async (req, res) => {
   try {
     const sql = `
-      SELECT 
-        *
+      SELECT *
       FROM orders
       ORDER BY id DESC
     `;
 
     const [rows] = await db.query(sql);
 
-    // Fields to hide in API response
     const hiddenFields = [
       "id",
       "user_id",
@@ -117,7 +131,6 @@ export const getAllOrders = async (req, res) => {
       "updated_at"
     ];
 
-    // Remove hidden fields
     const cleaned = rows.map((row) => {
       const newObj = {};
       for (const key in row) {

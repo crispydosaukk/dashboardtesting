@@ -2,16 +2,26 @@ import path from "path";
 import fs from "fs";
 import pool from "../../config/db.js";
 
-// Get all categories
+// ===========================================
+// GET ALL CATEGORIES (SORTED BY sort_order)
+// ===========================================
 export const getCategories = async (req, res) => {
   try {
     const userId = req.user.id;
 
     const [rows] = await pool.query(
-      `SELECT id, category_name AS name, category_image AS image, IFNULL(status, 1) AS status
-       FROM categories WHERE user_id = ? ORDER BY id DESC`,
-      [userId]
-    );  
+  `SELECT 
+     id,
+     category_name AS name,
+     category_image AS image,
+     IFNULL(status, 1) AS status,
+     IFNULL(sort_order, 9999) AS sort_order
+   FROM categories 
+   WHERE user_id = ?
+   ORDER BY sort_order ASC, id ASC`,
+  [userId]
+);
+
 
     res.json(rows);
   } catch (err) {
@@ -20,7 +30,9 @@ export const getCategories = async (req, res) => {
   }
 };
 
-// Add a category
+// ===========================================
+// ADD CATEGORY
+// ===========================================
 export const addCategory = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -35,21 +47,40 @@ export const addCategory = async (req, res) => {
       "SELECT id FROM categories WHERE user_id = ? AND LOWER(category_name) = LOWER(?)",
       [userId, name]
     );
-    if (exists) return res.status(409).json({ message: "Category name already exists" });
+    if (exists)
+      return res.status(409).json({ message: "Category name already exists" });
 
-    const [result] = await pool.query(
-      "INSERT INTO categories (category_name, category_image, user_id, status) VALUES (?, ?, ?, 1)",
-      [name, image, userId]
+    // Insert with default sort_order = last
+    const [[maxOrder]] = await pool.query(
+      "SELECT IFNULL(MAX(sort_order), 0) AS maxOrder FROM categories WHERE user_id = ?",
+      [userId]
     );
 
-    res.json({ id: result.insertId, name, image, status: 1 });
+    const newOrder = maxOrder.maxOrder + 1;
+
+    const [result] = await pool.query(
+      `INSERT INTO categories 
+         (category_name, category_image, user_id, status, sort_order) 
+       VALUES (?, ?, ?, 1, ?)`,
+      [name, image, userId, newOrder]
+    );
+
+    res.json({
+      id: result.insertId,
+      name,
+      image,
+      status: 1,
+      sort_order: newOrder,
+    });
   } catch (err) {
     console.error("addCategory error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// Delete a category
+// ===========================================
+// REMOVE CATEGORY (DELETE + IMAGE DELETE)
+// ===========================================
 export const removeCategory = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -62,12 +93,17 @@ export const removeCategory = async (req, res) => {
 
     if (!cat) return res.status(404).json({ message: "Not found" });
 
+    // Delete image
     if (cat.category_image) {
       const img = path.join("public/uploads", cat.category_image);
       if (fs.existsSync(img)) fs.unlinkSync(img);
     }
 
-    await pool.query("DELETE FROM categories WHERE id = ? AND user_id = ?", [id, userId]);
+    await pool.query("DELETE FROM categories WHERE id = ? AND user_id = ?", [
+      id,
+      userId,
+    ]);
+
     res.json({ success: true });
   } catch (err) {
     console.error("removeCategory error:", err);
@@ -75,13 +111,15 @@ export const removeCategory = async (req, res) => {
   }
 };
 
-// Update category (name, image, or status)
+// ===========================================
+// UPDATE CATEGORY (name, image OR status)
+// ===========================================
 export const updateCategory = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
     const { name, status } = req.body;
-    const image = req.file ? req.file.filename : null;
+    const newImage = req.file ? req.file.filename : null;
 
     const [[existing]] = await pool.query(
       "SELECT * FROM categories WHERE id = ? AND user_id = ?",
@@ -90,12 +128,6 @@ export const updateCategory = async (req, res) => {
 
     if (!existing) return res.status(404).json({ message: "Not found" });
 
-    // Only delete old image if a new one is uploaded
-    if (image && existing.category_image) {
-      const oldPath = path.join("public/uploads", existing.category_image);
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-    }
-
     const fields = [];
     const params = [];
 
@@ -103,10 +135,18 @@ export const updateCategory = async (req, res) => {
       fields.push("category_name = ?");
       params.push(name);
     }
-    if (image) {
+
+    if (newImage) {
+      // Delete old image
+      if (existing.category_image) {
+        const oldPath = path.join("public/uploads", existing.category_image);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+
       fields.push("category_image = ?");
-      params.push(image);
+      params.push(newImage);
     }
+
     if (typeof status !== "undefined") {
       fields.push("status = ?");
       params.push(status);
@@ -117,17 +157,46 @@ export const updateCategory = async (req, res) => {
 
     params.push(id, userId);
 
-    const sql = `UPDATE categories SET ${fields.join(", ")} WHERE id = ? AND user_id = ?`;
+    const sql = `UPDATE categories SET ${fields.join(
+      ", "
+    )} WHERE id = ? AND user_id = ?`;
     await pool.query(sql, params);
 
     const [[updated]] = await pool.query(
-      "SELECT id, category_name AS name, category_image AS image, status FROM categories WHERE id = ? AND user_id = ?",
+      "SELECT id, category_name AS name, category_image AS image, status, sort_order FROM categories WHERE id = ? AND user_id = ?",
       [id, userId]
     );
 
     res.json(updated);
   } catch (err) {
     console.error("updateCategory error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ===========================================
+// DRAG & DROP REORDER
+// ===========================================
+export const reorderCategories = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { order } = req.body; // array of { id, sort_order }
+
+    if (!Array.isArray(order))
+      return res.status(400).json({ message: "Invalid order format" });
+
+    const updates = order.map((item) =>
+      pool.query(
+        "UPDATE categories SET sort_order = ? WHERE id = ? AND user_id = ?",
+        [item.sort_order, item.id, userId]
+      )
+    );
+
+    await Promise.all(updates);
+
+    res.json({ success: true, message: "Order updated successfully" });
+  } catch (err) {
+    console.error("reorderCategories error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

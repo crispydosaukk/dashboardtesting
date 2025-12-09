@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 export default function ProductPage() {
   const API = import.meta.env.VITE_API_URL;
@@ -43,7 +44,7 @@ export default function ProductPage() {
 
     fetch(`${API}/products`, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => res.json())
-      .then(setProducts)
+      .then(data => setProducts(data.sort((a, b) => a.sort_order - b.sort_order)))
       .catch((err) => console.error("Error loading products:", err));
   }, [API, token]);
 
@@ -275,6 +276,32 @@ export default function ProductPage() {
     }
   };
 
+  // ---- DRAG & DROP SORTING ----
+const onDragEnd = async (result) => {
+  if (!result.destination) return;
+
+  const items = Array.from(products);
+  const [moved] = items.splice(result.source.index, 1);
+  items.splice(result.destination.index, 0, moved);
+
+  const updated = items.map((p, i) => ({
+    ...p,
+    sort_order: i + 1
+  }));
+
+  setProducts(updated);
+
+  await fetch(`${API}/products/reorder`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ order: updated })
+  });
+};
+
+
   const calculateDiscountPercent = (price, discountPrice) => {
     const rawPrice = parseFloat(price || 0);
     const discountedPrice = parseFloat(discountPrice || 0);
@@ -462,90 +489,130 @@ export default function ProductPage() {
             {/* Content container */}
             <div className="grid grid-cols-1 gap-6">
               {/* Table (desktop) */}
-              <div className="hidden md:block rounded-xl bg-white p-4 shadow-sm border border-gray-200">
-                {filteredProducts.length === 0 ? (
-                  <div className="py-8 text-center text-gray-500">No products match your search.</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm table-auto min-w-[700px]">
-                      <thead>
-                        <tr className="bg-gray-50 text-gray-700">
-                          <th className="py-3 px-4 text-left">Image</th>
-                          <th className="py-3 px-4 text-left">Name</th>
-                          <th className="py-3 px-4 text-left">Price</th>
-                          <th className="py-3 px-4 text-left">Category</th>
-                          <th className="py-3 px-4 text-center">Status</th>
-                          <th className="py-3 px-4 text-left">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-gray-700">
-                        {filteredProducts.map((p) => (
-                          <tr key={p.id} className={`border-b transition ${p.status === 0 ? "opacity-60 bg-gray-50" : "hover:bg-gray-50"}`}>
-                            <td className="py-3 px-4">
-                              <img src={`${API_BASE}/uploads/${p.image}`} alt={p.name} className="h-12 w-12 rounded-md object-cover border" />
-                            </td>
-                            <td className="py-3 px-4 font-medium max-w-[260px]">
-                              <div className="truncate max-w-full">{p.name}</div>
-                              <div className="text-xs text-gray-400 truncate max-w-full">{p.description}</div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="font-semibold">{formatGBP(p.price)}</div>
-                              {p.discountPrice && Number(p.discountPrice) > 0 && (
-                                <div className="text-xs text-gray-400 line-through">{formatGBP(p.discountPrice)}</div>
-                              )}
-                            </td>
-                            <td className="py-3 px-4">{categories.find((c) => c.id == p.cat_id)?.name || "—"}</td>
-                            <td className="py-3 px-4 text-center">
-                              <label className="inline-flex items-center cursor-pointer">
-                                <input type="checkbox" checked={p.status === 1} onChange={() => handleToggleStatus(p)} className="sr-only peer" />
-                                <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-emerald-500 relative after:content-[''] after:absolute after:left-[2px] after:top-[2px] after:w-5 after:h-5 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-full"></div>
-                              </label>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-4">
-                                {/* Edit icon (desktop) */}
-                                <button
-                                  onClick={() =>
-                                    (setForm({
-                                      id: p.id,
-                                      name: p.name,
-                                      description: p.description,
-                                      price: p.price,
-                                      discountPrice: calculateDiscountPercent(p.price, p.discountPrice),
-                                      cat_id: p.cat_id,
-                                      image: null,
-                                      oldImage: p.image,
-                                    }) || setShowModal(true))
-                                  }
-                                  aria-label={`Edit ${p.name}`}
-                                  className="p-1 rounded-md hover:scale-105 transition-transform duration-150 inline-flex items-center justify-center focus:outline-none"
-                                  type="button"
-                                >
-                                  <svg className="w-5 h-5 text-blue-600 hover:text-blue-800 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M4 13.5V20h6.5L20.873 9.627a2 2 0 000-2.828L17.243 3.07a2 2 0 00-2.828 0L4 13.5z" />
-                                  </svg>
-                                </button>
+             <div className="hidden md:block rounded-xl bg-white p-4 shadow-sm border border-gray-200">
+  {filteredProducts.length === 0 ? (
+    <div className="py-8 text-center text-gray-500">No products match your search.</div>
+  ) : (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm table-auto min-w-[700px]">
+        <thead>
+          <tr className="bg-gray-50 text-gray-700">
+            <th className="py-3 px-4 text-left">Drag</th>
+            <th className="py-3 px-4 text-left">Image</th>
+            <th className="py-3 px-4 text-left">Name</th>
+            <th className="py-3 px-4 text-left">Price</th>
+            <th className="py-3 px-4 text-left">Category</th>
+            <th className="py-3 px-4 text-center">Status</th>
+            <th className="py-3 px-4 text-left">Actions</th>
+          </tr>
+        </thead>
 
-                                {/* Delete icon (desktop) */}
-                                <button
-                                  onClick={() => handleDelete(p.id)}
-                                  aria-label={`Delete ${p.name}`}
-                                  className="p-1 rounded-md hover:rotate-6 transition-transform duration-150 inline-flex items-center justify-center focus:outline-none"
-                                  type="button"
-                                >
-                                  <svg className="w-5 h-5 text-red-600 hover:text-red-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+        <DragDropContext onDragEnd={onDragEnd}>
+          <Droppable droppableId="products">
+            {(provided) => (
+              <tbody
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                className="text-gray-700"
+              >
+                {filteredProducts.map((p, index) => (
+                  <Draggable
+                    key={p.id}
+                    draggableId={String(p.id)}
+                    index={index}
+                  >
+                    {(drag) => (
+                      <tr
+                        ref={drag.innerRef}
+                        {...drag.draggableProps}
+                        className={`border-b transition ${
+                          p.status === 0 ? "opacity-60 bg-gray-50" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        {/* Drag Handle */}
+                        <td {...drag.dragHandleProps} className="px-3 cursor-grab">≡</td>
+
+                        <td className="py-3 px-4">
+                          <img
+                            src={`${API_BASE}/uploads/${p.image}`}
+                            className="h-12 w-12 rounded-md object-cover border"
+                          />
+                        </td>
+
+                        <td className="py-3 px-4 font-medium max-w-[260px]">
+                          <div className="truncate">{p.name}</div>
+                          <div className="text-xs text-gray-400 truncate">{p.description}</div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <div className="font-semibold">{formatGBP(p.price)}</div>
+                          {p.discountPrice > 0 && (
+                            <div className="text-xs text-gray-400 line-through">
+                              {formatGBP(p.discountPrice)}
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4">
+                          {categories.find((c) => c.id == p.cat_id)?.name || "—"}
+                        </td>
+
+                        <td className="py-3 px-4 text-center">
+                          <label className="inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={p.status === 1}
+                              onChange={() => handleToggleStatus(p)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-emerald-500 relative after:content-[''] after:absolute after:left-[2px] after:top-[2px] after:w-5 after:h-5 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-full"></div>
+                          </label>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-4">
+                            <button
+                              onClick={() => {
+                                setForm({
+                                  id: p.id,
+                                  name: p.name,
+                                  description: p.description,
+                                  price: p.price,
+                                  discountPrice: calculateDiscountPercent(p.price, p.discountPrice),
+                                  cat_id: p.cat_id,
+                                  image: null,
+                                  oldImage: p.image,
+                                });
+                                setShowModal(true);
+                              }}
+                              className="p-1 rounded-md hover:scale-105"
+                            >
+                              ✏️
+                            </button>
+
+                            <button
+                              onClick={() => handleDelete(p.id)}
+                              className="p-1 rounded-md hover:rotate-6"
+                            >
+                              🗑
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Draggable>
+                ))}
+
+                {provided.placeholder}
+              </tbody>
+            )}
+          </Droppable>
+        </DragDropContext>
+      </table>
+    </div>
+  )}
+</div>
+
 
               {/* Cards (mobile) */}
               <div className="md:hidden space-y-4">

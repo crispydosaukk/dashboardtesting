@@ -89,22 +89,45 @@ export const register = async (req, res) => {
   }
 };
 
-// 🟢 Login
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const [[user]] = await db.execute("SELECT * FROM customers WHERE email = ?", [email]);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email / Mobile and password required" });
+    }
 
+    // 🔥 Detect whether user entered email or mobile number
+    const isEmail = email.includes("@");
+
+    let query = "";
+    if (isEmail) {
+      query = "SELECT * FROM customers WHERE email = ?";
+    } else {
+      query = "SELECT * FROM customers WHERE mobile_number = ?";
+    }
+
+    // 🔹 Fetch user
+    const [[user]] = await db.execute(query, [email]);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // 🔹 Compare password
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ message: "Invalid credentials" });
+    if (!match) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
 
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || "devsecret", {
-      expiresIn: "7d",
-    });
+    // 🔹 Generate token
+    const token = jwt.sign(
+      { id: user.id },
+      process.env.JWT_SECRET || "devsecret",
+      { expiresIn: "7d" }
+    );
 
-    res.json({
+    return res.json({
       message: "Login successful",
       token,
       user: {
@@ -119,11 +142,13 @@ export const login = async (req, res) => {
         gender: user.gender,
       },
     });
+
   } catch (err) {
     console.error("login error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // 🟢 Get user profile (JWT protected)
 export const profile = async (req, res) => {

@@ -7,7 +7,8 @@ import {
   getProducts, 
   addProduct, 
   removeProduct, 
-  updateProduct 
+  updateProduct,
+  reorderProducts
 } from "../controllers/admin/ProductController.js";
 
 import {  
@@ -40,7 +41,8 @@ import {
   getCategories,
   addCategory,
   removeCategory,
-  updateCategory
+  updateCategory,
+  reorderCategories
 } from "../controllers/admin/CategoryController.js";
 
 import {
@@ -82,12 +84,16 @@ router.get("/restaurant", auth, getRestaurant);
 router.post("/restaurant", auth, upload.single("photo"), upsertRestaurant);
 
 /* CATEGORY */
+router.put("/category/reorder", auth, reorderCategories);
 router.get("/category", auth, getCategories);
 router.post("/category", auth, upload.single("image"), addCategory);
 router.put("/category/:id", auth, upload.single("image"), updateCategory);
 router.delete("/category/:id", auth, removeCategory);
 
 /* PRODUCTS */
+/* PRODUCT REORDER */
+router.put("/products/reorder", auth, reorderProducts);
+
 router.get("/products", auth, getProducts);
 router.post("/products", auth, upload.single("image"), addProduct);
 router.delete("/products/:id", auth, removeProduct);
