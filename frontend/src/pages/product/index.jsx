@@ -12,6 +12,7 @@ export default function ProductPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [filterCategory, setFilterCategory] = useState("all");
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -93,24 +94,32 @@ export default function ProductPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.image]);
 
-  // --- Client-side filtered products (memoized)
   const filteredProducts = useMemo(() => {
-    if (!debouncedQuery) return products;
-    const q = debouncedQuery;
-    return products.filter((p) => {
-      // check name
-      if (p.name && p.name.toString().toLowerCase().includes(q)) return true;
-      // check description
-      if (p.description && p.description.toString().toLowerCase().includes(q)) return true;
-      // check category name
-      const catName = categories.find((c) => c.id == p.cat_id)?.name;
-      if (catName && catName.toString().toLowerCase().includes(q)) return true;
-      // check price or discount numeric included (optional)
-      if (p.price && p.price.toString().toLowerCase().includes(q)) return true;
-      if (p.discountPrice && p.discountPrice.toString().toLowerCase().includes(q)) return true;
-      return false;
-    });
-  }, [products, categories, debouncedQuery]);
+  let list = [...products];
+
+  // CATEGORY FILTER
+  if (filterCategory !== "all") {
+    list = list.filter((p) => String(p.cat_id) === String(filterCategory));
+  }
+
+  // SEARCH FILTER
+  if (!debouncedQuery) return list;
+
+  const q = debouncedQuery;
+  return list.filter((p) => {
+    if (p.name?.toLowerCase().includes(q)) return true;
+    if (p.description?.toLowerCase().includes(q)) return true;
+
+    const catName = categories.find((c) => c.id == p.cat_id)?.name;
+    if (catName?.toLowerCase().includes(q)) return true;
+
+    if (p.price?.toString().includes(q)) return true;
+    if (p.discountPrice?.toString().includes(q)) return true;
+
+    return false;
+  });
+}, [products, categories, debouncedQuery, filterCategory]);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -454,6 +463,18 @@ const onDragEnd = async (result) => {
                     )}
                   </div>
                 </div>
+                <div className="w-full sm:w-auto">
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="border px-3 py-2 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    >
+                      <option value="all">All Categories</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
 
                 <button
                   onClick={() => {

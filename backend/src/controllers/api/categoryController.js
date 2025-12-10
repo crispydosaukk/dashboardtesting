@@ -4,10 +4,15 @@ export const getCategories = async (req, res) => {
   const userId = req.query.user_id;
 
   const query = `
-    SELECT id, user_id, category_name AS name, category_image AS image
+    SELECT 
+      id, 
+      user_id, 
+      category_name AS name, 
+      category_image AS image,
+      sort_order
     FROM categories
     WHERE user_id = ? AND category_status = 1 AND status = 1
-    ORDER BY id DESC
+    ORDER BY sort_order ASC, id ASC
   `;
 
   try {
@@ -20,9 +25,11 @@ export const getCategories = async (req, res) => {
         id: cat.id,
         user_id: cat.user_id,
         name: cat.name,
-        image: cleanImage
-          ? `${req.protocol}://${req.get("host")}/uploads/${cleanImage}`
-          : `${req.protocol}://${req.get("host")}/uploads/default_category.png`
+        image:
+          cleanImage
+            ? `${req.protocol}://${req.get("host")}/uploads/${cleanImage}`
+            : `${req.protocol}://${req.get("host")}/uploads/default_category.png`,
+        sort_order: cat.sort_order
       };
     });
 

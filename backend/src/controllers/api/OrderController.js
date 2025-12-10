@@ -114,9 +114,16 @@ export const createOrder = async (req, res) => {
 export const getAllOrders = async (req, res) => {
   try {
     const sql = `
-      SELECT *
-      FROM orders
-      ORDER BY id DESC
+      SELECT 
+        o.*,
+        c.full_name AS customer_name,
+        r.restaurant_name
+      FROM orders o
+      LEFT JOIN customers c
+        ON o.customer_id = c.id
+      LEFT JOIN restaurant_details r
+        ON o.user_id = r.user_id
+      ORDER BY o.id DESC
     `;
 
     const [rows] = await db.query(sql);
@@ -127,17 +134,22 @@ export const getAllOrders = async (req, res) => {
       "customer_id",
       "product_id",
       "razorpay_payment_requestid",
-      "created_at",
       "updated_at"
     ];
 
     const cleaned = rows.map((row) => {
       const newObj = {};
+
       for (const key in row) {
         if (!hiddenFields.includes(key)) {
           newObj[key] = row[key];
         }
       }
+
+      // Attach names
+      newObj.customer_name = row.customer_name || "-";
+      newObj.restaurant_name = row.restaurant_name || "-";
+
       return newObj;
     });
 

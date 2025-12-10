@@ -13,18 +13,24 @@ export const getProducts = async (req, res) => {
   }
 
   const query = `
-    SELECT id, user_id, product_name AS name, product_image AS image, 
-           product_desc AS description, product_price, product_discount_price
+    SELECT 
+      id, 
+      user_id, 
+      product_name AS name, 
+      product_image AS image, 
+      product_desc AS description, 
+      product_price, 
+      product_discount_price,
+      sort_order
     FROM products
     WHERE user_id = ? AND cat_id = ? AND product_status = 1 AND status = 1
-    ORDER BY id DESC
+    ORDER BY sort_order ASC, id ASC
   `;
 
   try {
     const [results] = await db.query(query, [userId, catId]);
 
     const data = results.map(p => {
-      // Remove "uploads/" or "/uploads/" if stored from backend
       let cleanImage = p.image ? p.image.replace(/^\/?uploads\//, "") : null;
 
       return {
@@ -34,8 +40,8 @@ export const getProducts = async (req, res) => {
         description: p.description,
         price: p.product_price,
         discount_price: p.product_discount_price,
-        
-        // SAME LOGIC AS RESTAURANTS
+        sort_order: p.sort_order,
+
         image: cleanImage
           ? `${req.protocol}://${req.get("host")}/uploads/${cleanImage}`
           : `${req.protocol}://${req.get("host")}/uploads/default_product.png`
