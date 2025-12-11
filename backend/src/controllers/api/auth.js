@@ -1,6 +1,91 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";          // 👈 NEW
 import db from "../../config/db.js";
+
+// 🔹 Base32 alphabet (RFC 4648 without padding)
+const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+// 🔹 Encode Buffer to Base32 (no padding)
+function toBase32(buffer) {
+  let bits = 0;
+  let value = 0;
+  let output = "";
+
+  for (const byte of buffer) {
+    value = (value << 8) | byte;
+    bits += 8;
+
+    while (bits >= 5) {
+      output += BASE32_ALPHABET[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+
+  if (bits > 0) {
+    output += BASE32_ALPHABET[(value << (5 - bits)) & 31];
+  }
+
+  return output;
+}
+
+// 🔹 Generate a single raw secure code: 8 bytes random + 2 bytes HMAC
+function generateRawReferralBytes() {
+  const randomPart = crypto.randomBytes(8); // CSPRNG
+  const secret = process.env.REFERRAL_SECRET || "referral-dev-secret";
+
+  const hmac = crypto
+    .createHmac("sha256", secret)
+    .update(randomPart)
+    .digest();
+
+  const sig = hmac.subarray(0, 2); // first 2 bytes as short signature
+
+  return Buffer.concat([randomPart, sig]); // 10 bytes total
+}
+
+// 🔹 Generate *formatted* code like XY4D-P92M-JQ8T (12 chars: 4-4-4)
+async function generateUniqueReferralCode() {
+  const maxTries = 10;
+
+  for (let i = 0; i < maxTries; i++) {
+    const raw = generateRawReferralBytes();
+    const base32 = toBase32(raw);     // usually ~16 chars
+    const compact = base32.slice(0, 12); // take first 12 chars
+
+    const formatted =
+      compact.slice(0, 4) +
+      "-" +
+      compact.slice(4, 8) +
+      "-" +
+      compact.slice(8, 12); // XY4D-P92M-JQ8T
+
+    // 🔎 Check DB to ensure uniqueness
+    const [rows] = await db.execute(
+      "SELECT id FROM customers WHERE referral_code = ?",
+      [formatted]
+    );
+
+    if (rows.length === 0) {
+      return formatted;
+    }
+  }
+
+  throw new Error("Unable to generate unique referral code after several tries");
+}
+
+
+// 🔸 Get current signup flat amount from `settings` table
+async function getSignupFlatAmount() {
+  const [rows] = await db.execute(
+    "SELECT signup_flat_amount FROM settings ORDER BY id DESC LIMIT 1"
+  );
+
+  if (!rows.length) return 0;
+
+  const value = parseFloat(rows[0].signup_flat_amount || 0);
+  return isNaN(value) ? 0 : value;
+}
 
 // 🟢 Register (Signup)
 export const register = async (req, res) => {
@@ -13,13 +98,16 @@ export const register = async (req, res) => {
       password,
       preferred_restaurant,
       date_of_birth,
-      referral_code,
       gender,
+      // referral_code  // ❌ DO NOT use this as self-code; later we add "referred_by"
     } = req.body;
 
     // 🔹 Basic field validation
     if (!full_name || !country_code || !mobile_number || !email || !password) {
-      return res.status(400).json({ message: "Full name, country code, mobile number, email, and password are required" });
+      return res.status(400).json({
+        message:
+          "Full name, country code, mobile number, email, and password are required",
+      });
     }
 
     // 🔹 Check for duplicates (email or phone)
@@ -30,8 +118,13 @@ export const register = async (req, res) => {
 
     if (existingUsers.length > 0) {
       const duplicate = existingUsers[0];
-      if (duplicate.email === email && duplicate.mobile_number === mobile_number) {
-        return res.status(409).json({ message: "Email and mobile number already registered" });
+      if (
+        duplicate.email === email &&
+        duplicate.mobile_number === mobile_number
+      ) {
+        return res
+          .status(409)
+          .json({ message: "Email and mobile number already registered" });
       } else if (duplicate.email === email) {
         return res.status(409).json({ message: "Email already registered" });
       } else {
@@ -42,10 +135,14 @@ export const register = async (req, res) => {
     // 🔹 Hash password
     const hash = await bcrypt.hash(password, 10);
 
-    // 🔹 Insert new user
+    // 🔹 Generate strong unique referral code like XY4D-P92M-JQ8T
+    const selfReferralCode = await generateUniqueReferralCode();
+
+    // 🔹 Insert new user with generated referral_code
     const [result] = await db.execute(
       `INSERT INTO customers 
-       (full_name, country_code, mobile_number, email, preferred_restaurant, date_of_birth, referral_code, gender, password, created_at, updated_at)
+       (full_name, country_code, mobile_number, email, preferred_restaurant,
+        date_of_birth, referral_code, gender, password, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         full_name,
@@ -54,15 +151,17 @@ export const register = async (req, res) => {
         email,
         preferred_restaurant || null,
         date_of_birth || null,
-        referral_code || null,
+        selfReferralCode, // ✅ our secure code
         gender || null,
         hash,
       ]
     );
 
+    const newCustomerId = result.insertId;
+
     // 🔹 Create token
     const token = jwt.sign(
-      { id: result.insertId },
+      { id: newCustomerId },
       process.env.JWT_SECRET || "devsecret",
       { expiresIn: "7d" }
     );
@@ -72,15 +171,15 @@ export const register = async (req, res) => {
       message: "Registration successful",
       token,
       user: {
-        id: result.insertId,
+        id: newCustomerId,
         full_name,
         country_code,
         mobile_number,
         email,
         preferred_restaurant: preferred_restaurant || null,
         date_of_birth: date_of_birth || null,
-        referral_code: referral_code || null,
         gender: gender || null,
+        referral_code: selfReferralCode,  // ✅ send to app
       },
     });
   } catch (err) {
@@ -88,6 +187,8 @@ export const register = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
 
 export const login = async (req, res) => {
   try {

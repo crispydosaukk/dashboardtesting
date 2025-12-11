@@ -53,6 +53,10 @@ import {
   removeCustomer,
 } from "../controllers/admin/CustomerController.js";
 
+import {
+  getSettings,
+  saveSettings,
+} from "../controllers/admin/SettingsController.js";
 
 
 
@@ -104,6 +108,10 @@ router.get("/customers/:id", getCustomerByIdCtrl);
 router.post("/customers", addCustomer);
 router.put("/customers/:id", editCustomer);
 router.delete("/customers/:id", removeCustomer);
+
+/* SETTINGS */
+router.get("/settings", auth, getSettings);
+router.post("/settings", auth, saveSettings);
 
 
 export default router;

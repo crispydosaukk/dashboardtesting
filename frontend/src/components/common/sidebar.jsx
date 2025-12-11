@@ -89,6 +89,7 @@ export default function Sidebar({ open, onClose }) {
     { label: "Dashboard", to: "/dashboard", icon: iconDashboard(), perm: "dashboard" },
     { label: "Restaurant", to: "/restuarent", icon: iconRestaurant(), perm: "restaurant" },
     { label: "Customer Info", to: "/customerinfo", icon: iconCustomer(), perm: "customer_info" }, 
+    { label: "Settings", to: "/settings", icon: iconSettings(), perm: "settings" },
     { label: "Order Management", to: "/orders", icon: iconOrders(), perm: "order_management" },
   ],
   []
@@ -417,3 +418,23 @@ function iconOrders() {
   );
 }
 
+function iconSettings() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+      <path
+        d="M12 4.5l1.2 1.8a1 1 0 0 0 .8.4h2.1a1 1 0 0 1 .98 1.2l-.3 1.4a1 1 0 0 0 .26.9l1.5 1.5a1 1 0 0 1 0 1.4l-1.5 1.5a1 1 0 0 0-.26.9l.3 1.4a1 1 0 0 1-.98 1.2H14a1 1 0 0 0-.8.4L12 19.5a1 1 0 0 1-1.64 0L9.2 17.7a1 1 0 0 0-.8-.4H6.3a1 1 0 0 1-.98-1.2l.3-1.4a1 1 0 0 0-.26-.9L3.9 12a1 1 0 0 1 0-1.4l1.46-1.46a1 1 0 0 0 .26-.9l-.3-1.4A1 1 0 0 1 6.3 6.7h2.1a1 1 0 0 0 .8-.4L10.36 4.5a1 1 0 0 1 1.64 0z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle
+        cx="12"
+        cy="12"
+        r="2.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+    </svg>
+  );
+}

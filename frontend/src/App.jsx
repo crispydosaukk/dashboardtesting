@@ -10,6 +10,7 @@ import Category from "./pages/category/index.jsx";
 import Product from "./pages/product/index.jsx";
 import CustomerInfo from "./pages/customerinfo/index.jsx";
 import Orders from "./pages/orders/index.jsx";
+import Settings from "./pages/settings/index.jsx";
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -115,6 +116,18 @@ export default function App() {
     </PrivateRoute>
   }
 />
+
+<Route
+  path="/settings"
+  element={
+    <PrivateRoute>
+      <RequirePerm perm="settings">
+        <Settings />
+      </RequirePerm>
+    </PrivateRoute>
+  }
+/>
+
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

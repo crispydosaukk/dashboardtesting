@@ -1,15 +1,92 @@
 import bcrypt from "bcryptjs";
 import db from "../../config/db.js";
+import crypto from "crypto";   // 👈 NEW
 
-// Get all customers
+const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+function toBase32(buffer) {
+  let bits = 0;
+  let value = 0;
+  let output = "";
+
+  for (const byte of buffer) {
+    value = (value << 8) | byte;
+    bits += 8;
+
+    while (bits >= 5) {
+      output += BASE32_ALPHABET[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+
+  if (bits > 0) {
+    output += BASE32_ALPHABET[(value << (5 - bits)) & 31];
+  }
+
+  return output;
+}
+
+function generateRawReferralBytes() {
+  const randomPart = crypto.randomBytes(8);
+  const secret = process.env.REFERRAL_SECRET || "referral-dev-secret";
+
+  const hmac = crypto
+    .createHmac("sha256", secret)
+    .update(randomPart)
+    .digest();
+
+  const sig = hmac.subarray(0, 2);
+  return Buffer.concat([randomPart, sig]);
+}
+
+async function generateUniqueReferralCode() {
+  const maxTries = 10;
+
+  for (let i = 0; i < maxTries; i++) {
+    const raw = generateRawReferralBytes();
+    const base32 = toBase32(raw);
+    const compact = base32.slice(0, 12);
+
+    const formatted =
+      compact.slice(0, 4) +
+      "-" +
+      compact.slice(4, 8) +
+      "-" +
+      compact.slice(8, 12);
+
+    const [rows] = await db.execute(
+      "SELECT id FROM customers WHERE referral_code = ?",
+      [formatted]
+    );
+
+    if (rows.length === 0) return formatted;
+  }
+
+  throw new Error("Unable to generate unique referral code");
+}
+
+// Get all customers (WITH wallet balance + referral_code)
 export const getCustomers = async (req, res) => {
   try {
     const [rows] = await db.execute(`
-      SELECT id, full_name, country_code, mobile_number, email, preferred_restaurant,
-             date_of_birth, referral_code, gender, created_at
-      FROM customers
-      ORDER BY id DESC
+      SELECT 
+        c.id,
+        c.full_name,
+        c.country_code,
+        c.mobile_number,
+        c.email,
+        c.preferred_restaurant,
+        c.date_of_birth,
+        c.referral_code,
+        c.gender,
+        c.created_at,
+        IFNULL(w.balance, 0) AS wallet_balance
+      FROM customers c
+      LEFT JOIN customer_wallets w 
+        ON w.customer_id = c.id
+      ORDER BY c.id DESC
     `);
+
     res.json(rows);
   } catch (err) {
     console.error("getCustomers error:", err);
@@ -17,19 +94,36 @@ export const getCustomers = async (req, res) => {
   }
 };
 
-// Get single customer
+// Get single customer (optional but good to keep consistent)
 export const getCustomerByIdCtrl = async (req, res) => {
   try {
     const { id } = req.params;
+
     const [[customer]] = await db.execute(
-      `SELECT id, full_name, country_code, mobile_number, email, preferred_restaurant,
-              date_of_birth, referral_code, gender, created_at
-       FROM customers WHERE id = ?`,
+      `
+      SELECT 
+        c.id,
+        c.full_name,
+        c.country_code,
+        c.mobile_number,
+        c.email,
+        c.preferred_restaurant,
+        c.date_of_birth,
+        c.referral_code,
+        c.gender,
+        c.created_at,
+        IFNULL(w.balance, 0) AS wallet_balance
+      FROM customers c
+      LEFT JOIN customer_wallets w
+        ON w.customer_id = c.id
+      WHERE c.id = ?
+      `,
       [id]
     );
 
-    if (!customer)
+    if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
+    }
 
     res.json(customer);
   } catch (err) {
@@ -38,7 +132,7 @@ export const getCustomerByIdCtrl = async (req, res) => {
   }
 };
 
-// Add a new customer
+
 export const addCustomer = async (req, res) => {
   try {
     const {
@@ -49,12 +143,14 @@ export const addCustomer = async (req, res) => {
       password,
       preferred_restaurant,
       date_of_birth,
-      referral_code,
+      // referral_code, // ignore manual value; we generate our own
       gender,
     } = req.body;
 
     if (!full_name || !country_code || !mobile_number || !email || !password)
-      return res.status(400).json({ message: "All required fields are required" });
+      return res
+        .status(400)
+        .json({ message: "All required fields are required" });
 
     const [[exists]] = await db.query(
       "SELECT id FROM customers WHERE mobile_number = ? OR email = ?",
@@ -62,9 +158,15 @@ export const addCustomer = async (req, res) => {
     );
 
     if (exists)
-      return res.status(409).json({ message: "Mobile number or Email already exists" });
+      return res
+        .status(409)
+        .json({ message: "Mobile number or Email already exists" });
 
     const hash = await bcrypt.hash(password, 10);
+
+    // 🔹 Generate secure referral code
+    const selfReferralCode = await generateUniqueReferralCode();
+
     const [result] = await db.execute(
       `INSERT INTO customers 
        (full_name, country_code, mobile_number, email, password,
@@ -78,7 +180,7 @@ export const addCustomer = async (req, res) => {
         hash,
         preferred_restaurant || null,
         date_of_birth || null,
-        referral_code || null,
+        selfReferralCode,  // ✅ here
         gender || null,
       ]
     );
@@ -91,7 +193,7 @@ export const addCustomer = async (req, res) => {
       email,
       preferred_restaurant,
       date_of_birth,
-      referral_code,
+      referral_code: selfReferralCode, // ✅ return to admin UI if you want
       gender,
     });
   } catch (err) {
@@ -99,6 +201,7 @@ export const addCustomer = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // Update customer info
 export const editCustomer = async (req, res) => {
@@ -109,25 +212,53 @@ export const editCustomer = async (req, res) => {
     const fields = [];
     const params = [];
 
-    if (updates.full_name) { fields.push("full_name = ?"); params.push(updates.full_name); }
-    if (updates.country_code) { fields.push("country_code = ?"); params.push(updates.country_code); }
-    if (updates.mobile_number) { fields.push("mobile_number = ?"); params.push(updates.mobile_number); }
-    if (updates.email) { fields.push("email = ?"); params.push(updates.email); }
+    if (updates.full_name) {
+      fields.push("full_name = ?");
+      params.push(updates.full_name);
+    }
+    if (updates.country_code) {
+      fields.push("country_code = ?");
+      params.push(updates.country_code);
+    }
+    if (updates.mobile_number) {
+      fields.push("mobile_number = ?");
+      params.push(updates.mobile_number);
+    }
+    if (updates.email) {
+      fields.push("email = ?");
+      params.push(updates.email);
+    }
     if (updates.password) {
       const hash = await bcrypt.hash(updates.password, 10);
       fields.push("password = ?");
       params.push(hash);
     }
-    if (updates.preferred_restaurant) { fields.push("preferred_restaurant = ?"); params.push(updates.preferred_restaurant); }
-    if (updates.date_of_birth) { fields.push("date_of_birth = ?"); params.push(updates.date_of_birth); }
-    if (updates.referral_code) { fields.push("referral_code = ?"); params.push(updates.referral_code); }
-    if (updates.gender) { fields.push("gender = ?"); params.push(updates.gender); }
+    if (updates.preferred_restaurant) {
+      fields.push("preferred_restaurant = ?");
+      params.push(updates.preferred_restaurant);
+    }
+    if (updates.date_of_birth) {
+      fields.push("date_of_birth = ?");
+      params.push(updates.date_of_birth);
+    }
+    if (updates.referral_code) {
+      fields.push("referral_code = ?");
+      params.push(updates.referral_code);
+    }
+    if (updates.gender) {
+      fields.push("gender = ?");
+      params.push(updates.gender);
+    }
 
     if (!fields.length)
-      return res.status(400).json({ message: "No fields provided for update" });
+      return res
+        .status(400)
+        .json({ message: "No fields provided for update" });
 
     params.push(id);
-    const sql = `UPDATE customers SET ${fields.join(", ")}, updated_at = NOW() WHERE id = ?`;
+    const sql = `UPDATE customers SET ${fields.join(
+      ", "
+    )}, updated_at = NOW() WHERE id = ?`;
     await db.execute(sql, params);
 
     res.json({ message: "Customer updated successfully" });

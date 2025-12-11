@@ -6,12 +6,14 @@ import { getCategories } from "../controllers/api/categoryController.js";
 import { getProducts } from "../controllers/api/productController.js";
 import { addToCart, getCart, removeFromCart } from "../controllers/api/cartController.js";
 import { createOrder, getAllOrders } from "../controllers/api/OrderController.js";
+import { getWalletSummary } from "../controllers/api/walletController.js";
 
 const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", login);
 router.get("/profile", auth, profile);
+router.get("/wallet/summary", auth, getWalletSummary);
 
 router.get("/restaurants", getRestaurants);
 router.get("/restaurant/:id", getRestaurantById);
