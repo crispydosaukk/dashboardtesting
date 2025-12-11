@@ -1,5 +1,6 @@
 import db from "../../config/db.js";
 
+// ----------------- ORDER NUMBER GENERATOR ----------------- //
 function generateOrderNumber(restaurantName = "") {
   let cleaned = restaurantName
     .toLowerCase()
@@ -17,6 +18,7 @@ function generateOrderNumber(restaurantName = "") {
   return `CD${firstLetter}${DD}${MM}${HH}${mm}`;
 }
 
+// ----------------- CREATE ORDER ----------------- //
 export const createOrder = async (req, res) => {
   try {
     const {
@@ -30,20 +32,22 @@ export const createOrder = async (req, res) => {
       reg_number,
       owner_name,
       mobile_number,
-      items
+      items,
     } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ status: 0, message: "Items are required" });
+      return res
+        .status(400)
+        .json({ status: 0, message: "Items are required" });
     }
 
+    // Fetch restaurant name using user_id from restaurant_details
     const [rData] = await db.query(
       "SELECT restaurant_name FROM restaurant_details WHERE user_id = ? LIMIT 1",
       [user_id]
     );
 
     let restaurantName = rData.length ? rData[0].restaurant_name : "";
-
     const order_number = generateOrderNumber(restaurantName);
 
     for (const item of items) {
@@ -53,7 +57,7 @@ export const createOrder = async (req, res) => {
         price,
         discount_amount,
         vat,
-        quantity
+        quantity,
       } = item;
 
       const totalPrice = Number(price) * Number(quantity);
@@ -87,7 +91,7 @@ export const createOrder = async (req, res) => {
         owner_name || null,
         mobile_number || null,
         instore || 0,
-        allergy_note || null
+        allergy_note || null,
       ];
 
       await db.query(sql, values);
@@ -98,31 +102,40 @@ export const createOrder = async (req, res) => {
     return res.status(200).json({
       status: 1,
       message: "Order Placed Successfully",
-      order_number: order_number
+      order_number: order_number,
     });
-
   } catch (error) {
     console.error("Order creation error:", error);
     return res.status(500).json({
       status: 0,
       message: "Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
 
 export const getAllOrders = async (req, res) => {
   try {
+    /**
+     * Correct flow:
+     * orders.product_id  ➜  products.id
+     * products.user_id   ➜  restaurant_details.user_id
+     *
+     * Is user_id se exact restaurant_name milega.
+     */
+
     const sql = `
       SELECT 
         o.*,
         c.full_name AS customer_name,
-        r.restaurant_name
+        rd.restaurant_name AS restaurant_name
       FROM orders o
       LEFT JOIN customers c
         ON o.customer_id = c.id
-      LEFT JOIN restaurant_details r
-        ON o.user_id = r.user_id
+      LEFT JOIN products p
+        ON o.product_id = p.id
+      LEFT JOIN restaurant_details rd
+        ON p.user_id = rd.user_id
       ORDER BY o.id DESC
     `;
 
@@ -134,7 +147,7 @@ export const getAllOrders = async (req, res) => {
       "customer_id",
       "product_id",
       "razorpay_payment_requestid",
-      "updated_at"
+      "updated_at",
     ];
 
     const cleaned = rows.map((row) => {
@@ -146,7 +159,6 @@ export const getAllOrders = async (req, res) => {
         }
       }
 
-      // Attach names
       newObj.customer_name = row.customer_name || "-";
       newObj.restaurant_name = row.restaurant_name || "-";
 
@@ -156,15 +168,14 @@ export const getAllOrders = async (req, res) => {
     return res.status(200).json({
       status: 1,
       message: "Orders fetched successfully",
-      orders: cleaned
+      orders: cleaned,
     });
-
   } catch (error) {
     console.error("Get orders error:", error);
     return res.status(500).json({
       status: 0,
       message: "Server error",
-      error: error.message
+      error: error.message,
     });
   }
 };

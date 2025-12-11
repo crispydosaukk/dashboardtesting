@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
 import api from "../../api.js";
+
+function safeNumber(value) {
+  const n = parseFloat(value);
+  return isNaN(n) ? 0 : n;
+}
 
 export default function Orders() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -40,9 +45,14 @@ export default function Orders() {
     try {
       const res = await api.get("/mobile/orders");
 
-      if (res.data.status === 1) {
-        setOrders(res.data.orders);
-        setFilteredOrders(res.data.orders);
+      if (res.data.status === 1 && Array.isArray(res.data.orders)) {
+        const mapped = res.data.orders.map((o) => ({
+          ...o,
+          restaurant_name:
+            o.restaurant_name || o.restaurantName || o.restaurant || "-",
+        }));
+        setOrders(mapped);
+        setFilteredOrders(mapped);
       }
     } catch (err) {
       console.error("Order fetch error:", err);
@@ -67,25 +77,33 @@ export default function Orders() {
   };
 
   const statusText = (status) => {
-  switch (status) {
-    case 0: return "Placed";
-    case 1: return "Accepted";
-    case 2: return "Rejected";
-    case 3: return "Ready";
-    case 4: return "Delivered";
-    case 5: return "Cancelled";
-    default: return "Unknown";
-  }
-};
+    switch (status) {
+      case 0:
+        return "Placed";
+      case 1:
+        return "Accepted";
+      case 2:
+        return "Rejected";
+      case 3:
+        return "Ready";
+      case 4:
+        return "Delivered";
+      case 5:
+        return "Cancelled";
+      default:
+        return "Unknown";
+    }
+  };
 
-
-  // Apply Filters
+  // Apply Filters on raw items
   useEffect(() => {
     let data = [...orders];
 
     if (searchOrder.trim() !== "") {
       data = data.filter((o) =>
-        o.order_number.toLowerCase().includes(searchOrder.toLowerCase())
+        (o.order_number || "")
+          .toLowerCase()
+          .includes(searchOrder.toLowerCase())
       );
     }
 
@@ -96,7 +114,7 @@ export default function Orders() {
     }
 
     if (filterStatus !== "all") {
-      data = data.filter((o) => o.order_status.toString() === filterStatus);
+      data = data.filter((o) => o.order_status?.toString() === filterStatus);
     }
 
     if (fromDate) {
@@ -119,11 +137,27 @@ export default function Orders() {
     setCurrentPage(1);
   }, [searchOrder, filterPayment, filterStatus, fromDate, toDate, orders]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredOrders.length / rowsPerPage);
+  // Group by order_number
+  const groupedOrders = useMemo(() => {
+    const map = {};
+    filteredOrders.forEach((o, idx) => {
+      const key = o.order_number || `ORDER_${idx}`;
+      if (!map[key]) {
+        map[key] = {
+          ...o,
+          items: [],
+        };
+      }
+      map[key].items.push(o);
+    });
+    return Object.values(map);
+  }, [filteredOrders]);
+
+  // Pagination on grouped data
+  const totalPages = Math.ceil(groupedOrders.length / rowsPerPage) || 1;
   const indexOfLast = currentPage * rowsPerPage;
   const indexOfFirst = indexOfLast - rowsPerPage;
-  const currentOrders = filteredOrders.slice(indexOfFirst, indexOfLast);
+  const currentOrders = groupedOrders.slice(indexOfFirst, indexOfLast);
 
   return (
     <>
@@ -142,13 +176,13 @@ export default function Orders() {
             placeholder="Search Order No..."
             value={searchOrder}
             onChange={(e) => setSearchOrder(e.target.value)}
-            className="border rounded-lg px-4 py-2 w-full"
+            className="border rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
 
           <select
             value={filterPayment}
             onChange={(e) => setFilterPayment(e.target.value)}
-            className="border rounded-lg px-4 py-2 w-full"
+            className="border rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="all">All Payment Modes</option>
             <option value="cod">COD</option>
@@ -158,7 +192,7 @@ export default function Orders() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="border rounded-lg px-4 py-2 w-full"
+            className="border rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="all">All Status</option>
             <option value="0">Placed</option>
@@ -173,14 +207,14 @@ export default function Orders() {
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
-            className="border rounded-lg px-4 py-2 w-full"
+            className="border rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
 
           <input
             type="date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
-            className="border rounded-lg px-4 py-2 w-full"
+            className="border rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
@@ -189,88 +223,296 @@ export default function Orders() {
           <table className="min-w-full bg-white text-sm">
             <thead className="bg-emerald-600 text-white">
               <tr>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Order Date</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Order No</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Restaurant Name</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Customer Name</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Product Name</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Price (£)</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Discount (£)</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">VAT (£)</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Order Date
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Order No
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Restaurant Name
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Customer Name
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Product(s)
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Price (£)
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Discount (£)
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  VAT (£)
+                </th>
                 <th className="px-4 py-3 text-left whitespace-nowrap">Qty</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Total (£)</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Payment Mode</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Car Name</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Car Color</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Reg Number</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Mobile</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Collection Method</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Allergy Note</th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Grand Total (£)
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Payment Mode
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Car Name
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Car Color
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Reg Number
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Mobile
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Collection Method
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Allergy Note
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Status
+                </th>
               </tr>
             </thead>
 
             <tbody>
-              {currentOrders.map((o, index) => (
-                <tr key={index} className="border-b hover:bg-emerald-50">
-                  <td className="px-4 py-3 whitespace-nowrap">{formatDate(o.created_at)}</td>
-                  <td className="px-4 py-3 whitespace-nowrap font-semibold">{o.order_number}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{o.restaurant_name || "-"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{o.customer_name || "-"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{o.product_name}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">£{o.price}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">£{o.discount_amount}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">£{o.vat}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{o.quantity}</td>
-                  <td className="px-4 py-3 whitespace-nowrap font-semibold">£{o.grand_total}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {o.payment_mode === 0 ? "COD" : "Online"}
-                  </td>
-                  
-                  <td className="px-4 py-3 whitespace-nowrap">{o.owner_name || "-"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{o.car_color || "-"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{o.reg_number || "-"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{o.mobile_number || "-"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {o.instore === 1 ? "Instore" : "Kerbside"}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">{o.allergy_note || "-"}</td>
-                  <td className={`px-4 py-3 whitespace-nowrap ${statusColor(o.order_status)}`}>
-                    {statusText(o.order_status)}
-                  </td>
-                </tr>
-              ))}
+              {currentOrders.map((order, index) => {
+                const items = order.items || [];
+
+                const totalQty = items.reduce(
+                  (sum, item) => sum + safeNumber(item.quantity),
+                  0
+                );
+                const totalPrice = items.reduce(
+                  (sum, item) =>
+                    sum +
+                    safeNumber(item.price) * safeNumber(item.quantity),
+                  0
+                );
+                const totalDiscount = items.reduce(
+                  (sum, item) => sum + safeNumber(item.discount_amount),
+                  0
+                );
+                const totalVat = items.reduce(
+                  (sum, item) => sum + safeNumber(item.vat),
+                  0
+                );
+
+                const lineTotal = totalPrice - totalDiscount + totalVat;
+                const grandTotalRaw = safeNumber(order.grand_total);
+                const grandTotal = grandTotalRaw || lineTotal;
+
+                return (
+                  <tr
+                    key={index}
+                    className="border-b hover:bg-emerald-50 transition"
+                  >
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {formatDate(order.created_at)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap font-semibold">
+                      {order.order_number}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {order.restaurant_name || "-"}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {order.customer_name || "-"}
+                    </td>
+
+                    {/* Product list with price + qty */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex flex-col gap-1">
+                        {items.length === 0 && <span>-</span>}
+                        {items.map((item, idx) => (
+                          <div key={idx} className="leading-tight">
+                            <div className="font-medium">
+                              {item.product_name || "-"}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              £{safeNumber(item.price).toFixed(2)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+
+                    {/* Aggregated amounts */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      £{totalPrice.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      £{totalDiscount.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      £{totalVat.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {totalQty}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap font-semibold text-emerald-700">
+                      £{grandTotal.toFixed(2)}
+                    </td>
+
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {order.payment_mode === 0 ? "COD" : "Online"}
+                    </td>
+
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {order.owner_name || "-"}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {order.car_color || "-"}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {order.reg_number || "-"}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {order.mobile_number || "-"}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {order.instore === 1 ? "Instore" : "Kerbside"}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {order.allergy_note || "-"}
+                    </td>
+                    <td
+                      className={`px-4 py-3 whitespace-nowrap font-semibold ${statusColor(
+                        order.order_status
+                      )}`}
+                    >
+                      {statusText(order.order_status)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        {/* MOBILE VIEW */}
+        {/* MOBILE VIEW (GROUPED) */}
         <div className="lg:hidden space-y-4 mt-4">
-          {currentOrders.map((o, index) => (
-            <div key={index} className="bg-white shadow-md p-4 rounded-xl border">
-              <h3 className="font-bold text-lg text-emerald-700">
-                {o.order_number}
-              </h3>
+          {currentOrders.map((order, index) => {
+            const items = order.items || [];
 
-              <p><strong>Date:</strong> {formatDate(o.created_at)}</p>
-              <p><strong>Restaurant:</strong> {o.restaurant_name || "-"}</p>
-              <p><strong>Customer:</strong> {o.customer_name || "-"}</p>
-              <p><strong>Product:</strong> {o.product_name}</p>
-              <p><strong>Price:</strong> £{o.price}</p>
-              <p><strong>Discount:</strong> £{o.discount_amount}</p>
-              <p><strong>VAT:</strong> £{o.vat}</p>
-              <p><strong>Qty:</strong> {o.quantity}</p>
-              <p><strong>Total:</strong> £{o.grand_total}</p>
-              <p><strong>Payment:</strong> {o.payment_mode === 0 ? "COD" : "Online"}</p>
-              <p><strong>Car Name:</strong> {o.owner_name || "-"}</p>
-              <p><strong>Car Color:</strong> {o.car_color || "-"}</p>
-              <p><strong>Reg No:</strong> {o.reg_number || "-"}</p>
-              <p><strong>Mobile:</strong> {o.mobile_number || "-"}</p>
-              <p><strong>Collection Method:</strong> {o.instore === 1 ? "Instore" : "Kerbside"}</p>
-              <p><strong>Allergy:</strong> {o.allergy_note || "-"}</p>
-              <p><strong>Status:</strong> {statusText(o.order_status)}</p>
-            </div>
-          ))}
+            const totalQty = items.reduce(
+              (sum, item) => sum + safeNumber(item.quantity),
+              0
+            );
+            const totalPrice = items.reduce(
+              (sum, item) =>
+                sum + safeNumber(item.price) * safeNumber(item.quantity),
+              0
+            );
+            const totalDiscount = items.reduce(
+              (sum, item) => sum + safeNumber(item.discount_amount),
+              0
+            );
+            const totalVat = items.reduce(
+              (sum, item) => sum + safeNumber(item.vat),
+              0
+            );
+
+            const lineTotal = totalPrice - totalDiscount + totalVat;
+            const grandTotalRaw = safeNumber(order.grand_total);
+            const grandTotal = grandTotalRaw || lineTotal;
+
+            return (
+              <div
+                key={index}
+                className="bg-white shadow-md p-4 rounded-xl border"
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-bold text-lg text-emerald-700">
+                    {order.order_number}
+                  </h3>
+                  <span className="text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    {statusText(order.order_status)}
+                  </span>
+                </div>
+
+                <p className="text-sm mb-1">
+                  <strong>Date:</strong> {formatDate(order.created_at)}
+                </p>
+                <p className="text-sm mb-1">
+                  <strong>Restaurant:</strong> {order.restaurant_name || "-"}
+                </p>
+                <p className="text-sm mb-1">
+                  <strong>Customer:</strong> {order.customer_name || "-"}
+                </p>
+
+                <div className="mt-2 mb-2">
+                  <p className="font-semibold text-sm mb-1">Products:</p>
+                  <div className="space-y-1">
+                    {items.length === 0 && (
+                      <div className="text-xs text-gray-500">-</div>
+                    )}
+                    {items.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between text-xs bg-emerald-50/60 rounded-md px-2 py-1"
+                      >
+                        <span className="font-medium">
+                          {item.product_name || "-"}
+                        </span>
+                        <span className="text-gray-600">
+                          £{safeNumber(item.price).toFixed(2)} · Qty{" "}
+                          {safeNumber(item.quantity)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                  <p>
+                    <strong>Qty:</strong> {totalQty}
+                  </p>
+                  <p>
+                    <strong>Price:</strong> £{totalPrice.toFixed(2)}
+                  </p>
+                  <p>
+                    <strong>Discount:</strong> £{totalDiscount.toFixed(2)}
+                  </p>
+                  <p>
+                    <strong>VAT:</strong> £{totalVat.toFixed(2)}
+                  </p>
+                  <p className="font-semibold text-emerald-700 col-span-2">
+                    <strong>Grand Total:</strong> £{grandTotal.toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-700">
+                  <p>
+                    <strong>Payment:</strong>{" "}
+                    {order.payment_mode === 0 ? "COD" : "Online"}
+                  </p>
+                  <p>
+                    <strong>Car Name:</strong> {order.owner_name || "-"}
+                  </p>
+                  <p>
+                    <strong>Car Color:</strong> {order.car_color || "-"}
+                  </p>
+                  <p>
+                    <strong>Reg No:</strong> {order.reg_number || "-"}
+                  </p>
+                  <p>
+                    <strong>Mobile:</strong> {order.mobile_number || "-"}
+                  </p>
+                  <p>
+                    <strong>Collection:</strong>{" "}
+                    {order.instore === 1 ? "Instore" : "Kerbside"}
+                  </p>
+                  <p className="col-span-2">
+                    <strong>Allergy:</strong> {order.allergy_note || "-"}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* PAGINATION */}
@@ -280,7 +522,7 @@ export default function Orders() {
             disabled={currentPage === 1}
             className={`px-4 py-2 rounded-lg border ${
               currentPage === 1
-                ? "bg-gray-200 text-gray-400"
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                 : "bg-white hover:bg-gray-100 text-gray-700"
             }`}
           >
@@ -306,7 +548,7 @@ export default function Orders() {
             disabled={currentPage === totalPages}
             className={`px-4 py-2 rounded-lg border ${
               currentPage === totalPages
-                ? "bg-gray-200 text-gray-400"
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                 : "bg-white hover:bg-gray-100 text-gray-700"
             }`}
           >
