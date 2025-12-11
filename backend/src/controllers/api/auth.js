@@ -128,7 +128,9 @@ export const register = async (req, res) => {
       } else if (duplicate.email === email) {
         return res.status(409).json({ message: "Email already registered" });
       } else {
-        return res.status(409).json({ message: "Mobile number already registered" });
+        return res
+          .status(409)
+          .json({ message: "Mobile number already registered" });
       }
     }
 
@@ -159,6 +161,40 @@ export const register = async (req, res) => {
 
     const newCustomerId = result.insertId;
 
+    // ------------------------------------------------------------------
+    // 🟢 SIGNUP BONUS → CREDIT WALLET (first-time user amount)
+    // ------------------------------------------------------------------
+
+    const signupAmount = await getSignupFlatAmount(); // from settings
+
+    if (signupAmount > 0) {
+      // 1) Upsert into customer_wallets (assumes UNIQUE KEY on customer_id)
+      await db.execute(
+        `INSERT INTO customer_wallets (customer_id, balance, created_at, updated_at)
+         VALUES (?, ?, NOW(), NOW())
+         ON DUPLICATE KEY UPDATE 
+           balance = balance + VALUES(balance),
+           updated_at = NOW()`,
+        [newCustomerId, signupAmount]
+      );
+
+      // 2) Fetch latest balance
+      const [[walletRow]] = await db.execute(
+        "SELECT balance FROM customer_wallets WHERE customer_id = ?",
+        [newCustomerId]
+      );
+
+      const currentBalance = Number(walletRow?.balance || 0);
+
+      // 3) Insert wallet_transactions entry
+      await db.execute(
+        `INSERT INTO wallet_transactions
+         (customer_id, transaction_type, amount, balance_after, source, payment_id, order_id, description, created_at)
+         VALUES (?, 'CREDIT', ?, ?, 'SIGNUP_BONUS', NULL, NULL, 'Signup bonus credited', NOW())`,
+        [newCustomerId, signupAmount, currentBalance]
+      );
+    }
+
     // 🔹 Create token
     const token = jwt.sign(
       { id: newCustomerId },
@@ -179,7 +215,7 @@ export const register = async (req, res) => {
         preferred_restaurant: preferred_restaurant || null,
         date_of_birth: date_of_birth || null,
         gender: gender || null,
-        referral_code: selfReferralCode,  // ✅ send to app
+        referral_code: selfReferralCode, // ✅ send to app
       },
     });
   } catch (err) {
@@ -187,8 +223,6 @@ export const register = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-
 
 export const login = async (req, res) => {
   try {
