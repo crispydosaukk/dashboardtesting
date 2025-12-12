@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import crypto from "crypto";          // 👈 NEW
+import crypto from "crypto"; // 👈 NEW
 import db from "../../config/db.js";
 
 // 🔹 Base32 alphabet (RFC 4648 without padding)
@@ -34,10 +34,7 @@ function generateRawReferralBytes() {
   const randomPart = crypto.randomBytes(8); // CSPRNG
   const secret = process.env.REFERRAL_SECRET || "referral-dev-secret";
 
-  const hmac = crypto
-    .createHmac("sha256", secret)
-    .update(randomPart)
-    .digest();
+  const hmac = crypto.createHmac("sha256", secret).update(randomPart).digest();
 
   const sig = hmac.subarray(0, 2); // first 2 bytes as short signature
 
@@ -50,7 +47,7 @@ async function generateUniqueReferralCode() {
 
   for (let i = 0; i < maxTries; i++) {
     const raw = generateRawReferralBytes();
-    const base32 = toBase32(raw);     // usually ~16 chars
+    const base32 = toBase32(raw); // usually ~16 chars
     const compact = base32.slice(0, 12); // take first 12 chars
 
     const formatted =
@@ -73,7 +70,6 @@ async function generateUniqueReferralCode() {
 
   throw new Error("Unable to generate unique referral code after several tries");
 }
-
 
 // 🔸 Get current signup flat amount from `settings` table
 async function getSignupFlatAmount() {
@@ -99,7 +95,7 @@ export const register = async (req, res) => {
       preferred_restaurant,
       date_of_birth,
       gender,
-      // referral_code  // ❌ DO NOT use this as self-code; later we add "referred_by"
+      referral_code, // ✅ NEW: referral code entered at signup
     } = req.body;
 
     // 🔹 Basic field validation
@@ -118,19 +114,14 @@ export const register = async (req, res) => {
 
     if (existingUsers.length > 0) {
       const duplicate = existingUsers[0];
-      if (
-        duplicate.email === email &&
-        duplicate.mobile_number === mobile_number
-      ) {
+      if (duplicate.email === email && duplicate.mobile_number === mobile_number) {
         return res
           .status(409)
           .json({ message: "Email and mobile number already registered" });
       } else if (duplicate.email === email) {
         return res.status(409).json({ message: "Email already registered" });
       } else {
-        return res
-          .status(409)
-          .json({ message: "Mobile number already registered" });
+        return res.status(409).json({ message: "Mobile number already registered" });
       }
     }
 
@@ -140,12 +131,41 @@ export const register = async (req, res) => {
     // 🔹 Generate strong unique referral code like XY4D-P92M-JQ8T
     const selfReferralCode = await generateUniqueReferralCode();
 
+    // ------------------------------------------------------------------
+    // ✅ STEP-1 ADDITION:
+    // If user enters a referral code, find referrer customer_id
+    // and save it in referred_by_customer_id (NO MONEY CREDIT NOW)
+    // ------------------------------------------------------------------
+    let referredByCustomerId = null;
+
+    if (referral_code && String(referral_code).trim() !== "") {
+      const code = String(referral_code).trim();
+
+      const [[referrer]] = await db.execute(
+        "SELECT id FROM customers WHERE referral_code = ? LIMIT 1",
+        [code]
+      );
+
+      if (referrer?.id) {
+        referredByCustomerId = referrer.id;
+
+        // ❌ Prevent self-referral (optional safety)
+        // (At signup, user doesn't exist yet, so no self-check needed here)
+      } else {
+        // If referral code invalid, you can either ignore or block signup.
+        // Here: IGNORE (do not block signup)
+        referredByCustomerId = null;
+      }
+    }
+
     // 🔹 Insert new user with generated referral_code
+    // ✅ also store referred_by_customer_id and referral_bonus_awarded=0
     const [result] = await db.execute(
       `INSERT INTO customers 
        (full_name, country_code, mobile_number, email, preferred_restaurant,
-        date_of_birth, referral_code, gender, password, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        date_of_birth, referral_code, referred_by_customer_id, referral_bonus_awarded,
+        gender, password, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NOW(), NOW())`,
       [
         full_name,
         country_code,
@@ -153,7 +173,8 @@ export const register = async (req, res) => {
         email,
         preferred_restaurant || null,
         date_of_birth || null,
-        selfReferralCode, // ✅ our secure code
+        selfReferralCode, // ✅ our secure code (this user's own code)
+        referredByCustomerId, // ✅ NEW: who referred this user
         gender || null,
         hash,
       ]
@@ -164,7 +185,6 @@ export const register = async (req, res) => {
     // ------------------------------------------------------------------
     // 🟢 SIGNUP BONUS → CREDIT WALLET (first-time user amount)
     // ------------------------------------------------------------------
-
     const signupAmount = await getSignupFlatAmount(); // from settings
 
     if (signupAmount > 0) {
@@ -229,7 +249,9 @@ export const login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Email / Mobile and password required" });
+      return res
+        .status(400)
+        .json({ message: "Email / Mobile and password required" });
     }
 
     // 🔥 Detect whether user entered email or mobile number
@@ -277,13 +299,11 @@ export const login = async (req, res) => {
         gender: user.gender,
       },
     });
-
   } catch (err) {
     console.error("login error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 // 🟢 Get user profile (JWT protected)
 export const profile = async (req, res) => {

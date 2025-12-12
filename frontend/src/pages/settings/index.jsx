@@ -11,6 +11,13 @@ export default function Settings() {
     signup_flat_amount: "",
     referral_flat_amount: "",
     minimum_order: "",
+
+    // ✅ Loyalty dynamic settings
+    loyalty_points_per_gbp: "",
+    loyalty_redeem_points: "",
+    loyalty_redeem_value: "",
+    loyalty_available_after_hours: "",
+    loyalty_expiry_days: "",
   });
 
   const [saving, setSaving] = useState(false);
@@ -30,12 +37,20 @@ export default function Settings() {
     try {
       setLoading(true);
       const res = await api.get("/settings");
+
       if (res.data?.status === 1 && res.data.data) {
         const s = res.data.data;
+
         setForm({
           signup_flat_amount: s.signup_flat_amount ?? "",
           referral_flat_amount: s.referral_flat_amount ?? "",
           minimum_order: s.minimum_order ?? "",
+
+          loyalty_points_per_gbp: s.loyalty_points_per_gbp ?? "",
+          loyalty_redeem_points: s.loyalty_redeem_points ?? "",
+          loyalty_redeem_value: s.loyalty_redeem_value ?? "",
+          loyalty_available_after_hours: s.loyalty_available_after_hours ?? "",
+          loyalty_expiry_days: s.loyalty_expiry_days ?? "",
         });
       }
     } catch (err) {
@@ -50,14 +65,24 @@ export default function Settings() {
     e.preventDefault();
     try {
       setSaving(true);
+
       const res = await api.post("/settings", form);
+
       if (res.data?.status === 1) {
         const s = res.data.data;
+
         setForm({
           signup_flat_amount: s.signup_flat_amount ?? "",
           referral_flat_amount: s.referral_flat_amount ?? "",
           minimum_order: s.minimum_order ?? "",
+
+          loyalty_points_per_gbp: s.loyalty_points_per_gbp ?? "",
+          loyalty_redeem_points: s.loyalty_redeem_points ?? "",
+          loyalty_redeem_value: s.loyalty_redeem_value ?? "",
+          loyalty_available_after_hours: s.loyalty_available_after_hours ?? "",
+          loyalty_expiry_days: s.loyalty_expiry_days ?? "",
         });
+
         alert("Settings saved successfully");
       } else {
         alert(res.data?.message || "Failed to save settings");
@@ -84,7 +109,8 @@ export default function Settings() {
               Settings
             </span>
             <span className="block text-sm md:text-base text-slate-600 mt-1">
-              Configure base amounts used for wallet & referral logic (GBP £).
+              Configure base amounts used for wallet, referral & loyalty logic
+              (GBP £).
             </span>
           </h2>
 
@@ -97,11 +123,12 @@ export default function Settings() {
                 {/* SECTION HEADING */}
                 <div>
                   <h3 className="text-lg md:text-xl font-semibold text-emerald-700">
-                    Wallet & Referral Settings
+                    Wallet, Referral & Loyalty Settings
                   </h3>
                   <p className="text-sm text-slate-600 mt-1">
                     All amounts are in GBP (£). These values will be used for
-                    signup credits, referral rewards and minimum order validation.
+                    signup credits, referral rewards, minimum order validation,
+                    and loyalty points rules.
                   </p>
                 </div>
 
@@ -142,8 +169,8 @@ export default function Settings() {
                       className="w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      Amount (in £) credited when a referral successfully completes
-                      an order.
+                      Amount (in £) credited when a referral successfully
+                      completes an order.
                     </p>
                   </div>
 
@@ -164,6 +191,101 @@ export default function Settings() {
                     <p className="text-xs text-slate-500 mt-1">
                       Orders below this amount (in £) will not be eligible for
                       certain offers / wallet usage.
+                    </p>
+                  </div>
+
+                  {/* ✅ Loyalty Points Per GBP */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-800 mb-1">
+                      Loyalty Points Per £ (Earn Rate)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="loyalty_points_per_gbp"
+                      value={form.loyalty_points_per_gbp}
+                      onChange={handleChange}
+                      placeholder="e.g. 1"
+                      className="w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Example: 1 means £11.50 → 11 points (floor).
+                    </p>
+                  </div>
+
+                  {/* ✅ Loyalty Redeem Points */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-800 mb-1">
+                      Loyalty Redeem Points
+                    </label>
+                    <input
+                      type="number"
+                      step="1"
+                      name="loyalty_redeem_points"
+                      value={form.loyalty_redeem_points}
+                      onChange={handleChange}
+                      placeholder="e.g. 10"
+                      className="w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Points required to redeem once.
+                    </p>
+                  </div>
+
+                  {/* ✅ Loyalty Redeem Value */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-800 mb-1">
+                      Loyalty Redeem Value (£)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="loyalty_redeem_value"
+                      value={form.loyalty_redeem_value}
+                      onChange={handleChange}
+                      placeholder="e.g. 1.00"
+                      className="w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Wallet amount credited when redeem points reached.
+                    </p>
+                  </div>
+
+                  {/* ✅ Loyalty Available After (Hours) */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-800 mb-1">
+                      Loyalty Available After (Hours)
+                    </label>
+                    <input
+                      type="number"
+                      step="1"
+                      name="loyalty_available_after_hours"
+                      value={form.loyalty_available_after_hours}
+                      onChange={handleChange}
+                      placeholder="e.g. 24"
+                      className="w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Points can be redeemed only after this time.
+                    </p>
+                  </div>
+
+                  {/* ✅ Loyalty Expiry Days */}
+                  <div className="md:col-span-2 md:max-w-sm">
+                    <label className="block text-sm font-medium text-slate-800 mb-1">
+                      Loyalty Expiry (Days)
+                    </label>
+                    <input
+                      type="number"
+                      step="1"
+                      name="loyalty_expiry_days"
+                      value={form.loyalty_expiry_days}
+                      onChange={handleChange}
+                      placeholder="e.g. 30"
+                      className="w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Points expire after these days.
                     </p>
                   </div>
                 </div>
@@ -188,6 +310,14 @@ export default function Settings() {
                     <li>
                       Minimum order will be validated during checkout and wallet
                       usage.
+                    </li>
+                    <li>
+                      Loyalty points will be earned based on “paid total” and
+                      will be redeemable after the configured hours.
+                    </li>
+                    <li>
+                      Redeem rule: redeem_points → redeem_value (credited to
+                      wallet).
                     </li>
                   </ul>
                 </div>

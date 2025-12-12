@@ -65,7 +65,7 @@ async function generateUniqueReferralCode() {
   throw new Error("Unable to generate unique referral code");
 }
 
-// Get all customers (WITH wallet balance + referral_code)
+// Get all customers (WITH wallet + referral + loyalty)
 export const getCustomers = async (req, res) => {
   try {
     const [rows] = await db.execute(`
@@ -80,10 +80,45 @@ export const getCustomers = async (req, res) => {
         c.referral_code,
         c.gender,
         c.created_at,
-        IFNULL(w.balance, 0) AS wallet_balance
+        IFNULL(w.balance, 0) AS wallet_balance,
+
+        -- ✅ Loyalty points available NOW (redeemable points)
+        IFNULL(lp.available_points, 0) AS loyalty_points,
+
+        -- ✅ Total points earned lifetime (optional)
+        IFNULL(lp.total_earned, 0) AS loyalty_total_earned,
+
+        -- ✅ Redeem rules (latest settings)
+        IFNULL(s.loyalty_redeem_points, 10) AS loyalty_redeem_points,
+        IFNULL(s.loyalty_redeem_value, 1) AS loyalty_redeem_value
+
       FROM customers c
+
       LEFT JOIN customer_wallets w 
         ON w.customer_id = c.id
+
+      LEFT JOIN (
+        SELECT 
+          customer_id,
+          SUM(CASE 
+              WHEN available_from <= NOW() 
+               AND expires_at >= NOW()
+               AND points_remaining > 0
+              THEN points_remaining ELSE 0 END
+          ) AS available_points,
+          SUM(points_earned) AS total_earned
+        FROM loyalty_earnings
+        GROUP BY customer_id
+      ) lp
+        ON lp.customer_id = c.id
+
+      LEFT JOIN (
+        SELECT loyalty_redeem_points, loyalty_redeem_value
+        FROM settings
+        ORDER BY id DESC
+        LIMIT 1
+      ) s ON 1=1
+
       ORDER BY c.id DESC
     `);
 
@@ -93,6 +128,7 @@ export const getCustomers = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // Get single customer (optional but good to keep consistent)
 export const getCustomerByIdCtrl = async (req, res) => {

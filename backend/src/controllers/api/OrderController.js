@@ -14,6 +14,35 @@ function generateOrderNumber(restaurantName = "") {
   return `CD${firstLetter}${DD}${MM}${HH}${mm}`;
 }
 
+// 🔹 Get referral flat amount from settings (DYNAMIC)
+async function getReferralFlatAmount(conn) {
+  const [[row]] = await conn.query(
+    "SELECT referral_flat_amount FROM settings ORDER BY id DESC LIMIT 1"
+  );
+  return Number(row?.referral_flat_amount || 0);
+}
+
+// 🔹 Get loyalty settings (DYNAMIC)
+async function getLoyaltySettings(conn) {
+  const [[row]] = await conn.query(
+    `SELECT 
+       minimum_order,
+       loyalty_points_per_gbp,
+       loyalty_available_after_hours,
+       loyalty_expiry_days
+     FROM settings
+     ORDER BY id DESC
+     LIMIT 1`
+  );
+
+  return {
+    minimum_order: Number(row?.minimum_order || 0),
+    loyalty_points_per_gbp: Number(row?.loyalty_points_per_gbp || 1),
+    loyalty_available_after_hours: Number(row?.loyalty_available_after_hours || 24),
+    loyalty_expiry_days: Number(row?.loyalty_expiry_days || 30),
+  };
+}
+
 // ----------------- CREATE ORDER (WITH WALLET) ----------------- //
 export const createOrder = async (req, res) => {
   const conn = await db.getConnection();
@@ -124,6 +153,9 @@ export const createOrder = async (req, res) => {
     // store wallet_amount only in first inserted row (others 0)
     let firstRow = true;
 
+    // ✅ to store first inserted order row id (for loyalty reference)
+    let orderIdForLoyalty = null;
+
     for (const item of items) {
       const {
         product_id,
@@ -147,8 +179,6 @@ export const createOrder = async (req, res) => {
       // ✅ PAID amount (after wallet) should be stored in grand_total
       const paid = firstRow ? Math.max(0, gross - walletDeducted) : gross;
 
-      firstRow = false;
-
       const sql = `
         INSERT INTO orders 
         (user_id, order_number, customer_id, product_id, payment_mode, razorpay_payment_requestid, 
@@ -169,10 +199,10 @@ export const createOrder = async (req, res) => {
         price,
         totalDiscount,
         totalVat,
-        gross,                 // ✅ gross_total
-        walletAmountForThisRow, // ✅ wallet_amount (only first row)
+        gross,                   // ✅ gross_total
+        walletAmountForThisRow,   // ✅ wallet_amount (only first row)
         quantity,
-        paid,                  // ✅ grand_total (PAID amount)
+        paid,                    // ✅ grand_total (PAID amount)
         car_color || null,
         reg_number || null,
         owner_name || null,
@@ -181,7 +211,104 @@ export const createOrder = async (req, res) => {
         allergy_note || null,
       ];
 
-      await conn.query(sql, values);
+      const [orderInsertRes] = await conn.query(sql, values);
+
+      // ✅ capture first order row id ONCE
+      if (firstRow && orderInsertRes?.insertId) {
+        orderIdForLoyalty = orderInsertRes.insertId;
+      }
+
+      // ✅ set firstRow false only AFTER first insert completes
+      firstRow = false;
+    }
+
+    // -------------------------------------------------
+    // 🟢 LOYALTY EARNINGS (DYNAMIC)  ✅ RUN ONCE PER ORDER
+    // -------------------------------------------------
+    const loyaltyCfg = await getLoyaltySettings(conn);
+
+    // total paid after wallet usage (whole order)
+    const paidTotal = Math.max(0, Number(orderGrossTotal) - Number(walletDeducted));
+
+    // Earn points only if paidTotal >= minimum_order
+    if (paidTotal >= loyaltyCfg.minimum_order) {
+      const pointsEarned = Math.floor(paidTotal * loyaltyCfg.loyalty_points_per_gbp);
+
+      if (pointsEarned > 0 && orderIdForLoyalty) {
+        await conn.query(
+          `INSERT INTO loyalty_earnings
+           (customer_id, order_id, points_earned, points_remaining, available_from, expires_at, created_at)
+           VALUES (?, ?, ?, ?,
+             DATE_ADD(NOW(), INTERVAL ? HOUR),
+             DATE_ADD(NOW(), INTERVAL ? DAY),
+             NOW()
+           )`,
+          [
+            customer_id,
+            orderIdForLoyalty,
+            pointsEarned,
+            pointsEarned,
+            loyaltyCfg.loyalty_available_after_hours,
+            loyaltyCfg.loyalty_expiry_days,
+          ]
+        );
+      }
+    }
+
+    // -------------------------------------------------
+    // 🟢 REFERRAL REWARD (AFTER FIRST ORDER ONLY)
+    // -------------------------------------------------
+    const [[customerRow]] = await conn.query(
+      `SELECT referred_by_customer_id, referral_bonus_awarded
+       FROM customers WHERE id = ? FOR UPDATE`,
+      [customer_id]
+    );
+
+    if (
+      customerRow?.referred_by_customer_id &&
+      customerRow.referral_bonus_awarded === 0
+    ) {
+      const referrerId = customerRow.referred_by_customer_id;
+      const referralAmount = await getReferralFlatAmount(conn);
+
+      if (referralAmount > 0) {
+        // 1️⃣ Update referrer wallet
+        await conn.query(
+          `INSERT INTO customer_wallets (customer_id, balance, created_at, updated_at)
+           VALUES (?, ?, NOW(), NOW())
+           ON DUPLICATE KEY UPDATE
+           balance = balance + VALUES(balance),
+           updated_at = NOW()`,
+          [referrerId, referralAmount]
+        );
+
+        // 2️⃣ Get new balance
+        const [[walletRow]] = await conn.query(
+          "SELECT balance FROM customer_wallets WHERE customer_id = ?",
+          [referrerId]
+        );
+
+        const newBalance = Number(walletRow?.balance || 0);
+
+        // 3️⃣ Wallet transaction entry
+        await conn.query(
+          `INSERT INTO wallet_transactions
+           (customer_id, transaction_type, amount, balance_after, source, order_id, description, created_at)
+           VALUES (?, 'CREDIT', ?, ?, 'REFERRAL_BONUS', NULL, ?, NOW())`,
+          [
+            referrerId,
+            referralAmount,
+            newBalance,
+            `Referral bonus for order ${order_number}`,
+          ]
+        );
+
+        // 4️⃣ Mark referral as awarded
+        await conn.query(
+          "UPDATE customers SET referral_bonus_awarded = 1 WHERE id = ?",
+          [customer_id]
+        );
+      }
     }
 
     // clear cart

@@ -98,6 +98,13 @@ export default function CustomerInfo() {
                       Wallet Balance (£)
                     </th>
                     <th className="px-6 py-3 text-left text-sm font-semibold tracking-wide">
+                      Loyalty Points
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold tracking-wide">
+                      Redeemable (£)
+                    </th>
+
+                    <th className="px-6 py-3 text-left text-sm font-semibold tracking-wide">
                       Gender
                     </th>
                     <th className="px-6 py-3 text-left text-sm font-semibold tracking-wide">
@@ -160,6 +167,22 @@ export default function CustomerInfo() {
                         {/* Wallet Balance */}
                         <td className="px-6 py-3 text-sm text-gray-700">
                           {formatWallet(c.wallet_balance)}
+                        </td>
+                        {/* Loyalty Points */}
+                        <td className="px-6 py-3 text-sm text-gray-700">
+                          {Number(c.loyalty_points || 0)}
+                        </td>
+                                                
+                        {/* Redeemable value */}
+                        <td className="px-6 py-3 text-sm text-gray-700">
+                          {(() => {
+                            const pts = Number(c.loyalty_points || 0);
+                            const redeemPts = Number(c.loyalty_redeem_points || 10);
+                            const redeemVal = Number(c.loyalty_redeem_value || 1);
+                            const units = Math.floor(pts / redeemPts);
+                            const val = (units * redeemVal).toFixed(2);
+                            return `£${val}`;
+                          })()}
                         </td>
 
                         <td className="px-6 py-3 text-sm text-gray-700">

@@ -7,6 +7,7 @@ import { getProducts } from "../controllers/api/productController.js";
 import { addToCart, getCart, removeFromCart } from "../controllers/api/cartController.js";
 import { createOrder, getAllOrders } from "../controllers/api/OrderController.js";
 import { getWalletSummary } from "../controllers/api/walletController.js";
+import { redeemLoyaltyToWallet } from "../controllers/api/loyaltyController.js";
 
 const router = express.Router();
 
@@ -28,5 +29,8 @@ router.post("/cart/remove", removeFromCart);
 
 router.post("/create-order", createOrder);
 router.get("/orders", getAllOrders);
+
+
+router.post("/loyalty/redeem", auth, redeemLoyaltyToWallet);
 
 export default router;
