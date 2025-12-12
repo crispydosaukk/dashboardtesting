@@ -62,3 +62,19 @@ export const getWalletSummary = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+export const getWalletBalance = async (req, res) => {
+  try {
+    const customerId = req.user.id;
+
+    const [[row]] = await db.execute(
+      "SELECT balance FROM customer_wallets WHERE customer_id = ?",
+      [customerId]
+    );
+
+    return res.json({ status: 1, balance: Number(row?.balance || 0) });
+  } catch (e) {
+    console.error("getWalletBalance error:", e);
+    return res.status(500).json({ status: 0, message: "Server error" });
+  }
+};

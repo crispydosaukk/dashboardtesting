@@ -248,9 +248,18 @@ export default function Orders() {
                   VAT (£)
                 </th>
                 <th className="px-4 py-3 text-left whitespace-nowrap">Qty</th>
+
+                {/* ✅ NEW SEQUENCE: Gross -> Wallet Used -> Grand (Paid) */}
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Gross Total (£)
+                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Wallet Used (£)
+                </th>
                 <th className="px-4 py-3 text-left whitespace-nowrap">
                   Grand Total (£)
                 </th>
+
                 <th className="px-4 py-3 text-left whitespace-nowrap">
                   Payment Mode
                 </th>
@@ -272,9 +281,7 @@ export default function Orders() {
                 <th className="px-4 py-3 text-left whitespace-nowrap">
                   Allergy Note
                 </th>
-                <th className="px-4 py-3 text-left whitespace-nowrap">
-                  Status
-                </th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Status</th>
               </tr>
             </thead>
 
@@ -288,8 +295,7 @@ export default function Orders() {
                 );
                 const totalPrice = items.reduce(
                   (sum, item) =>
-                    sum +
-                    safeNumber(item.price) * safeNumber(item.quantity),
+                    sum + safeNumber(item.price) * safeNumber(item.quantity),
                   0
                 );
                 const totalDiscount = items.reduce(
@@ -301,9 +307,26 @@ export default function Orders() {
                   0
                 );
 
+                // line total based on price/discount/vat aggregation
                 const lineTotal = totalPrice - totalDiscount + totalVat;
-                const grandTotalRaw = safeNumber(order.grand_total);
-                const grandTotal = grandTotalRaw || lineTotal;
+
+                // ✅ Gross total (before wallet) from backend if present
+                const grossTotal =
+                  items.reduce((sum, item) => {
+                    const g = safeNumber(item.gross_total);
+                    return sum + (g > 0 ? g : 0);
+                  }, 0) || lineTotal;
+
+                // ✅ Wallet used (usually stored on first row, but sum is safe)
+                const walletUsed = items.reduce((sum, item) => {
+                  return sum + safeNumber(item.wallet_amount);
+                }, 0);
+
+                // ✅ Paid amount after wallet => sum of grand_total
+                const paidTotal =
+                  items.reduce((sum, item) => {
+                    return sum + safeNumber(item.grand_total);
+                  }, 0) || Math.max(0, lineTotal - walletUsed);
 
                 return (
                   <tr
@@ -350,11 +373,19 @@ export default function Orders() {
                     <td className="px-4 py-3 whitespace-nowrap">
                       £{totalVat.toFixed(2)}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {totalQty}
+                    <td className="px-4 py-3 whitespace-nowrap">{totalQty}</td>
+
+                    {/* ✅ NEW columns (sequence) */}
+                    <td className="px-4 py-3 whitespace-nowrap font-semibold">
+                      £{grossTotal.toFixed(2)}
                     </td>
+
+                    <td className="px-4 py-3 whitespace-nowrap font-semibold text-red-700">
+                      -£{walletUsed.toFixed(2)}
+                    </td>
+
                     <td className="px-4 py-3 whitespace-nowrap font-semibold text-emerald-700">
-                      £{grandTotal.toFixed(2)}
+                      £{paidTotal.toFixed(2)}
                     </td>
 
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -417,8 +448,21 @@ export default function Orders() {
             );
 
             const lineTotal = totalPrice - totalDiscount + totalVat;
-            const grandTotalRaw = safeNumber(order.grand_total);
-            const grandTotal = grandTotalRaw || lineTotal;
+
+            const grossTotal =
+              items.reduce((sum, item) => {
+                const g = safeNumber(item.gross_total);
+                return sum + (g > 0 ? g : 0);
+              }, 0) || lineTotal;
+
+            const walletUsed = items.reduce((sum, item) => {
+              return sum + safeNumber(item.wallet_amount);
+            }, 0);
+
+            const paidTotal =
+              items.reduce((sum, item) => {
+                return sum + safeNumber(item.grand_total);
+              }, 0) || Math.max(0, lineTotal - walletUsed);
 
             return (
               <div
@@ -480,8 +524,18 @@ export default function Orders() {
                   <p>
                     <strong>VAT:</strong> £{totalVat.toFixed(2)}
                   </p>
+
+                  {/* ✅ NEW breakdown */}
+                  <p className="col-span-2">
+                    <strong>Gross Total:</strong> £{grossTotal.toFixed(2)}
+                  </p>
+
+                  <p className="col-span-2 text-red-700 font-semibold">
+                    <strong>Wallet Used:</strong> -£{walletUsed.toFixed(2)}
+                  </p>
+
                   <p className="font-semibold text-emerald-700 col-span-2">
-                    <strong>Grand Total:</strong> £{grandTotal.toFixed(2)}
+                    <strong>Grand Total (Paid):</strong> £{paidTotal.toFixed(2)}
                   </p>
                 </div>
 

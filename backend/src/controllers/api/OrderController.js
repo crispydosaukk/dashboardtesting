@@ -2,11 +2,7 @@ import db from "../../config/db.js";
 
 // ----------------- ORDER NUMBER GENERATOR ----------------- //
 function generateOrderNumber(restaurantName = "") {
-  let cleaned = restaurantName
-    .toLowerCase()
-    .replace("crispy dosa", "")
-    .trim();
-
+  let cleaned = restaurantName.toLowerCase().replace("crispy dosa", "").trim();
   let firstLetter = cleaned[0] ? cleaned[0].toUpperCase() : "X";
 
   const now = new Date();
@@ -18,8 +14,9 @@ function generateOrderNumber(restaurantName = "") {
   return `CD${firstLetter}${DD}${MM}${HH}${mm}`;
 }
 
-// ----------------- CREATE ORDER ----------------- //
+// ----------------- CREATE ORDER (WITH WALLET) ----------------- //
 export const createOrder = async (req, res) => {
+  const conn = await db.getConnection();
   try {
     const {
       user_id,
@@ -33,22 +30,99 @@ export const createOrder = async (req, res) => {
       owner_name,
       mobile_number,
       items,
+      wallet_used, // ✅ from app
     } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return res
-        .status(400)
-        .json({ status: 0, message: "Items are required" });
+      return res.status(400).json({ status: 0, message: "Items are required" });
     }
 
-    // Fetch restaurant name using user_id from restaurant_details
-    const [rData] = await db.query(
+    // ✅ compute order gross total (for wallet validation)
+    const orderGrossTotal = items.reduce((sum, item) => {
+      const price = Number(item.price || 0);
+      const qty = Number(item.quantity || 0);
+      const discount = Number(item.discount_amount || 0);
+      const vat = Number(item.vat || 0);
+
+      const totalPrice = price * qty;
+      const gross = totalPrice - discount + vat; // gross per item
+      return sum + gross;
+    }, 0);
+
+    const requestedWallet = Number(wallet_used || 0);
+    if (requestedWallet < 0) {
+      return res
+        .status(400)
+        .json({ status: 0, message: "Invalid wallet amount" });
+    }
+
+    // ✅ transaction start
+    await conn.beginTransaction();
+
+    // Fetch restaurant name
+    const [rData] = await conn.query(
       "SELECT restaurant_name FROM restaurant_details WHERE user_id = ? LIMIT 1",
       [user_id]
     );
 
     let restaurantName = rData.length ? rData[0].restaurant_name : "";
     const order_number = generateOrderNumber(restaurantName);
+
+    // ✅ Wallet deduction if used
+    let walletDeducted = 0;
+
+    if (requestedWallet > 0) {
+      // lock wallet row
+      const [[walletRow]] = await conn.query(
+        "SELECT balance FROM customer_wallets WHERE customer_id = ? FOR UPDATE",
+        [customer_id]
+      );
+
+      const currentBalance = Number(walletRow?.balance || 0);
+
+      if (currentBalance <= 0) {
+        await conn.rollback();
+        return res
+          .status(400)
+          .json({ status: 0, message: "Wallet balance is 0" });
+      }
+
+      const maxUsable = Math.min(currentBalance, orderGrossTotal);
+
+      if (requestedWallet > maxUsable) {
+        await conn.rollback();
+        return res.status(400).json({
+          status: 0,
+          message: `You can use max £${maxUsable.toFixed(2)} from wallet`,
+        });
+      }
+
+      walletDeducted = requestedWallet;
+      const newBalance = currentBalance - walletDeducted;
+
+      // update wallet
+      await conn.query(
+        "UPDATE customer_wallets SET balance = ? WHERE customer_id = ?",
+        [newBalance, customer_id]
+      );
+
+      // wallet transaction entry
+      await conn.query(
+        `INSERT INTO wallet_transactions
+          (customer_id, transaction_type, amount, balance_after, source, payment_id, order_id, description)
+         VALUES (?, 'DEBIT', ?, ?, 'ORDER', NULL, NULL, ?)`,
+        [
+          customer_id,
+          walletDeducted,
+          newBalance,
+          `Wallet used for order ${order_number}`,
+        ]
+      );
+    }
+
+    // ✅ Insert order rows
+    // store wallet_amount only in first inserted row (others 0)
+    let firstRow = true;
 
     for (const item of items) {
       const {
@@ -63,16 +137,27 @@ export const createOrder = async (req, res) => {
       const totalPrice = Number(price) * Number(quantity);
       const totalDiscount = Number(discount_amount || 0);
       const totalVat = Number(vat || 0);
-      const grand_total = totalPrice - totalDiscount + totalVat;
+
+      // ✅ before wallet
+      const gross = totalPrice - totalDiscount + totalVat;
+
+      // ✅ apply wallet only once (first row)
+      const walletAmountForThisRow = firstRow ? walletDeducted : 0;
+
+      // ✅ PAID amount (after wallet) should be stored in grand_total
+      const paid = firstRow ? Math.max(0, gross - walletDeducted) : gross;
+
+      firstRow = false;
 
       const sql = `
         INSERT INTO orders 
         (user_id, order_number, customer_id, product_id, payment_mode, razorpay_payment_requestid, 
-         product_name, price, discount_amount, vat, quantity, grand_total, order_status,
+         product_name, price, discount_amount, vat, gross_total, wallet_amount, quantity, grand_total, order_status,
          delivery_estimate_time, car_color, reg_number, owner_name, mobile_number, instore, allergy_note)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, ?, ?)
       `;
 
+      // ✅ IMPORTANT: values order must match columns order exactly
       const values = [
         user_id,
         order_number,
@@ -82,10 +167,12 @@ export const createOrder = async (req, res) => {
         razorpay_payment_requestid || null,
         product_name,
         price,
-        discount_amount || 0,
-        vat || 0,
+        totalDiscount,
+        totalVat,
+        gross,                 // ✅ gross_total
+        walletAmountForThisRow, // ✅ wallet_amount (only first row)
         quantity,
-        grand_total,
+        paid,                  // ✅ grand_total (PAID amount)
         car_color || null,
         reg_number || null,
         owner_name || null,
@@ -94,36 +181,38 @@ export const createOrder = async (req, res) => {
         allergy_note || null,
       ];
 
-      await db.query(sql, values);
+      await conn.query(sql, values);
     }
 
-    await db.query("DELETE FROM cart WHERE customer_id = ?", [customer_id]);
+    // clear cart
+    await conn.query("DELETE FROM cart WHERE customer_id = ?", [customer_id]);
+
+    await conn.commit();
 
     return res.status(200).json({
       status: 1,
       message: "Order Placed Successfully",
-      order_number: order_number,
+      order_number,
+      wallet_used: walletDeducted,
     });
   } catch (error) {
+    try {
+      await conn.rollback();
+    } catch {}
     console.error("Order creation error:", error);
     return res.status(500).json({
       status: 0,
       message: "Server Error",
       error: error.message,
     });
+  } finally {
+    conn.release();
   }
 };
 
+// ----------------- GET ALL ORDERS (UNCHANGED) ----------------- //
 export const getAllOrders = async (req, res) => {
   try {
-    /**
-     * Correct flow:
-     * orders.product_id  ➜  products.id
-     * products.user_id   ➜  restaurant_details.user_id
-     *
-     * Is user_id se exact restaurant_name milega.
-     */
-
     const sql = `
       SELECT 
         o.*,
