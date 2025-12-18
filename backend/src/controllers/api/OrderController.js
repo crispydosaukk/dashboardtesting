@@ -2,8 +2,22 @@ import db from "../../config/db.js";
 
 // ----------------- ORDER NUMBER GENERATOR ----------------- //
 function generateOrderNumber(restaurantName = "") {
-  let cleaned = restaurantName.toLowerCase().replace("crispy dosa", "").trim();
-  let firstLetter = cleaned[0] ? cleaned[0].toUpperCase() : "X";
+  const nameStr = String(restaurantName || "");
+
+  // Normalize name and remove the words 'crispy' and 'dosa' robustly (handles extra spaces/punctuation)
+  let cleaned = nameStr
+    .toLowerCase()
+    // remove joined/adjacent forms (crispydosa) and individual words
+    .replace(/crispy\s*dosa/gi, "")
+    .replace(/crispy|dosa/gi, "")
+    .replace(/[^a-z0-9\s]/gi, " ") // replace non-alphanum with space
+    .replace(/\s+/g, " ") // collapse multiple spaces
+    .trim();
+
+  // Fallback to original name's first non-space character if cleaned becomes empty
+  const firstLetter = cleaned[0]
+    ? cleaned[0].toUpperCase()
+    : (nameStr.trim()[0] ? nameStr.trim()[0].toUpperCase() : "X");
 
   const now = new Date();
   const DD = String(now.getDate()).padStart(2, "0");
@@ -106,12 +120,34 @@ export const createOrder = async (req, res) => {
     await conn.beginTransaction();
 
     // Fetch restaurant name
-    const [rData] = await conn.query(
-      "SELECT restaurant_name FROM restaurant_details WHERE user_id = ? LIMIT 1",
-      [user_id]
-    );
+    // Prefer the restaurant linked to the first product (products.user_id) to avoid mismatch
+    // between the passed in user_id and product ownership.
+    let restaurantName = "";
 
-    let restaurantName = rData.length ? rData[0].restaurant_name : "";
+    if (Array.isArray(items) && items.length > 0 && items[0].product_id) {
+      const firstProductId = items[0].product_id;
+      const [prdRows] = await conn.query(
+        `SELECT rd.restaurant_name
+         FROM products p
+         JOIN restaurant_details rd ON p.user_id = rd.user_id
+         WHERE p.id = ?
+         LIMIT 1`,
+        [firstProductId]
+      );
+      if (prdRows.length) {
+        restaurantName = prdRows[0].restaurant_name || "";
+      }
+    }
+
+    // Fallback to user_id based lookup if product-based lookup failed
+    if (!restaurantName && user_id) {
+      const [rData] = await conn.query(
+        "SELECT restaurant_name FROM restaurant_details WHERE user_id = ? LIMIT 1",
+        [user_id]
+      );
+      restaurantName = rData.length ? rData[0].restaurant_name : "";
+    }
+
     const order_number = generateOrderNumber(restaurantName);
 
     // ✅ Wallet deduction if used
