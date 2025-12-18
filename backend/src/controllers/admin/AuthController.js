@@ -53,7 +53,7 @@ export const login = async (req, res) => {
 
     const expiresIn = req.body?.remember ? "30d" : "2d";
     const token = jwt.sign(
-      { id: user.id, role_id: user.role_id, email: user.email },
+      { id: user.id, role_id: user.role_id, role: roleTitle, email: user.email },
       process.env.JWT_SECRET || "devsecret",
       { expiresIn }
     );

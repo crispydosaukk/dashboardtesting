@@ -5,7 +5,13 @@ import { getRestaurants, getRestaurantById, getRestaurantTimings } from "../cont
 import { getCategories } from "../controllers/api/categoryController.js";
 import { getProducts } from "../controllers/api/productController.js";
 import { addToCart, getCart, removeFromCart } from "../controllers/api/cartController.js";
-import { createOrder, getAllOrders } from "../controllers/api/OrderController.js";
+import { 
+  createOrder, 
+  getAllOrders, 
+  getCustomerOrders, 
+  getOrder 
+} from "../controllers/api/OrderController.js";
+
 import { getWalletSummary } from "../controllers/api/walletController.js";
 import { redeemLoyaltyToWallet } from "../controllers/api/loyaltyController.js";
 import { getProfile } from "../controllers/api/profileController.js";
@@ -31,10 +37,18 @@ router.get("/cart", getCart);
 router.post("/cart/remove", removeFromCart);
 
 router.post("/stripe/create-payment-intent", createPaymentIntent);
-// router.post("/create-order", createOrder);
-// router.get("/orders", getAllOrders);
+// ORDERS
 router.post("/create-order", auth, createOrder);
+
+// ADMIN / RESTAURANT ORDERS
 router.get("/orders", auth, getAllOrders);
+
+// CUSTOMER ORDER HISTORY
+router.get("/orders/customer/:customer_id", auth, getCustomerOrders);
+
+// SINGLE ORDER DETAILS
+router.get("/orders/:order_id", auth, getOrder);
+
 router.get("/payments/history", auth, getPaymentHistory);
 router.get("/profile", auth, getProfile);
 

@@ -115,6 +115,23 @@ const [pendingListRows] = await db.execute(
       [customerId]
     );
 
+    // 3D) Loyalty expiry list (AVAILABLE points with expiry date)
+const [expiryListRows] = await db.execute(
+  `SELECT
+     id,
+     order_id,
+     points_remaining,
+     expires_at
+   FROM loyalty_earnings
+   WHERE customer_id = ?
+     AND available_from <= NOW()
+     AND expires_at >= NOW()
+     AND points_remaining > 0
+   ORDER BY expires_at ASC`,
+  [customerId]
+);
+
+
     const history = rows.map((r) => {
       const isDebit = String(r.transaction_type).toUpperCase() === "DEBIT";
       const sign = isDebit ? "-" : "+";
@@ -140,6 +157,7 @@ const [pendingListRows] = await db.execute(
       referral_credits,
       referred_users_count,
       loyalty_pending_list: pendingListRows,
+      loyalty_expiry_list: expiryListRows, 
       loyalty_redeem_points: redeemCfg.loyalty_redeem_points,
       loyalty_redeem_value: redeemCfg.loyalty_redeem_value,
       loyalty_available_after_hours: redeemCfg.loyalty_available_after_hours, // ✅ NEW

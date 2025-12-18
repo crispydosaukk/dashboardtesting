@@ -369,7 +369,11 @@ export const createOrder = async (req, res) => {
 export const getAllOrders = async (req, res) => {
   try {
     const userId = req.user.id;
-    const role = req.user.role; // "Super Admin" or others
+    const roleId = req.user.role_id;
+    const roleName = req.user.role || req.user.role_title || null;
+
+    // consider role_id 6 as Super Admin (legacy frontend uses role_id === 6)
+    const isSuperAdmin = (Number(roleId) === 6) || (typeof roleName === "string" && roleName.toLowerCase() === "super admin");
 
     let sql = `
       SELECT 
@@ -385,7 +389,7 @@ export const getAllOrders = async (req, res) => {
     const params = [];
 
     // 🔐 FILTER ONLY IF NOT SUPER ADMIN
-    if (role !== "Super Admin") {
+    if (!isSuperAdmin) {
       sql += ` WHERE rd.user_id = ? `;
       params.push(userId);
     }
@@ -403,6 +407,105 @@ export const getAllOrders = async (req, res) => {
     return res.status(500).json({
       status: 0,
       message: "Server error",
+    });
+  }
+};
+
+export const getCustomerOrders = async (req, res) => {
+  try {
+    const customerId = req.params.customer_id;
+
+    const [rows] = await db.query(`
+      SELECT 
+        order_number AS order_no,
+        MIN(id) AS order_id,
+        customer_id,
+        user_id,
+        SUM(gross_total) AS total_amount,
+        SUM(quantity) AS items_count,
+        MAX(order_status) AS status,
+        MAX(created_at) AS created_at
+      FROM orders
+      WHERE customer_id = ?
+      GROUP BY order_number
+      ORDER BY created_at DESC
+    `, [customerId]);
+
+    return res.json({
+      status: 1,
+      data: rows
+    });
+  } catch (error) {
+    console.error("getCustomerOrders error:", error);
+    return res.status(500).json({
+      status: 0,
+      message: "Server error"
+    });
+  }
+};
+
+export const getOrder = async (req, res) => {
+  try {
+    // order_id comes from URL
+    const orderId = req.params.order_id;
+
+    // 1️⃣ Find order_number using ANY row
+    const [[row]] = await db.query(
+      "SELECT order_number FROM orders WHERE id = ?",
+      [orderId]
+    );
+
+    if (!row) {
+      return res.status(404).json({
+        status: 0,
+        message: "Order not found"
+      });
+    }
+
+    const orderNumber = row.order_number;
+
+    // 2️⃣ Fetch ALL items of this order
+    const [rows] = await db.query(
+      "SELECT * FROM orders WHERE order_number = ?",
+      [orderNumber]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        status: 0,
+        message: "Order not found"
+      });
+    }
+
+    // 3️⃣ Build clean order response
+    const order = {
+      order_id: orderId,
+      order_no: orderNumber,
+      customer_id: rows[0].customer_id,
+      status: rows[0].order_status,
+      created_at: rows[0].created_at,
+      total_amount: rows.reduce(
+        (sum, r) => sum + Number(r.grand_total),
+        0
+      ),
+      items: rows.map(r => ({
+        product_id: r.product_id,
+        product_name: r.product_name,
+        quantity: r.quantity,
+        price: r.price
+      }))
+    };
+
+    return res.json({
+      status: 1,
+      data: order
+    });
+
+  } catch (error) {
+    console.error("getOrder error:", error);
+    return res.status(500).json({
+      status: 0,
+      message: "Server error"
     });
   }
 };
