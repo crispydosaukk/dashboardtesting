@@ -323,3 +323,47 @@ export const profile = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// 🟢 Update user profile (JWT protected)
+export const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const {
+      full_name,
+      gender,
+      date_of_birth,
+      preferred_restaurant,
+    } = req.body;
+
+    // 🔹 Validation
+    if (!full_name || full_name.trim() === "") {
+      return res.status(400).json({ message: "Full name is required" });
+    }
+
+    // 🔒 Email & mobile are NOT allowed to update (extra safety)
+    await db.execute(
+      `UPDATE customers SET
+        full_name = ?,
+        gender = ?,
+        date_of_birth = ?,
+        preferred_restaurant = ?,
+        updated_at = NOW()
+       WHERE id = ?`,
+      [
+        full_name.trim(),
+        gender || null,
+        date_of_birth || null,
+        preferred_restaurant || null,
+        userId,
+      ]
+    );
+
+    return res.json({
+      message: "Profile updated successfully",
+    });
+  } catch (err) {
+    console.error("updateProfile error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
