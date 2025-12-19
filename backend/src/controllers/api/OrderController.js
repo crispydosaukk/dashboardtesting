@@ -57,6 +57,21 @@ async function getLoyaltySettings(conn) {
   };
 }
 
+// 🔹 Get redeem settings (DYNAMIC)
+async function getRedeemSettings(conn) {
+  const [[row]] = await conn.query(
+    `SELECT loyalty_redeem_points, loyalty_redeem_value
+     FROM settings
+     ORDER BY id DESC
+     LIMIT 1`
+  );
+
+  return {
+    redeem_points: Number(row?.loyalty_redeem_points || 10),
+    redeem_value: Number(row?.loyalty_redeem_value || 1),
+  };
+}
+
 // ----------------- CREATE ORDER (WITH WALLET) ----------------- //
 export const createOrder = async (req, res) => {
   const conn = await db.getConnection();
@@ -73,7 +88,8 @@ export const createOrder = async (req, res) => {
       owner_name,
       mobile_number,
       items,
-      wallet_used, // ✅ from app
+      wallet_used,
+      loyalty_used,
     } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -94,20 +110,20 @@ export const createOrder = async (req, res) => {
 
     // 🔴 MINIMUM CART TOTAL VALIDATION (NEW RULE)
 
-      const [[settingsRow]] = await conn.query(
-        "SELECT minimum_cart_total FROM settings ORDER BY id DESC LIMIT 1"
-      );
+    const [[settingsRow]] = await conn.query(
+      "SELECT minimum_cart_total FROM settings ORDER BY id DESC LIMIT 1"
+    );
 
-      const minimumCartTotal = Number(settingsRow?.minimum_cart_total || 0);
+    const minimumCartTotal = Number(settingsRow?.minimum_cart_total || 0);
 
-      // validate BEFORE wallet deduction
-      if (minimumCartTotal > 0 && orderGrossTotal < minimumCartTotal) {
-        await conn.rollback();
-        return res.status(400).json({
-          status: 0,
-          message: `Minimum order amount is £${minimumCartTotal.toFixed(2)}`
-        });
-      }
+    // validate BEFORE wallet deduction
+    if (minimumCartTotal > 0 && orderGrossTotal < minimumCartTotal) {
+      await conn.rollback();
+      return res.status(400).json({
+        status: 0,
+        message: `Minimum order amount is £${minimumCartTotal.toFixed(2)}`
+      });
+    }
 
     const requestedWallet = Number(wallet_used || 0);
     if (requestedWallet < 0) {
@@ -202,6 +218,80 @@ export const createOrder = async (req, res) => {
       );
     }
 
+    // ✅ Loyalty deduction if used
+    const requestedLoyalty = Number(loyalty_used || 0);
+    if (requestedLoyalty < 0) {
+      await conn.rollback();
+      return res.status(400).json({
+        status: 0,
+        message: "Invalid loyalty amount",
+      });
+    }
+
+    let loyaltyDeducted = 0;
+
+    if (requestedLoyalty > 0) {
+      const [rows] = await conn.query(
+        `SELECT id, points_remaining
+         FROM loyalty_earnings
+         WHERE customer_id = ?
+           AND available_from <= NOW()
+           AND expires_at >= NOW()
+           AND points_remaining > 0
+         ORDER BY expires_at ASC
+         FOR UPDATE`,
+        [customer_id]
+      );
+
+      let remainingValue = requestedLoyalty;
+      const redeemCfg = await getRedeemSettings(conn);
+
+      for (const r of rows) {
+        if (remainingValue <= 0) break;
+
+        const creditValue =
+          (r.points_remaining / redeemCfg.redeem_points) *
+          redeemCfg.redeem_value;
+
+        const usable = Math.min(creditValue, remainingValue);
+        const pointsToDeduct = Math.ceil(
+          (usable / redeemCfg.redeem_value) *
+          redeemCfg.redeem_points
+        );
+
+        await conn.query(
+          `UPDATE loyalty_earnings
+           SET points_remaining = points_remaining - ?
+           WHERE id = ?`,
+          [pointsToDeduct, r.id]
+        );
+
+        loyaltyDeducted += usable;
+        remainingValue -= usable;
+      }
+
+      if (remainingValue > 0) {
+        await conn.rollback();
+        return res.status(400).json({
+          status: 0,
+          message: "Not enough loyalty credits",
+        });
+      }
+    }
+
+    if (loyaltyDeducted > 0) {
+      await conn.query(
+        `INSERT INTO wallet_transactions
+         (customer_id, transaction_type, amount, balance_after, source, order_id, description)
+         VALUES (?, 'DEBIT', ?, 0, 'LOYALTY_USED', NULL, ?)`,
+        [
+          customer_id,
+          loyaltyDeducted,
+          `Loyalty credits used for order ${order_number}`,
+        ]
+      );
+    }
+
     // ✅ Insert order rows
     // store wallet_amount only in first inserted row (others 0)
     let firstRow = true;
@@ -228,41 +318,46 @@ export const createOrder = async (req, res) => {
 
       // ✅ apply wallet only once (first row)
       const walletAmountForThisRow = firstRow ? walletDeducted : 0;
+      const loyaltyAmountForThisRow = firstRow ? loyaltyDeducted : 0;
+      const paid = firstRow
+        ? Math.max(0, gross - walletDeducted - loyaltyDeducted)
+        : gross;
 
-      // ✅ PAID amount (after wallet) should be stored in grand_total
-      const paid = firstRow ? Math.max(0, gross - walletDeducted) : gross;
 
-      const sql = `
-        INSERT INTO orders 
-        (user_id, order_number, customer_id, product_id, payment_mode, payment_request_id, 
-         product_name, price, discount_amount, vat, gross_total, wallet_amount, quantity, grand_total, order_status,
-         delivery_estimate_time, car_color, reg_number, owner_name, mobile_number, instore, allergy_note)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, ?, ?)
-      `;
+     const sql = `
+INSERT INTO orders 
+(user_id, order_number, customer_id, product_id, payment_mode, payment_request_id,
+ product_name, price, discount_amount, vat, gross_total,
+ wallet_amount, loyalty_amount, quantity, grand_total, order_status,
+ delivery_estimate_time, car_color, reg_number, owner_name, mobile_number, instore, allergy_note)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`;
 
-      // ✅ IMPORTANT: values order must match columns order exactly
-      const values = [
-        user_id,
-        order_number,
-        customer_id,
-        product_id,
-        payment_mode,
-        payment_request_id || null,
-        product_name,
-        price,
-        totalDiscount,
-        totalVat,
-        gross,                   // ✅ gross_total
-        walletAmountForThisRow,   // ✅ wallet_amount (only first row)
-        quantity,
-        paid,                    // ✅ grand_total (PAID amount)
-        car_color || null,
-        reg_number || null,
-        owner_name || null,
-        mobile_number || null,
-        instore || 0,
-        allergy_note || null,
-      ];
+const values = [
+  user_id,
+  order_number,
+  customer_id,
+  product_id,
+  payment_mode,
+  payment_request_id || null,
+  product_name,
+  price,
+  totalDiscount,
+  totalVat,
+  gross,
+  walletAmountForThisRow,
+  loyaltyAmountForThisRow,
+  quantity,
+  paid,
+  0,                // ✅ order_status = PLACED
+  null,             // delivery_estimate_time
+  car_color || null,
+  reg_number || null,
+  owner_name || null,
+  mobile_number || null,
+  instore || 0,
+  allergy_note || null,
+];
 
       const [orderInsertRes] = await conn.query(sql, values);
 
@@ -281,7 +376,12 @@ export const createOrder = async (req, res) => {
     const loyaltyCfg = await getLoyaltySettings(conn);
 
     // total paid after wallet usage (whole order)
-    const paidTotal = Math.max(0, Number(orderGrossTotal) - Number(walletDeducted));
+    const paidTotal = Math.max(
+      0,
+      Number(orderGrossTotal)
+      - Number(walletDeducted)
+      - Number(loyaltyDeducted)
+    );
 
     // Earn points only if paidTotal >= minimum_order
     if (paidTotal >= loyaltyCfg.minimum_order) {
@@ -307,7 +407,6 @@ export const createOrder = async (req, res) => {
         );
       }
     }
-
     // -------------------------------------------------
     // 🟢 REFERRAL REWARD (AFTER FIRST ORDER ONLY)
     // -------------------------------------------------
@@ -365,17 +464,17 @@ export const createOrder = async (req, res) => {
     }
 
     if (payment_request_id) {
-  await conn.query(
-    `INSERT INTO order_payment_history
+      await conn.query(
+        `INSERT INTO order_payment_history
      (order_no, payment_request_id, amount, payment_status)
      VALUES (?, ?, ?, 'success')`,
-    [
-      order_number,
-      payment_request_id,
-      paidTotal, // total paid after wallet
-    ]
-  );
-}
+        [
+          order_number,
+          payment_request_id,
+          paidTotal, // total paid after wallet
+        ]
+      );
+    }
     // clear cart
     await conn.query("DELETE FROM cart WHERE customer_id = ?", [customer_id]);
 
@@ -386,11 +485,12 @@ export const createOrder = async (req, res) => {
       message: "Order Placed Successfully",
       order_number,
       wallet_used: walletDeducted,
+      loyalty_used: loyaltyDeducted,
     });
   } catch (error) {
     try {
       await conn.rollback();
-    } catch {}
+    } catch { }
     console.error("Order creation error:", error);
     return res.status(500).json({
       status: 0,

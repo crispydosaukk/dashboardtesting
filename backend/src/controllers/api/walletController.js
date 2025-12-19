@@ -1,6 +1,19 @@
 // controllers/api/walletController.js
 import db from "../../config/db.js";
 
+async function getLoyaltyValuePerPoint() {
+  const [[row]] = await db.execute(
+    `SELECT loyalty_redeem_points, loyalty_redeem_value
+     FROM settings ORDER BY id DESC LIMIT 1`
+  );
+
+  return {
+    points: Number(row?.loyalty_redeem_points || 10),
+    value: Number(row?.loyalty_redeem_value || 1),
+  };
+}
+
+
 // 🔹 Get loyalty redeem rules from settings (dynamic)
 async function getLoyaltyRedeemSettings() {
   const [[row]] = await db.execute(
@@ -96,6 +109,7 @@ const [pendingListRows] = await db.execute(
 
     // 4) Loyalty redeem rules + dynamic hours (for UI)
     const redeemCfg = await getLoyaltyRedeemSettings();
+    const valueCfg = await getLoyaltyValuePerPoint();
 
     // 5) How much user can redeem right now (helper)
     const redeemable_units = Math.floor(
@@ -153,14 +167,28 @@ const [expiryListRows] = await db.execute(
     return res.json({
       wallet_balance,
       loyalty_points,
-      loyalty_pending_points, // ✅ NEW
+      loyalty_pending_points,
       referral_credits,
       referred_users_count,
-      loyalty_pending_list: pendingListRows,
-      loyalty_expiry_list: expiryListRows, 
+
+      // ✅ ADD CREDIT VALUE HERE
+      loyalty_pending_list: pendingListRows.map(r => ({
+        ...r,
+        credit_value: Number(
+          (r.points_remaining / valueCfg.points) * valueCfg.value
+        ).toFixed(2)
+      })),
+
+      loyalty_expiry_list: expiryListRows.map(r => ({
+        ...r,
+        credit_value: Number(
+          (r.points_remaining / valueCfg.points) * valueCfg.value
+        ).toFixed(2)
+      })),
+
       loyalty_redeem_points: redeemCfg.loyalty_redeem_points,
       loyalty_redeem_value: redeemCfg.loyalty_redeem_value,
-      loyalty_available_after_hours: redeemCfg.loyalty_available_after_hours, // ✅ NEW
+      loyalty_available_after_hours: redeemCfg.loyalty_available_after_hours,
 
       loyalty_redeemable_value: redeemable_value,
       history,

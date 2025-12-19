@@ -257,6 +257,10 @@ export default function Orders() {
                   Wallet Used (£)
                 </th>
                 <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Loyalty Used (£)
+                </th>
+
+                <th className="px-4 py-3 text-left whitespace-nowrap">
                   Grand Total (£)
                 </th>
 
@@ -321,6 +325,9 @@ export default function Orders() {
                 const walletUsed = items.reduce((sum, item) => {
                   return sum + safeNumber(item.wallet_amount);
                 }, 0);
+                const loyaltyUsed = items.reduce((sum, item) => {
+                  return sum + safeNumber(item.loyalty_amount);
+                }, 0);
 
                 // ✅ Paid amount after wallet => sum of grand_total
                 const paidTotal =
@@ -382,6 +389,9 @@ export default function Orders() {
 
                     <td className="px-4 py-3 whitespace-nowrap font-semibold text-red-700">
                       -£{walletUsed.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap font-semibold text-purple-700">
+                      -£{loyaltyUsed.toFixed(2)}
                     </td>
 
                     <td className="px-4 py-3 whitespace-nowrap font-semibold text-emerald-700">
@@ -458,6 +468,9 @@ export default function Orders() {
             const walletUsed = items.reduce((sum, item) => {
               return sum + safeNumber(item.wallet_amount);
             }, 0);
+            const loyaltyUsed = items.reduce((sum, item) => {
+              return sum + safeNumber(item.loyalty_amount);
+            }, 0);
 
             const paidTotal =
               items.reduce((sum, item) => {
@@ -533,6 +546,9 @@ export default function Orders() {
                   <p className="col-span-2 text-red-700 font-semibold">
                     <strong>Wallet Used:</strong> -£{walletUsed.toFixed(2)}
                   </p>
+                  <p className="col-span-2 text-purple-700 font-semibold">
+                    <strong>Loyalty Used:</strong> -£{loyaltyUsed.toFixed(2)}
+                  </p>
 
                   <p className="font-semibold text-emerald-700 col-span-2">
                     <strong>Grand Total (Paid):</strong> £{paidTotal.toFixed(2)}
@@ -574,11 +590,10 @@ export default function Orders() {
           <button
             onClick={() => setCurrentPage((p) => p - 1)}
             disabled={currentPage === 1}
-            className={`px-4 py-2 rounded-lg border ${
-              currentPage === 1
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-white hover:bg-gray-100 text-gray-700"
-            }`}
+            className={`px-4 py-2 rounded-lg border ${currentPage === 1
+              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+              : "bg-white hover:bg-gray-100 text-gray-700"
+              }`}
           >
             Previous
           </button>
@@ -587,11 +602,10 @@ export default function Orders() {
             <button
               key={num}
               onClick={() => setCurrentPage(num + 1)}
-              className={`px-4 py-2 rounded-lg border ${
-                currentPage === num + 1
-                  ? "bg-emerald-600 text-white"
-                  : "bg-white hover:bg-gray-100"
-              }`}
+              className={`px-4 py-2 rounded-lg border ${currentPage === num + 1
+                ? "bg-emerald-600 text-white"
+                : "bg-white hover:bg-gray-100"
+                }`}
             >
               {num + 1}
             </button>
@@ -600,11 +614,10 @@ export default function Orders() {
           <button
             onClick={() => setCurrentPage((p) => p + 1)}
             disabled={currentPage === totalPages}
-            className={`px-4 py-2 rounded-lg border ${
-              currentPage === totalPages
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-white hover:bg-gray-100 text-gray-700"
-            }`}
+            className={`px-4 py-2 rounded-lg border ${currentPage === totalPages
+              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+              : "bg-white hover:bg-gray-100 text-gray-700"
+              }`}
           >
             Next
           </button>
