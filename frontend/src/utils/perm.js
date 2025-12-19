@@ -30,7 +30,7 @@ export function can(required) {
     user.role?.title?.toLowerCase() === "super admin"
   ) {
     return true;
-  }
+  } 
 
   // normal permissions for other roles
   const perms = getPerms();

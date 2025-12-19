@@ -55,4 +55,4 @@ router.put("/profile", auth, updateProfile);
 
 router.post("/loyalty/redeem", auth, redeemLoyaltyToWallet);
 
-export default router;
+export default router; 
