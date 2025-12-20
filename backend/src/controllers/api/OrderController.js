@@ -247,7 +247,7 @@ export const createOrder = async (req, res) => {
       const redeemCfg = await getRedeemSettings(conn);
 
       for (const r of rows) {
-        if (remainingValue <= 0) break;
+        if (remainingValue <= 0.001) break;
 
         const creditValue =
           (r.points_remaining / redeemCfg.redeem_points) *
@@ -268,9 +268,12 @@ export const createOrder = async (req, res) => {
 
         loyaltyDeducted += usable;
         remainingValue -= usable;
+
+        // Ensure remainingValue doesn't have floating point noise
+        remainingValue = Number(remainingValue.toFixed(4));
       }
 
-      if (remainingValue > 0) {
+      if (remainingValue > 0.01) {
         await conn.rollback();
         return res.status(400).json({
           status: 0,
@@ -324,7 +327,7 @@ export const createOrder = async (req, res) => {
         : gross;
 
 
-     const sql = `
+      const sql = `
 INSERT INTO orders 
 (user_id, order_number, customer_id, product_id, payment_mode, payment_request_id,
  product_name, price, discount_amount, vat, gross_total,
@@ -333,31 +336,31 @@ INSERT INTO orders
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
-const values = [
-  user_id,
-  order_number,
-  customer_id,
-  product_id,
-  payment_mode,
-  payment_request_id || null,
-  product_name,
-  price,
-  totalDiscount,
-  totalVat,
-  gross,
-  walletAmountForThisRow,
-  loyaltyAmountForThisRow,
-  quantity,
-  paid,
-  0,                // ✅ order_status = PLACED
-  null,             // delivery_estimate_time
-  car_color || null,
-  reg_number || null,
-  owner_name || null,
-  mobile_number || null,
-  instore || 0,
-  allergy_note || null,
-];
+      const values = [
+        user_id,
+        order_number,
+        customer_id,
+        product_id,
+        payment_mode,
+        payment_request_id || null,
+        product_name,
+        price,
+        totalDiscount,
+        totalVat,
+        gross,
+        walletAmountForThisRow,
+        loyaltyAmountForThisRow,
+        quantity,
+        paid,
+        0,                // ✅ order_status = PLACED
+        null,             // delivery_estimate_time
+        car_color || null,
+        reg_number || null,
+        owner_name || null,
+        mobile_number || null,
+        instore || 0,
+        allergy_note || null,
+      ];
 
       const [orderInsertRes] = await conn.query(sql, values);
 
