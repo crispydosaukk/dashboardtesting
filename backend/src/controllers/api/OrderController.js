@@ -560,7 +560,9 @@ export const getCustomerOrders = async (req, res) => {
         MIN(id) AS order_id,
         customer_id,
         user_id,
-        SUM(gross_total) AS total_amount,
+        -- ✅ FIX: Use grand_total (Net Payable) instead of gross_total
+        SUM(grand_total) AS total_amount,
+        
         SUM(quantity) AS items_count,
         MAX(order_status) AS status,
         MAX(created_at) AS created_at
@@ -623,6 +625,11 @@ export const getOrder = async (req, res) => {
       customer_id: rows[0].customer_id,
       status: rows[0].order_status,
       created_at: rows[0].created_at,
+      
+      // ✅ ADDED: Sum up usage from all rows so frontend can display it
+      wallet_used: rows.reduce((sum, r) => sum + Number(r.wallet_amount || 0), 0),
+      loyalty_used: rows.reduce((sum, r) => sum + Number(r.loyalty_amount || 0), 0),
+
       total_amount: rows.reduce(
         (sum, r) => sum + Number(r.grand_total),
         0
