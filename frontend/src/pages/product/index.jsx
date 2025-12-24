@@ -14,6 +14,16 @@ export default function ProductPage() {
   const [showModal, setShowModal] = useState(false);
   const [filterCategory, setFilterCategory] = useState("all");
 
+  const CONTAINS_OPTIONS = [
+    { key: "Dairy", icon: "/contains/Dairy.png" },
+    { key: "Gluten", icon: "/contains/Gluten.png" },
+    { key: "Mild", icon: "/contains/Mild.png" },
+    { key: "Nuts", icon: "/contains/Nuts.png" },
+    { key: "Sesame", icon: "/contains/Sesame.png" },
+    { key: "Vegan", icon: "/contains/Vegan.png" },
+    { key: "Vegetarian", icon: "/contains/Vegetarian.png" },
+  ];
+
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
   // Debounced query to avoid filtering on every keystroke
@@ -26,6 +36,7 @@ export default function ProductPage() {
     price: "",
     discountPrice: "",
     cat_id: "",
+    contains: [],
     image: null, // File or null
     oldImage: null, // existing image filename (for edit)
   });
@@ -45,7 +56,18 @@ export default function ProductPage() {
 
     fetch(`${API}/products`, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => res.json())
-      .then(data => setProducts(data.sort((a, b) => a.sort_order - b.sort_order)))
+      .then(data => {
+        // Defensive: Ensure contains is always an array
+        const safeData = data.map(p => {
+          let c = p.contains;
+          try {
+            if (typeof c === 'string') c = JSON.parse(c);
+            if (typeof c === 'string') c = JSON.parse(c); // Handle double-serialization
+          } catch (e) { /* ignore */ }
+          return { ...p, contains: Array.isArray(c) ? c : [] };
+        });
+        setProducts(safeData.sort((a, b) => a.sort_order - b.sort_order));
+      })
       .catch((err) => console.error("Error loading products:", err));
   }, [API, token]);
 
@@ -95,30 +117,41 @@ export default function ProductPage() {
   }, [form.image]);
 
   const filteredProducts = useMemo(() => {
-  let list = [...products];
+    let list = [...products];
 
-  // CATEGORY FILTER
-  if (filterCategory !== "all") {
-    list = list.filter((p) => String(p.cat_id) === String(filterCategory));
-  }
+    // CATEGORY FILTER
+    if (filterCategory !== "all") {
+      list = list.filter((p) => String(p.cat_id) === String(filterCategory));
+    }
 
-  // SEARCH FILTER
-  if (!debouncedQuery) return list;
+    // SEARCH FILTER
+    if (!debouncedQuery) return list;
 
-  const q = debouncedQuery;
-  return list.filter((p) => {
-    if (p.name?.toLowerCase().includes(q)) return true;
-    if (p.description?.toLowerCase().includes(q)) return true;
+    const q = debouncedQuery;
+    return list.filter((p) => {
+      if (p.name?.toLowerCase().includes(q)) return true;
+      if (p.description?.toLowerCase().includes(q)) return true;
 
-    const catName = categories.find((c) => c.id == p.cat_id)?.name;
-    if (catName?.toLowerCase().includes(q)) return true;
+      const catName = categories.find((c) => c.id == p.cat_id)?.name;
+      if (catName?.toLowerCase().includes(q)) return true;
 
-    if (p.price?.toString().includes(q)) return true;
-    if (p.discountPrice?.toString().includes(q)) return true;
+      if (p.price?.toString().includes(q)) return true;
+      if (p.discountPrice?.toString().includes(q)) return true;
 
-    return false;
-  });
-}, [products, categories, debouncedQuery, filterCategory]);
+      return false;
+    });
+  }, [products, categories, debouncedQuery, filterCategory]);
+
+
+  const toggleContains = (key) => {
+    setForm((prev) => {
+      if (prev.contains.includes(key)) {
+        return { ...prev, contains: prev.contains.filter((c) => c !== key) };
+      } else {
+        return { ...prev, contains: [...prev.contains, key] };
+      }
+    });
+  };
 
 
   const handleSubmit = async (e) => {
@@ -172,6 +205,8 @@ export default function ProductPage() {
     fd.append("price", finalPrice);
     fd.append("discountPrice", discountPriceToSend);
     fd.append("cat_id", form.cat_id || "");
+    fd.append("contains", JSON.stringify(form.contains));
+
     // ✅ ONLY append image if a new one was selected
     if (form.image instanceof File) fd.append("image", form.image);
     // ❌ DON'T send form.oldImage - let backend preserve existing
@@ -198,6 +233,15 @@ export default function ProductPage() {
 
       // ✅ CRITICAL: Update state with backend response
       const saved = await res.json();
+
+      // Sanitize response
+      let savedContains = saved.contains;
+      try {
+        if (typeof savedContains === 'string') savedContains = JSON.parse(savedContains);
+        if (typeof savedContains === 'string') savedContains = JSON.parse(savedContains);
+      } catch (e) { }
+      saved.contains = Array.isArray(savedContains) ? savedContains : [];
+
       setProducts((prev) =>
         form.id ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev]
       );
@@ -219,7 +263,6 @@ export default function ProductPage() {
     }
   };
 
-  // helper to reset form cleanly
   const resetForm = () =>
     setForm({
       id: null,
@@ -228,9 +271,11 @@ export default function ProductPage() {
       price: "",
       discountPrice: "",
       cat_id: "",
+      contains: [],
       image: null,
       oldImage: null,
     });
+
 
   // --- Delete
   const handleDelete = async (id) => {
@@ -286,29 +331,29 @@ export default function ProductPage() {
   };
 
   // ---- DRAG & DROP SORTING ----
-const onDragEnd = async (result) => {
-  if (!result.destination) return;
+  const onDragEnd = async (result) => {
+    if (!result.destination) return;
 
-  const items = Array.from(products);
-  const [moved] = items.splice(result.source.index, 1);
-  items.splice(result.destination.index, 0, moved);
+    const items = Array.from(products);
+    const [moved] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, moved);
 
-  const updated = items.map((p, i) => ({
-    ...p,
-    sort_order: i + 1
-  }));
+    const updated = items.map((p, i) => ({
+      ...p,
+      sort_order: i + 1
+    }));
 
-  setProducts(updated);
+    setProducts(updated);
 
-  await fetch(`${API}/products/reorder`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify({ order: updated })
-  });
-};
+    await fetch(`${API}/products/reorder`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ order: updated })
+    });
+  };
 
 
   const calculateDiscountPercent = (price, discountPrice) => {
@@ -343,12 +388,28 @@ const onDragEnd = async (result) => {
             <div className="min-w-0">
               <h3 className="font-semibold text-gray-900 truncate">{p.name}</h3>
               <p className="text-sm text-gray-500 truncate mt-1">{p.description}</p>
+              {Array.isArray(p.contains) && p.contains.length > 0 && (
+                <div className="flex gap-1 mt-2">
+                  {p.contains.map((c) => {
+                    const icon = CONTAINS_OPTIONS.find((i) => i.key === c);
+                    return icon ? (
+                      <img
+                        key={c}
+                        src={icon.icon}
+                        alt={c}
+                        title={c}
+                        className="h-4 w-4"
+                      />
+                    ) : null;
+                  })}
+                </div>
+              )}
             </div>
             <div className="text-right">
               <div className="font-semibold text-gray-900">{formatGBP(p.price)}</div>
-                {p.discountPrice && Number(p.discountPrice) > 0 && (
-                  <div className="text-sm text-gray-400 line-through">{formatGBP(p.discountPrice)}</div>
-                )}
+              {p.discountPrice && Number(p.discountPrice) > 0 && (
+                <div className="text-sm text-gray-400 line-through">{formatGBP(p.discountPrice)}</div>
+              )}
 
             </div>
           </div>
@@ -377,6 +438,7 @@ const onDragEnd = async (result) => {
                     price: p.price,
                     discountPrice: calculateDiscountPercent(p.price, p.discountPrice),
                     cat_id: p.cat_id,
+                    contains: p.contains || [],
                     image: null,
                     oldImage: p.image,
                   });
@@ -464,17 +526,17 @@ const onDragEnd = async (result) => {
                   </div>
                 </div>
                 <div className="w-full sm:w-auto">
-                    <select
-                      value={filterCategory}
-                      onChange={(e) => setFilterCategory(e.target.value)}
-                      className="border px-3 py-2 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    >
-                      <option value="all">All Categories</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    className="border px-3 py-2 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  >
+                    <option value="all">All Categories</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
 
                 <button
                   onClick={() => {
@@ -485,6 +547,7 @@ const onDragEnd = async (result) => {
                       price: "",
                       discountPrice: "",
                       cat_id: "",
+                      contains: [],
                       image: null,
                       oldImage: null,
                     });
@@ -510,129 +573,138 @@ const onDragEnd = async (result) => {
             {/* Content container */}
             <div className="grid grid-cols-1 gap-6">
               {/* Table (desktop) */}
-             <div className="hidden md:block rounded-xl bg-white p-4 shadow-sm border border-gray-200">
-  {filteredProducts.length === 0 ? (
-    <div className="py-8 text-center text-gray-500">No products match your search.</div>
-  ) : (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm table-auto min-w-[700px]">
-        <thead>
-          <tr className="bg-gray-50 text-gray-700">
-            <th className="py-3 px-4 text-left">Drag</th>
-            <th className="py-3 px-4 text-left">Image</th>
-            <th className="py-3 px-4 text-left">Name</th>
-            <th className="py-3 px-4 text-left">Price</th>
-            <th className="py-3 px-4 text-left">Category</th>
-            <th className="py-3 px-4 text-center">Status</th>
-            <th className="py-3 px-4 text-left">Actions</th>
-          </tr>
-        </thead>
+              <div className="hidden md:block rounded-xl bg-white p-4 shadow-sm border border-gray-200">
+                {filteredProducts.length === 0 ? (
+                  <div className="py-8 text-center text-gray-500">No products match your search.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm table-auto min-w-[700px]">
+                      <thead>
+                        <tr className="bg-gray-50 text-gray-700">
+                          <th className="py-3 px-4 text-left">Drag</th>
+                          <th className="py-3 px-4 text-left">Image</th>
+                          <th className="py-3 px-4 text-left">Name</th>
+                          <th className="py-3 px-4 text-left">Price</th>
+                          <th className="py-3 px-4 text-left">Category</th>
+                          <th className="py-3 px-4 text-center">Status</th>
+                          <th className="py-3 px-4 text-left">Actions</th>
+                        </tr>
+                      </thead>
 
-        <DragDropContext onDragEnd={onDragEnd}>
-          <Droppable droppableId="products">
-            {(provided) => (
-              <tbody
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-                className="text-gray-700"
-              >
-                {filteredProducts.map((p, index) => (
-                  <Draggable
-                    key={p.id}
-                    draggableId={String(p.id)}
-                    index={index}
-                  >
-                    {(drag) => (
-                      <tr
-                        ref={drag.innerRef}
-                        {...drag.draggableProps}
-                        className={`border-b transition ${
-                          p.status === 0 ? "opacity-60 bg-gray-50" : "hover:bg-gray-50"
-                        }`}
-                      >
-                        {/* Drag Handle */}
-                        <td {...drag.dragHandleProps} className="px-3 cursor-grab">≡</td>
+                      <DragDropContext onDragEnd={onDragEnd}>
+                        <Droppable droppableId="products">
+                          {(provided) => (
+                            <tbody
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                              className="text-gray-700"
+                            >
+                              {filteredProducts.map((p, index) => (
+                                <Draggable
+                                  key={p.id}
+                                  draggableId={String(p.id)}
+                                  index={index}
+                                >
+                                  {(drag) => (
+                                    <tr
+                                      ref={drag.innerRef}
+                                      {...drag.draggableProps}
+                                      className={`border-b transition ${p.status === 0 ? "opacity-60 bg-gray-50" : "hover:bg-gray-50"
+                                        }`}
+                                    >
+                                      {/* Drag Handle */}
+                                      <td {...drag.dragHandleProps} className="px-3 cursor-grab">≡</td>
 
-                        <td className="py-3 px-4">
-                          <img
-                            src={`${API_BASE}/uploads/${p.image}`}
-                            className="h-12 w-12 rounded-md object-cover border"
-                          />
-                        </td>
+                                      <td className="py-3 px-4">
+                                        <img
+                                          src={`${API_BASE}/uploads/${p.image}`}
+                                          className="h-12 w-12 rounded-md object-cover border"
+                                        />
+                                      </td>
 
-                        <td className="py-3 px-4 font-medium max-w-[260px]">
-                          <div className="truncate">{p.name}</div>
-                          <div className="text-xs text-gray-400 truncate">{p.description}</div>
-                        </td>
+                                      <td className="py-3 px-4 font-medium max-w-[260px]">
+                                        <div className="truncate">{p.name}</div>
+                                        <div className="text-xs text-gray-400 truncate">{p.description}</div>
+                                      </td>
+                                      <td className="py-3 px-4">
+                                        <div className="flex gap-1">
+                                          {Array.isArray(p.contains) && p.contains.map((c) => {
+                                            const icon = CONTAINS_OPTIONS.find((i) => i.key === c);
+                                            return icon ? (
+                                              <img key={c} src={icon.icon} className="h-4 w-4" />
+                                            ) : null;
+                                          })}
+                                        </div>
+                                      </td>
+                                      <td className="py-3 px-4">
+                                        <div className="font-semibold">{formatGBP(p.price)}</div>
+                                        {p.discountPrice > 0 && (
+                                          <div className="text-xs text-gray-400 line-through">
+                                            {formatGBP(p.discountPrice)}
+                                          </div>
+                                        )}
+                                      </td>
 
-                        <td className="py-3 px-4">
-                          <div className="font-semibold">{formatGBP(p.price)}</div>
-                          {p.discountPrice > 0 && (
-                            <div className="text-xs text-gray-400 line-through">
-                              {formatGBP(p.discountPrice)}
-                            </div>
+                                      <td className="py-3 px-4">
+                                        {categories.find((c) => c.id == p.cat_id)?.name || "—"}
+                                      </td>
+
+                                      <td className="py-3 px-4 text-center">
+                                        <label className="inline-flex items-center cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={p.status === 1}
+                                            onChange={() => handleToggleStatus(p)}
+                                            className="sr-only peer"
+                                          />
+                                          <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-emerald-500 relative after:content-[''] after:absolute after:left-[2px] after:top-[2px] after:w-5 after:h-5 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-full"></div>
+                                        </label>
+                                      </td>
+
+                                      <td className="py-3 px-4">
+                                        <div className="flex items-center gap-4">
+                                          <button
+                                            onClick={() => {
+                                              setForm({
+                                                id: p.id,
+                                                name: p.name,
+                                                description: p.description,
+                                                price: p.price,
+                                                discountPrice: calculateDiscountPercent(p.price, p.discountPrice),
+                                                cat_id: p.cat_id,
+                                                contains: p.contains || [],
+                                                image: null,
+                                                oldImage: p.image,
+                                              });
+                                              setShowModal(true);
+                                            }}
+                                            className="p-1 rounded-md hover:scale-105"
+                                          >
+                                            ✏️
+                                          </button>
+
+                                          <button
+                                            onClick={() => handleDelete(p.id)}
+                                            className="p-1 rounded-md hover:rotate-6"
+                                          >
+                                            🗑
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </Draggable>
+                              ))}
+
+                              {provided.placeholder}
+                            </tbody>
                           )}
-                        </td>
-
-                        <td className="py-3 px-4">
-                          {categories.find((c) => c.id == p.cat_id)?.name || "—"}
-                        </td>
-
-                        <td className="py-3 px-4 text-center">
-                          <label className="inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={p.status === 1}
-                              onChange={() => handleToggleStatus(p)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-emerald-500 relative after:content-[''] after:absolute after:left-[2px] after:top-[2px] after:w-5 after:h-5 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-full"></div>
-                          </label>
-                        </td>
-
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-4">
-                            <button
-                              onClick={() => {
-                                setForm({
-                                  id: p.id,
-                                  name: p.name,
-                                  description: p.description,
-                                  price: p.price,
-                                  discountPrice: calculateDiscountPercent(p.price, p.discountPrice),
-                                  cat_id: p.cat_id,
-                                  image: null,
-                                  oldImage: p.image,
-                                });
-                                setShowModal(true);
-                              }}
-                              className="p-1 rounded-md hover:scale-105"
-                            >
-                              ✏️
-                            </button>
-
-                            <button
-                              onClick={() => handleDelete(p.id)}
-                              className="p-1 rounded-md hover:rotate-6"
-                            >
-                              🗑
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Draggable>
-                ))}
-
-                {provided.placeholder}
-              </tbody>
-            )}
-          </Droppable>
-        </DragDropContext>
-      </table>
-    </div>
-  )}
-</div>
+                        </Droppable>
+                      </DragDropContext>
+                    </table>
+                  </div>
+                )}
+              </div>
 
 
               {/* Cards (mobile) */}
@@ -649,6 +721,7 @@ const onDragEnd = async (result) => {
 
         <Footer />
       </div>
+
 
       {/* Modal */}
       {/* We mount modal only when showModal is true to match previous behaviour,
@@ -692,7 +765,7 @@ const onDragEnd = async (result) => {
                   <label className="text-sm text-gray-600">Description</label>
                   <textarea
                     placeholder="Description"
-            
+
                     className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                     rows="3"
                     value={form.description}
@@ -741,6 +814,36 @@ const onDragEnd = async (result) => {
                     ))}
                   </select>
                 </div>
+                <div className="md:col-span-2">
+                  <label className="text-sm text-gray-600 mb-2 block">Contains</label>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-3">
+                    {CONTAINS_OPTIONS.map((item) => {
+                      const active = form.contains.includes(item.key);
+
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => toggleContains(item.key)}
+                          className={`border rounded-lg p-2 flex flex-col items-center gap-1 transition
+            ${active ? "border-emerald-500 bg-emerald-50" : "border-gray-200 hover:bg-gray-50"}
+          `}
+                        >
+                          <img
+                            src={item.icon}
+                            alt={item.key}
+                            className={`h-8 w-8 ${active ? "opacity-100" : "opacity-40"}`}
+                          />
+                          <span className={`text-xs ${active ? "text-emerald-700 font-medium" : "text-gray-500"}`}>
+                            {item.key}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
 
                 <div>
                   <label className="text-sm text-gray-600">Image</label>
@@ -784,6 +887,7 @@ const onDragEnd = async (result) => {
                         price: "",
                         discountPrice: "",
                         cat_id: "",
+                        contains: [],
                         image: null,
                         oldImage: null,
                       });
@@ -803,9 +907,8 @@ const onDragEnd = async (result) => {
             /* Mobile bottom-sheet modal */
             <div
               // container transforms for slide animation
-              className={`fixed inset-x-0 bottom-0 z-50 max-h-[92vh] ${
-                modalSlideIn ? "translate-y-0" : "translate-y-full"
-              } transform transition-transform duration-300`}
+              className={`fixed inset-x-0 bottom-0 z-50 max-h-[92vh] ${modalSlideIn ? "translate-y-0" : "translate-y-full"
+                } transform transition-transform duration-300`}
               style={{ display: "block" }}
             >
               <div className="bg-white w-full rounded-t-2xl shadow-xl overflow-auto max-h-[92vh]">
@@ -898,6 +1001,34 @@ const onDragEnd = async (result) => {
                   </div>
 
                   <div>
+                    <label className="text-sm text-gray-600 mb-2 block">Contains</label>
+                    <div className="grid grid-cols-4 gap-3">
+                      {CONTAINS_OPTIONS.map((item) => {
+                        const active = form.contains.includes(item.key);
+                        return (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => toggleContains(item.key)}
+                            className={`border rounded-lg p-2 flex flex-col items-center gap-1 transition
+                              ${active ? "border-emerald-500 bg-emerald-50" : "border-gray-200 hover:bg-gray-50"}
+                            `}
+                          >
+                            <img
+                              src={item.icon}
+                              alt={item.key}
+                              className={`h-8 w-8 ${active ? "opacity-100" : "opacity-40"}`}
+                            />
+                            <span className={`text-xs ${active ? "text-emerald-700 font-medium" : "text-gray-500"}`}>
+                              {item.key}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
                     <label className="text-sm text-gray-600">Image</label>
 
                     <div className="mt-1 flex items-center gap-3">
@@ -942,6 +1073,7 @@ const onDragEnd = async (result) => {
                             price: "",
                             discountPrice: "",
                             cat_id: "",
+                            contains: [],
                             image: null,
                             oldImage: null,
                           });

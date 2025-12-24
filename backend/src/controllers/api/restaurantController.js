@@ -23,7 +23,9 @@ export const getRestaurants = async (req, res) => {
       user_id,
       restaurant_name AS name,
       restaurant_photo AS photo,
-      restaurant_address AS address
+      restaurant_address AS address,
+      instore,
+      kerbside
     FROM restaurant_details
     ORDER BY id DESC
   `;
@@ -37,6 +39,8 @@ export const getRestaurants = async (req, res) => {
       name: r.name,
       address: r.address,
       photo: buildPhotoUrl(req, r.photo),
+      instore: !!r.instore,
+      kerbside: !!r.kerbside
     }));
 
     return res.json({ status: 1, data });
@@ -67,6 +71,8 @@ export const getRestaurantById = async (req, res) => {
       restaurant_address: r.restaurant_address,
       restaurant_phonenumber: r.restaurant_phonenumber,
       restaurant_photo: buildPhotoUrl(req, r.restaurant_photo),
+      instore: !!r.instore,
+      kerbside: !!r.kerbside,
     };
 
     return res.json({ status: 1, data: [restaurant] });

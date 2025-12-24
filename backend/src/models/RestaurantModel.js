@@ -40,8 +40,8 @@ async function insertRestaurant(conn, userId, payload) {
       `INSERT INTO restaurant_details
         (user_id, restaurant_name, restaurant_address, restaurant_phonenumber,
         restaurant_email, restaurant_facebook, restaurant_twitter, restaurant_instagram,
-        restaurant_linkedin, parking_info, restaurant_photo)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        restaurant_linkedin, parking_info, instore,kerbside,restaurant_photo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
         payload.restaurant_name ?? null,
@@ -53,6 +53,8 @@ async function insertRestaurant(conn, userId, payload) {
         payload.restaurant_instagram ?? null,
         payload.restaurant_linkedin ?? null,
         payload.parking_info ?? null,
+        payload.instore ?? 0,
+        payload.kerbside ?? 0,
         payload.restaurant_photo ?? null,
       ]
     );
@@ -76,6 +78,8 @@ async function updateRestaurant(conn, restaurantId, payload) {
       "restaurant_instagram",
       "restaurant_linkedin",
       "parking_info",
+      "instore",
+      "kerbside"
     ];
 
     const values = [
@@ -88,6 +92,8 @@ async function updateRestaurant(conn, restaurantId, payload) {
       payload.restaurant_instagram ?? null,
       payload.restaurant_linkedin ?? null,
       payload.parking_info ?? null,
+      payload.instore ?? 0,
+      payload.kerbside ?? 0,
     ];
 
     // 👇 Only update restaurant_photo if it exists in payload
@@ -155,7 +161,7 @@ async function syncTimings(conn, restaurantId, payloadTimings = []) {
     const closing_time = closing_time_raw === null ? "00:00:00" : closing_time_raw;
 
     const is_active = (typeof t.is_active === "boolean") ? (t.is_active ? 1 : 0)
-                     : (t.is_active === 1 || t.is_active === "1" || t.is_active === "true") ? 1 : 0;
+      : (t.is_active === 1 || t.is_active === "1" || t.is_active === "true") ? 1 : 0;
 
     byDay[day] = { opening_time, closing_time, is_active };
   }

@@ -23,6 +23,8 @@ export default function Restuarent() {
     instagram: "",
     linkedin: "",
     parking_info: "",
+    instore: false,
+    kerbside: false,
     photo: ""
   });
 
@@ -86,7 +88,8 @@ export default function Restuarent() {
       restaurant_instagram: info.instagram || null,
       restaurant_linkedin: info.linkedin || null,
       parking_info: info.parking_info || null,
-      // ✅ REMOVED: restaurant_photo from payload - let multipart handle it
+      instore: info.instore ? 1 : 0,
+      kerbside: info.kerbside ? 1 : 0,
       timings: timings.map((t) => ({
         day: t.day,
         opening_time: toSqlTime(t.start),
@@ -109,6 +112,8 @@ export default function Restuarent() {
       instagram: restaurant.restaurant_instagram ?? "",
       linkedin: restaurant.restaurant_linkedin ?? "",
       parking_info: restaurant.parking_info ?? "",
+      instore: !!restaurant.instore,
+      kerbside: !!restaurant.kerbside,
       photo: restaurant.restaurant_photo ?? ""
     });
 
@@ -223,8 +228,36 @@ export default function Restuarent() {
                     value={info.parking_info} onChange={onInfoChange("parking_info")} />
                 </div>
               </div>
-            </section>
+              <div className="col-span-1 sm:col-span-2">
+                <label className="block text-sm font-medium mb-2">Service Options</label>
 
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={info.instore}
+                      onChange={(e) =>
+                        setInfo((p) => ({ ...p, instore: e.target.checked }))
+                      }
+                    />
+                    <span>In-store</span>
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={info.kerbside}
+                      onChange={(e) =>
+                        setInfo((p) => ({ ...p, kerbside: e.target.checked }))
+                      }
+                    />
+                    <span>Kerbside</span>
+                  </label>
+                </div>
+              </div>
+
+            </section>
+            
             {/* Photo Upload */}
             <aside className="space-y-6">
               <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100">

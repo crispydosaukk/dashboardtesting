@@ -21,9 +21,13 @@ export const getProducts = async (req, res) => {
       product_desc AS description, 
       product_price, 
       product_discount_price,
+      contains,
       sort_order
     FROM products
-    WHERE user_id = ? AND cat_id = ? AND product_status = 1 AND status = 1
+    WHERE user_id = ?
+      AND cat_id = ?
+      AND product_status = 1
+      AND status = 1
     ORDER BY sort_order ASC, id ASC
   `;
 
@@ -40,8 +44,8 @@ export const getProducts = async (req, res) => {
         description: p.description,
         price: p.product_price,
         discount_price: p.product_discount_price,
+        contains: p.contains ? JSON.parse(p.contains) : [],
         sort_order: p.sort_order,
-
         image: cleanImage
           ? `${req.protocol}://${req.get("host")}/uploads/${cleanImage}`
           : `${req.protocol}://${req.get("host")}/uploads/default_product.png`

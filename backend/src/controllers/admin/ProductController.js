@@ -8,6 +8,11 @@ import pool from "../../config/db.js";
 export const getProducts = async (req, res) => {
   try {
     const userId = req.user.id;
+    // Debug logging
+    try {
+      const logPath = path.resolve("debug_log.txt");
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] getProducts: userId=${userId}\n`);
+    } catch (e) { }
 
     const [rows] = await pool.query(
       `SELECT 
@@ -16,6 +21,7 @@ export const getProducts = async (req, res) => {
         p.product_name AS name,
         p.product_image AS image,
         p.product_desc AS description,
+        p.contains,
         p.product_price AS price,
         p.product_discount_price AS discountPrice,
         IFNULL(p.status,1) AS status,
@@ -26,7 +32,12 @@ export const getProducts = async (req, res) => {
       [userId]
     );
 
-    res.json(rows);
+    const data = rows.map((r) => ({
+      ...r,
+      contains: r.contains ? JSON.parse(r.contains) : [],
+    }));
+
+    res.json(data);
   } catch (err) {
     console.error("getProducts error:", err);
     res.status(500).json({ message: "Server error" });
@@ -39,8 +50,22 @@ export const getProducts = async (req, res) => {
 export const addProduct = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, description, price, discountPrice, cat_id } = req.body;
+    let { name, description, price, discountPrice, cat_id, contains } = req.body;
+    // Debug logging
+    try {
+      const logPath = path.resolve("debug_log.txt");
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] addProduct: userId=${userId}, name=${name}\n`);
+    } catch (e) { }
     const image = req.file ? req.file.filename : null;
+
+    // Fix for FormData sending contains as stringified JSON
+    if (typeof contains === "string") {
+      try {
+        contains = JSON.parse(contains);
+      } catch (e) {
+        contains = [];
+      }
+    }
 
     if (!name || !price || !cat_id || !image)
       return res.status(400).json({ message: "All required fields missing" });
@@ -62,9 +87,20 @@ export const addProduct = async (req, res) => {
 
     const [result] = await pool.query(
       `INSERT INTO products 
-       (user_id, cat_id, product_name, product_image, product_desc, product_price, product_discount_price, status, sort_order)
-       VALUES (?,?,?,?,?,?,?,1,?)`,
-      [userId, cat_id, name, image, description, price, discountPrice, newOrder]
+       (user_id, cat_id, product_name, product_image, product_desc, contains,
+        product_price, product_discount_price, status, sort_order)
+       VALUES (?,?,?,?,?,?,?,?,1,?)`,
+      [
+        userId,
+        cat_id,
+        name,
+        image,
+        description,
+        contains ? JSON.stringify(contains) : null,
+        price,
+        discountPrice,
+        newOrder
+      ]
     );
 
     res.json({
@@ -75,6 +111,7 @@ export const addProduct = async (req, res) => {
       discountPrice,
       image,
       cat_id,
+      contains: contains || [],
       status: 1,
       sort_order: newOrder,
     });
@@ -124,8 +161,17 @@ export const updateProduct = async (req, res) => {
     const userId = req.user.id;
     const { id } = req.params;
 
-    const { name, description, price, discountPrice, cat_id } = req.body;
+    let { name, description, price, discountPrice, cat_id, contains } = req.body;
     const newImage = req.file ? req.file.filename : null;
+
+    // Fix for FormData sending contains as stringified JSON
+    if (typeof contains === "string") {
+      try {
+        contains = JSON.parse(contains);
+      } catch (e) {
+        contains = [];
+      }
+    }
 
     const statusRaw = req.body.status;
     const status =
@@ -137,7 +183,6 @@ export const updateProduct = async (req, res) => {
     );
     if (!existing) return res.status(404).json({ message: "Not found" });
 
-    // delete old image
     if (newImage && existing.product_image) {
       const oldPath = path.join("public/uploads", existing.product_image);
       if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
@@ -146,34 +191,17 @@ export const updateProduct = async (req, res) => {
     const fields = [];
     const params = [];
 
-    if (name) {
-      fields.push("product_name = ?");
-      params.push(name);
+    if (name) { fields.push("product_name = ?"); params.push(name); }
+    if (description !== undefined) { fields.push("product_desc = ?"); params.push(description); }
+    if (price) { fields.push("product_price = ?"); params.push(price); }
+    if (discountPrice) { fields.push("product_discount_price = ?"); params.push(discountPrice); }
+    if (cat_id) { fields.push("cat_id = ?"); params.push(cat_id); }
+    if (contains !== undefined) {
+      fields.push("contains = ?");
+      params.push(JSON.stringify(contains));
     }
-    if (description !== undefined) {
-      fields.push("product_desc = ?");
-      params.push(description);
-    }
-    if (price) {
-      fields.push("product_price = ?");
-      params.push(price);
-    }
-    if (discountPrice) {
-      fields.push("product_discount_price = ?");
-      params.push(discountPrice);
-    }
-    if (cat_id) {
-      fields.push("cat_id = ?");
-      params.push(cat_id);
-    }
-    if (newImage) {
-      fields.push("product_image = ?");
-      params.push(newImage);
-    }
-    if (statusRaw !== undefined) {
-      fields.push("status = ?");
-      params.push(status);
-    }
+    if (newImage) { fields.push("product_image = ?"); params.push(newImage); }
+    if (statusRaw !== undefined) { fields.push("status = ?"); params.push(status); }
 
     params.push(id, userId);
 
@@ -183,12 +211,22 @@ export const updateProduct = async (req, res) => {
     );
 
     const [[updated]] = await pool.query(
-      `SELECT id, product_name AS name, product_image AS image,
-              product_desc AS description, product_price AS price,
-              product_discount_price AS discountPrice, cat_id, status, sort_order
+      `SELECT 
+        id,
+        product_name AS name,
+        product_image AS image,
+        product_desc AS description,
+        product_price AS price,
+        product_discount_price AS discountPrice,
+        cat_id,
+        contains,
+        status,
+        sort_order
        FROM products WHERE id=? AND user_id=?`,
       [id, userId]
     );
+
+    updated.contains = updated.contains ? JSON.parse(updated.contains) : [];
 
     res.json(updated);
   } catch (err) {
@@ -197,6 +235,9 @@ export const updateProduct = async (req, res) => {
   }
 };
 
+/* ===========================================
+   REORDER PRODUCTS
+=========================================== */
 export const reorderProducts = async (req, res) => {
   try {
     const { order } = req.body;

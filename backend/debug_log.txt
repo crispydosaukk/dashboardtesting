@@ -1,0 +1,2 @@
+[2025-12-24T13:37:38.411Z] getProducts: userId=1
+[2025-12-24T13:37:38.424Z] getProducts: userId=1
