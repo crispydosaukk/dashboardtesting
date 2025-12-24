@@ -11,10 +11,9 @@ const Item = ({ to = "#", icon, label }) => (
       `
       flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium tracking-wide
       transition-all duration-200 border border-transparent
-      ${
-        isActive
-          ? "bg-emerald-600 text-white shadow-[0_6px_20px_rgba(16,185,129,0.12)] scale-[1.02]"
-          : "text-emerald-800 hover:bg-emerald-50 hover:border-emerald-100"
+      ${isActive
+        ? "bg-emerald-600 text-white shadow-[0_6px_20px_rgba(16,185,129,0.12)] scale-[1.02]"
+        : "text-emerald-800 hover:bg-emerald-50 hover:border-emerald-100"
       }
       `
     }
@@ -85,15 +84,16 @@ export default function Sidebar({ open, onClose }) {
 
   /* TOP LEVEL MENU (Category & Product removed here) */
   const rawMenu = useMemo(
-  () => [
-    { label: "Dashboard", to: "/dashboard", icon: iconDashboard(), perm: "dashboard" },
-    { label: "Restaurant", to: "/restuarent", icon: iconRestaurant(), perm: "restaurant" },
-    { label: "Customer Info", to: "/customerinfo", icon: iconCustomer(), perm: "customer_info" }, 
-    { label: "Settings", to: "/settings", icon: iconSettings(), perm: "settings" },
-    { label: "Order Management", to: "/orders", icon: iconOrders(), perm: "order_management" },
-  ],
-  []
-);
+    () => [
+      { label: "Dashboard", to: "/dashboard", icon: iconDashboard(), perm: "dashboard" },
+      { label: "Restaurant", to: "/restuarent", icon: iconRestaurant(), perm: "restaurant" },
+      { label: "Customer Info", to: "/customerinfo", icon: iconCustomer(), perm: "customer_info" },
+      { label: "Customer Details", to: "/customerdetails", icon: iconCustomerDetails(), perm: "customer_details" },
+      { label: "Settings", to: "/settings", icon: iconSettings(), perm: "settings" },
+      { label: "Order Management", to: "/orders", icon: iconOrders(), perm: "order_management" },
+    ],
+    []
+  );
 
 
   /* NEW GROUP: MENU MANAGEMENT (Category + Product) */
@@ -191,9 +191,8 @@ export default function Sidebar({ open, onClose }) {
       {/* overlay + aside unchanged */}
       <div
         onClick={onClose}
-        className={`fixed inset-0 top-16 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity ${
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
+        className={`fixed inset-0 top-16 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
       />
 
       <aside
@@ -434,6 +433,20 @@ function iconSettings() {
         r="2.5"
         stroke="currentColor"
         strokeWidth="1.4"
+      />
+    </svg>
+  );
+}
+
+function iconCustomerDetails() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+      <path
+        d="M17 20h5v-2a3 3 0 0 0-5.3-1.5M16 3.13a4 4 0 0 1 0 7.75M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zM3 21a9 9 0 0 1 18 0"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );

@@ -11,6 +11,7 @@ import Product from "./pages/product/index.jsx";
 import CustomerInfo from "./pages/customerinfo/index.jsx";
 import Orders from "./pages/orders/index.jsx";
 import Settings from "./pages/settings/index.jsx";
+import CustomerDetails from "./pages/customerdetails/index.jsx";
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -85,12 +86,23 @@ export default function App() {
           }
         />
 
-         <Route
+        <Route
           path="/customerinfo"
           element={
             <PrivateRoute>
               <RequirePerm perm="customer_info">
                 <CustomerInfo />
+              </RequirePerm>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/customerdetails"
+          element={
+            <PrivateRoute>
+              <RequirePerm perm="customer_details">
+                <CustomerDetails />
               </RequirePerm>
             </PrivateRoute>
           }
@@ -107,26 +119,26 @@ export default function App() {
           }
         />
         <Route
-  path="/orders"
-  element={
-    <PrivateRoute>
-      <RequirePerm perm="order_management">
-        <Orders />
-      </RequirePerm>
-    </PrivateRoute>
-  }
-/>
+          path="/orders"
+          element={
+            <PrivateRoute>
+              <RequirePerm perm="order_management">
+                <Orders />
+              </RequirePerm>
+            </PrivateRoute>
+          }
+        />
 
-<Route
-  path="/settings"
-  element={
-    <PrivateRoute>
-      <RequirePerm perm="settings">
-        <Settings />
-      </RequirePerm>
-    </PrivateRoute>
-  }
-/>
+        <Route
+          path="/settings"
+          element={
+            <PrivateRoute>
+              <RequirePerm perm="settings">
+                <Settings />
+              </RequirePerm>
+            </PrivateRoute>
+          }
+        />
 
 
         <Route path="*" element={<Navigate to="/" replace />} />
