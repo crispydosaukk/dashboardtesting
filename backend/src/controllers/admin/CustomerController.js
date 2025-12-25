@@ -315,3 +315,54 @@ export const removeCustomer = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// Get customers for the logged-in user (based on orders)
+export const getCustomersByUser = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const roleId = req.user.role_id;
+    const roleName = req.user.role || req.user.role_title || null;
+
+    // Super Admin Check (Role 6 or 'Super Admin')
+    const isSuperAdmin = (Number(roleId) === 6) || (typeof roleName === "string" && roleName.toLowerCase() === "super admin");
+
+    let sql = `
+      SELECT 
+        c.id,
+        c.full_name,
+        c.country_code,
+        c.mobile_number,
+        c.email,
+        MAX(c.created_at) as last_seen,
+        
+        -- Order Counts (Unique Orders)
+        COUNT(DISTINCT o.order_number) as total_orders,
+        COUNT(DISTINCT CASE WHEN o.order_status IN (0, 1, 3) THEN o.order_number END) as live_orders,
+        COUNT(DISTINCT CASE WHEN o.order_status = 4 THEN o.order_number END) as completed_orders
+
+      FROM customers c
+      INNER JOIN orders o ON c.id = o.customer_id
+    `;
+
+    const params = [];
+
+    // Filter by user ONLY if NOT Super Admin
+    if (!isSuperAdmin) {
+      sql += ` WHERE o.user_id = ? `;
+      params.push(userId);
+    }
+
+    sql += `
+      GROUP BY c.id
+      ORDER BY total_orders DESC
+    `;
+
+    const [rows] = await db.execute(sql, params);
+
+    res.json(rows);
+  } catch (err) {
+    console.error("getCustomersByUser error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+

@@ -3,22 +3,22 @@ import { login } from "../controllers/admin/AuthController.js";
 import auth from "../middleware/auth.js";
 import upload from "../middleware/upload.js";
 
-import { 
-  getProducts, 
-  addProduct, 
-  removeProduct, 
+import {
+  getProducts,
+  addProduct,
+  removeProduct,
   updateProduct,
   reorderProducts
 } from "../controllers/admin/ProductController.js";
 
-import {  
+import {
   index as listPermissions,
   create as createPermission,
   update as updatePermissionCtrl,
   remove as deletePermissionCtrl,
 } from "../controllers/admin/PermissionController.js";
 
-import {  
+import {
   index as listRoles,
   create as createRole,
   update as updateRole,
@@ -51,6 +51,7 @@ import {
   addCustomer,
   editCustomer,
   removeCustomer,
+  getCustomersByUser,
 } from "../controllers/admin/CustomerController.js";
 
 import {
@@ -103,6 +104,8 @@ router.post("/products", auth, upload.single("image"), addProduct);
 router.delete("/products/:id", auth, removeProduct);
 router.put("/products/:id", auth, upload.single("image"), updateProduct);
 
+
+router.get("/customers/by-user", auth, getCustomersByUser); // 👈 New Route
 router.get("/customers", getCustomers);
 router.get("/customers/:id", getCustomerByIdCtrl);
 router.post("/customers", addCustomer);

@@ -135,15 +135,15 @@ export const createOrder = async (req, res) => {
     // ✅ transaction start
     await conn.beginTransaction();
 
-    // Fetch restaurant name
+    // Fetch restaurant name and OWNER ID
     // Prefer the restaurant linked to the first product (products.user_id) to avoid mismatch
-    // between the passed in user_id and product ownership.
     let restaurantName = "";
+    let restaurantOwnerId = null;
 
     if (Array.isArray(items) && items.length > 0 && items[0].product_id) {
       const firstProductId = items[0].product_id;
       const [prdRows] = await conn.query(
-        `SELECT rd.restaurant_name
+        `SELECT rd.restaurant_name, p.user_id as owner_id
          FROM products p
          JOIN restaurant_details rd ON p.user_id = rd.user_id
          WHERE p.id = ?
@@ -152,11 +152,22 @@ export const createOrder = async (req, res) => {
       );
       if (prdRows.length) {
         restaurantName = prdRows[0].restaurant_name || "";
+        restaurantOwnerId = prdRows[0].owner_id;
       }
     }
 
-    // Fallback to user_id based lookup if product-based lookup failed
+    // Fallback? If we can't find product owner, what to do? 
+    // Usually we must have a product owner.
+    // If fallback needed, keep original logic but renamed.
+
+    // DECISION: The orders.user_id MUST be the restaurant owner. 
+    // If restaurantOwnerId is found, use it. Else fall back to passed user_id (risky but safe for legacy?).
+    // Given the bug report, we MUST prefer the product owner.
+
+    const finalUserId = restaurantOwnerId || user_id;
+
     if (!restaurantName && user_id) {
+      // ... existing fallback ...
       const [rData] = await conn.query(
         "SELECT restaurant_name FROM restaurant_details WHERE user_id = ? LIMIT 1",
         [user_id]
@@ -337,7 +348,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
       const values = [
-        user_id,
+        finalUserId,
         order_number,
         customer_id,
         product_id,
@@ -625,7 +636,7 @@ export const getOrder = async (req, res) => {
       customer_id: rows[0].customer_id,
       status: rows[0].order_status,
       created_at: rows[0].created_at,
-      
+
       // ✅ ADDED: Sum up usage from all rows so frontend can display it
       wallet_used: rows.reduce((sum, r) => sum + Number(r.wallet_amount || 0), 0),
       loyalty_used: rows.reduce((sum, r) => sum + Number(r.loyalty_amount || 0), 0),
