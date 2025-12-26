@@ -691,18 +691,28 @@ export const updateOrderStatus = async (req, res) => {
   try {
     const { order_number, status } = req.body;
 
-    if (!order_number || ![1, 2].includes(status)) {
+    // ✅ allow full lifecycle
+    const allowedStatuses = [1, 2, 3, 4, 5];
+
+    if (!order_number || !allowedStatuses.includes(Number(status))) {
       return res.status(400).json({
         status: 0,
         message: "Invalid order status"
       });
     }
 
-    // 1 = ACCEPTED, 2 = DECLINED
-    await db.query(
+    // Update all rows of the order
+    const [result] = await db.query(
       `UPDATE orders SET order_status = ? WHERE order_number = ?`,
       [status, order_number]
     );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        status: 0,
+        message: "Order not found"
+      });
+    }
 
     // Fetch customer_id
     const [[row]] = await db.query(
@@ -711,31 +721,60 @@ export const updateOrderStatus = async (req, res) => {
     );
 
     if (!row) {
-      return res.status(404).json({ status: 0, message: "Order not found" });
+      return res.status(404).json({
+        status: 0,
+        message: "Order not found"
+      });
     }
 
-    // Notify customer
-    await sendNotification({
-      userType: "customer",
-      userId: row.customer_id,
-      title: status === 1 ? "✅ Order Accepted" : "❌ Order Declined",
-      body:
-        status === 1
-          ? `Your order ${order_number} has been accepted`
-          : `Your order ${order_number} was declined`,
-      data: {
-        order_number,
-        status: String(status)
+    // 🔔 Notification mapping
+    const statusMap = {
+      1: {
+        title: "✅ Order Accepted",
+        body: `Your order ${order_number} has been accepted`
+      },
+      2: {
+        title: "❌ Order Rejected",
+        body: `Your order ${order_number} was rejected`
+      },
+      3: {
+        title: "🍳 Order Ready",
+        body: `Your order ${order_number} is ready for pickup`
+      },
+      4: {
+        title: "🚗 Order Delivered",
+        body: `Your order ${order_number} has been delivered`
+      },
+      5: {
+        title: "⚠️ Order Cancelled",
+        body: `Your order ${order_number} has been cancelled`
       }
-    });
+    };
 
-    res.json({
+    // Send notification to customer
+    if (statusMap[status]) {
+      await sendNotification({
+        userType: "customer",
+        userId: row.customer_id,
+        title: statusMap[status].title,
+        body: statusMap[status].body,
+        data: {
+          order_number,
+          status: String(status)
+        }
+      });
+    }
+
+    return res.json({
       status: 1,
-      message: "Order status updated"
+      message: "Order status updated successfully"
     });
 
   } catch (err) {
     console.error("Update order status error:", err);
-    res.status(500).json({ status: 0, message: "Server error" });
+    return res.status(500).json({
+      status: 0,
+      message: "Server error"
+    });
   }
 };
