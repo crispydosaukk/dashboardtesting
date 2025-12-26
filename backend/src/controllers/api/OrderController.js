@@ -1,4 +1,5 @@
 import db from "../../config/db.js";
+import { sendNotification } from "../../utils/sendNotification.js";
 
 // ----------------- ORDER NUMBER GENERATOR ----------------- //
 function generateOrderNumber(restaurantName = "") {
@@ -494,6 +495,23 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
     await conn.commit();
 
+    /* 🔔 STEP 7.4 — NOTIFY RESTAURANT */
+    try {
+      await sendNotification({
+        userType: "restaurant",
+        userId: finalUserId, // restaurant owner id
+        title: "🍽️ New Order Received",
+        body: `Order ${order_number} has been placed`,
+        data: {
+          order_number,
+          type: "NEW_ORDER"
+        }
+      });
+    } catch (e) {
+      console.error("Restaurant notification failed:", e.message);
+    }
+
+    /* ✅ RESPONSE TO APP */
     return res.status(200).json({
       status: 1,
       message: "Order Placed Successfully",
@@ -501,6 +519,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       wallet_used: walletDeducted,
       loyalty_used: loyaltyDeducted,
     });
+
   } catch (error) {
     try {
       await conn.rollback();
@@ -664,5 +683,59 @@ export const getOrder = async (req, res) => {
       status: 0,
       message: "Server error"
     });
+  }
+};
+
+
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { order_number, status } = req.body;
+
+    if (!order_number || ![1, 2].includes(status)) {
+      return res.status(400).json({
+        status: 0,
+        message: "Invalid order status"
+      });
+    }
+
+    // 1 = ACCEPTED, 2 = DECLINED
+    await db.query(
+      `UPDATE orders SET order_status = ? WHERE order_number = ?`,
+      [status, order_number]
+    );
+
+    // Fetch customer_id
+    const [[row]] = await db.query(
+      `SELECT customer_id FROM orders WHERE order_number = ? LIMIT 1`,
+      [order_number]
+    );
+
+    if (!row) {
+      return res.status(404).json({ status: 0, message: "Order not found" });
+    }
+
+    // Notify customer
+    await sendNotification({
+      userType: "customer",
+      userId: row.customer_id,
+      title: status === 1 ? "✅ Order Accepted" : "❌ Order Declined",
+      body:
+        status === 1
+          ? `Your order ${order_number} has been accepted`
+          : `Your order ${order_number} was declined`,
+      data: {
+        order_number,
+        status: String(status)
+      }
+    });
+
+    res.json({
+      status: 1,
+      message: "Order status updated"
+    });
+
+  } catch (err) {
+    console.error("Update order status error:", err);
+    res.status(500).json({ status: 0, message: "Server error" });
   }
 };

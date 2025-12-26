@@ -37,6 +37,22 @@ export default function Orders() {
     });
   };
 
+  const updateOrderStatus = async (orderNumber, status) => {
+  try {
+    await api.post("/mobile/orders/update-status", {
+      order_number: orderNumber,
+      status
+    });
+
+    // reload orders after update
+    loadOrders();
+  } catch (err) {
+    console.error("Status update failed:", err);
+    alert("Failed to update order");
+  }
+};
+
+
   useEffect(() => {
     loadOrders();
   }, []);
@@ -287,6 +303,7 @@ export default function Orders() {
                     Allergy Note
                   </th>
                   <th className="px-4 py-3 text-left whitespace-nowrap">Status</th>
+                  <th className="px-4 py-3 text-left whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
 
@@ -428,6 +445,43 @@ export default function Orders() {
                       >
                         {statusText(order.order_status)}
                       </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {order.order_status === 0 && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => updateOrderStatus(order.order_number, 1)}
+                              className="px-3 py-1 bg-green-600 text-white rounded text-xs"
+                            >
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => updateOrderStatus(order.order_number, 2)}
+                              className="px-3 py-1 bg-red-600 text-white rounded text-xs"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+
+                        {order.order_status === 1 && (
+                          <button
+                            onClick={() => updateOrderStatus(order.order_number, 3)}
+                            className="px-3 py-1 bg-purple-600 text-white rounded text-xs"
+                          >
+                            Mark Ready
+                          </button>
+                        )}
+
+                        {order.order_status === 3 && (
+                          <button
+                            onClick={() => updateOrderStatus(order.order_number, 4)}
+                            className="px-3 py-1 bg-emerald-600 text-white rounded text-xs"
+                          >
+                            Delivered
+                          </button>
+                        )}
+                      </td>
+
                     </tr>
                   );
                 })}
@@ -598,6 +652,7 @@ export default function Orders() {
             >
               Previous
             </button>
+            
 
             {[...Array(totalPages).keys()].map((num) => (
               <button
@@ -624,6 +679,7 @@ export default function Orders() {
             </button>
           </div>
         </div>
+       
         <Footer />
       </div>
     </div>
