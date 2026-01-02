@@ -19,6 +19,11 @@ import { createPaymentIntent } from "../controllers/api/stripeController.js";
 import { getPaymentHistory } from "../controllers/api/paymentController.js";
 import { saveFcmToken } from "../controllers/api/notificationController.js";
 import { updateOrderStatus } from "../controllers/api/OrderController.js";
+import {
+  getNotifications,
+  markNotificationRead
+} from "../controllers/api/notificationListController.js";
+
 
 const router = express.Router();
 
@@ -52,6 +57,10 @@ router.get("/orders/customer/:customer_id", auth, getCustomerOrders);
 router.get("/orders/:order_id", auth, getOrder);
 router.post("/save-fcm-token", auth, saveFcmToken);
 router.post("/orders/update-status", auth, updateOrderStatus);
+
+router.get("/notifications", auth, getNotifications);
+router.post("/notifications/read", auth, markNotificationRead);
+
 
 router.get("/payments/history", auth, getPaymentHistory);
 router.get("/profile", auth, getProfile);

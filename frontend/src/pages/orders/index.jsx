@@ -37,21 +37,15 @@ export default function Orders() {
     });
   };
 
-  const updateOrderStatus = async (orderNumber, status) => {
-  try {
-    await api.post("/mobile/orders/update-status", {
-      order_number: orderNumber,
-      status
-    });
+  const updateOrderStatus = async (orderNumber, status, readyInMinutes = null) => {
+  await api.post("/mobile/orders/update-status", {
+    order_number: orderNumber,
+    status,
+    ready_in_minutes: readyInMinutes
+  });
 
-    // reload orders after update
-    loadOrders();
-  } catch (err) {
-    console.error("Status update failed:", err);
-    alert("Failed to update order");
-  }
+  loadOrders();
 };
-
 
   useEffect(() => {
     loadOrders();
@@ -449,7 +443,12 @@ export default function Orders() {
                         {order.order_status === 0 && (
                           <div className="flex gap-2">
                             <button
-                              onClick={() => updateOrderStatus(order.order_number, 1)}
+                              onClick={() => {
+                                const minutes = prompt("Order will be ready in how many minutes?");
+                                if (!minutes || isNaN(minutes)) return;
+
+                                updateOrderStatus(order.order_number, 1, Number(minutes));
+                              }}
                               className="px-3 py-1 bg-green-600 text-white rounded text-xs"
                             >
                               Accept

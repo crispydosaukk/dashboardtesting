@@ -594,8 +594,9 @@ export const getCustomerOrders = async (req, res) => {
         SUM(grand_total) AS total_amount,
         
         SUM(quantity) AS items_count,
-        MAX(order_status) AS status,
-        MAX(created_at) AS created_at
+        MIN(order_status) AS status,
+        MAX(created_at) AS created_at,
+        MAX(delivery_estimate_time) AS delivery_estimate_time
       FROM orders
       WHERE customer_id = ?
       GROUP BY order_number
@@ -648,12 +649,17 @@ export const getOrder = async (req, res) => {
       });
     }
 
-    // 3️⃣ Build clean order response
     const order = {
       order_id: orderId,
       order_no: orderNumber,
       customer_id: rows[0].customer_id,
-      status: rows[0].order_status,
+
+      // ✅ IMPORTANT
+      status: Math.max(...rows.map(r => Number(r.order_status))),
+      delivery_estimate_time: rows
+        .map(r => r.delivery_estimate_time)
+        .filter(Boolean)[0] || null,
+
       created_at: rows[0].created_at,
 
       // ✅ ADDED: Sum up usage from all rows so frontend can display it
@@ -686,78 +692,76 @@ export const getOrder = async (req, res) => {
   }
 };
 
-
 export const updateOrderStatus = async (req, res) => {
   try {
-    const { order_number, status } = req.body;
-
-    // ✅ allow full lifecycle
+    const { order_number, status, ready_in_minutes } = req.body;
     const allowedStatuses = [1, 2, 3, 4, 5];
 
     if (!order_number || !allowedStatuses.includes(Number(status))) {
-      return res.status(400).json({
-        status: 0,
-        message: "Invalid order status"
-      });
+      return res.status(400).json({ status: 0, message: "Invalid order status" });
     }
 
-    // Update all rows of the order
+    let readyAt = null;
+    if (Number(status) === 1) {
+      if (!ready_in_minutes || ready_in_minutes <= 0) {
+        return res.status(400).json({ status: 0, message: "Ready time (minutes) is required" });
+      }
+      const d = new Date(Date.now() + ready_in_minutes * 60000);
+      readyAt = d.toISOString().slice(0, 19).replace("T", " ");
+    }
+
+    // 1. UPDATE ORDER TABLE
     const [result] = await db.query(
-      `UPDATE orders SET order_status = ? WHERE order_number = ?`,
-      [status, order_number]
+      `UPDATE orders SET order_status = ?, delivery_estimate_time = ? WHERE order_number = ?`,
+      [status, readyAt, order_number]
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({
-        status: 0,
-        message: "Order not found"
-      });
+      return res.status(404).json({ status: 0, message: "Order not found" });
     }
 
-    // Fetch customer_id
+    // 2. GET CUSTOMER ID
     const [[row]] = await db.query(
       `SELECT customer_id FROM orders WHERE order_number = ? LIMIT 1`,
       [order_number]
     );
 
     if (!row) {
-      return res.status(404).json({
-        status: 0,
-        message: "Order not found"
-      });
+      return res.status(404).json({ status: 0, message: "Order not found" });
     }
 
-    // 🔔 Notification mapping
     const statusMap = {
-      1: {
-        title: "✅ Order Accepted",
-        body: `Your order ${order_number} has been accepted`
-      },
-      2: {
-        title: "❌ Order Rejected",
-        body: `Your order ${order_number} was rejected`
-      },
-      3: {
-        title: "🍳 Order Ready",
-        body: `Your order ${order_number} is ready for pickup`
-      },
-      4: {
-        title: "🚗 Order Delivered",
-        body: `Your order ${order_number} has been delivered`
-      },
-      5: {
-        title: "⚠️ Order Cancelled",
-        body: `Your order ${order_number} has been cancelled`
-      }
+      1: { title: "✅ Order Accepted", body: `Your order will be ready in ${ready_in_minutes} minutes` },
+      2: { title: "❌ Order Rejected", body: `Your order ${order_number} was rejected` },
+      3: { title: "🍳 Order Ready", body: `Your order ${order_number} is ready for pickup` },
+      4: { title: "🚗 Order Delivered", body: `Your order ${order_number} has been delivered` },
+      5: { title: "⚠️ Order Cancelled", body: `Your order ${order_number} has been cancelled` }
     };
 
-    // Send notification to customer
     if (statusMap[status]) {
+      const notifParams = statusMap[status];
+
+      // 3. INSERT INTO DB **FIRST** (Fixes Race Condition)
+      // Added `order_number` and `status` to columns
+      await db.query(`
+        INSERT INTO notifications 
+        (user_type, user_id, title, body, created_at, is_read, order_number, status)
+        VALUES (?, ?, ?, ?, NOW(), 0, ?, ?)
+      `, [
+        "customer", 
+        row.customer_id, 
+        notifParams.title, 
+        notifParams.body,
+        order_number,      // <--- Added
+        String(status)     // <--- Added
+      ]);
+
+      // 4. THEN SEND PUSH NOTIFICATION
       await sendNotification({
         userType: "customer",
         userId: row.customer_id,
-        title: statusMap[status].title,
-        body: statusMap[status].body,
+        title: notifParams.title,
+        body: notifParams.body,
         data: {
           order_number,
           status: String(status)
@@ -765,16 +769,10 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
-    return res.json({
-      status: 1,
-      message: "Order status updated successfully"
-    });
+    return res.json({ status: 1, message: "Order status updated successfully" });
 
   } catch (err) {
     console.error("Update order status error:", err);
-    return res.status(500).json({
-      status: 0,
-      message: "Server error"
-    });
+    return res.status(500).json({ status: 0, message: "Server error" });
   }
 };
