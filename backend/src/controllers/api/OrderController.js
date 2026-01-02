@@ -692,17 +692,36 @@ export const getOrder = async (req, res) => {
   }
 };
 
+/* REPLACE YOUR EXISTING updateOrderStatus FUNCTION WITH THIS */
+
 export const updateOrderStatus = async (req, res) => {
   try {
     const { order_number, status, ready_in_minutes } = req.body;
     const allowedStatuses = [1, 2, 3, 4, 5];
+    const newStatus = Number(status);
 
-    if (!order_number || !allowedStatuses.includes(Number(status))) {
+    if (!order_number || !allowedStatuses.includes(newStatus)) {
       return res.status(400).json({ status: 0, message: "Invalid order status" });
     }
 
+    // 1️⃣ CHECK CURRENT STATUS & EXISTENCE
+    const [[existingOrder]] = await db.query(
+      `SELECT order_status, customer_id FROM orders WHERE order_number = ? LIMIT 1`,
+      [order_number]
+    );
+
+    if (!existingOrder) {
+      return res.status(404).json({ status: 0, message: "Order not found" });
+    }
+
+    // If status is already the same, do nothing (prevents double notifications)
+    // Exception: If Status is 1 (Accepted), allow update to change time if needed
+    if (Number(existingOrder.order_status) === newStatus && newStatus !== 1) {
+      return res.json({ status: 1, message: "Order status updated successfully" });
+    }
+
     let readyAt = null;
-    if (Number(status) === 1) {
+    if (newStatus === 1) {
       if (!ready_in_minutes || ready_in_minutes <= 0) {
         return res.status(400).json({ status: 0, message: "Ready time (minutes) is required" });
       }
@@ -710,63 +729,74 @@ export const updateOrderStatus = async (req, res) => {
       readyAt = d.toISOString().slice(0, 19).replace("T", " ");
     }
 
-    // 1. UPDATE ORDER TABLE
-    const [result] = await db.query(
+    // 2️⃣ UPDATE ORDER TABLE
+    await db.query(
       `UPDATE orders SET order_status = ?, delivery_estimate_time = ? WHERE order_number = ?`,
-      [status, readyAt, order_number]
+      [newStatus, readyAt, order_number]
     );
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ status: 0, message: "Order not found" });
-    }
-
-    // 2. GET CUSTOMER ID
-    const [[row]] = await db.query(
-      `SELECT customer_id FROM orders WHERE order_number = ? LIMIT 1`,
-      [order_number]
-    );
-
-    if (!row) {
-      return res.status(404).json({ status: 0, message: "Order not found" });
-    }
-
+    // 3️⃣ NOTIFICATION LOGIC
     const statusMap = {
-      1: { title: "✅ Order Accepted", body: `Your order will be ready in ${ready_in_minutes} minutes` },
-      2: { title: "❌ Order Rejected", body: `Your order ${order_number} was rejected` },
-      3: { title: "🍳 Order Ready", body: `Your order ${order_number} is ready for pickup` },
-      4: { title: "🚗 Order Delivered", body: `Your order ${order_number} has been delivered` },
-      5: { title: "⚠️ Order Cancelled", body: `Your order ${order_number} has been cancelled` }
+      1: { 
+        title: "✅ Order Accepted", 
+        body: `Your order will be ready in ${ready_in_minutes} minutes` 
+      },
+      2: { 
+        title: "❌ Order Rejected", 
+        body: `Your order ${order_number} was rejected. Sorry, please contact restaurant admin.` 
+      },
+      3: { 
+        title: "🍳 Order Ready", 
+        body: `Your order ${order_number} is ready for pickup` 
+      },
+      4: { 
+        title: "🚗 Order Delivered", 
+        body: `Your order ${order_number} has been delivered. Thank you for your order. Enjoy your food!` 
+      },
+      5: { 
+        title: "⚠️ Order Cancelled", 
+        body: `Your order ${order_number} has been cancelled. Please contact support if you have any concerns.` 
+      }
     };
 
-    if (statusMap[status]) {
-      const notifParams = statusMap[status];
+    if (statusMap[newStatus]) {
+      const notifParams = statusMap[newStatus];
 
-      // 3. INSERT INTO DB **FIRST** (Fixes Race Condition)
-      // Added `order_number` and `status` to columns
-      await db.query(`
-        INSERT INTO notifications 
-        (user_type, user_id, title, body, created_at, is_read, order_number, status)
-        VALUES (?, ?, ?, ?, NOW(), 0, ?, ?)
-      `, [
-        "customer", 
-        row.customer_id, 
-        notifParams.title, 
-        notifParams.body,
-        order_number,      // <--- Added
-        String(status)     // <--- Added
-      ]);
+      // CRITICAL FIX: Check if we already notified for this specific status
+      // This prevents duplicates if the button is clicked multiple times
+      const [[alreadyNotified]] = await db.query(
+        `SELECT id FROM notifications 
+         WHERE order_number = ? AND status = ? LIMIT 1`,
+        [order_number, String(newStatus)]
+      );
 
-      // 4. THEN SEND PUSH NOTIFICATION
-      await sendNotification({
-        userType: "customer",
-        userId: row.customer_id,
-        title: notifParams.title,
-        body: notifParams.body,
-        data: {
+      if (!alreadyNotified) {
+        // Insert Notification only if it doesn't exist
+        await db.query(`
+          INSERT INTO notifications 
+          (user_type, user_id, title, body, created_at, is_read, order_number, status)
+          VALUES (?, ?, ?, ?, NOW(), 0, ?, ?)
+        `, [
+          "customer", 
+          existingOrder.customer_id, 
+          notifParams.title, 
+          notifParams.body,
           order_number,
-          status: String(status)
-        }
-      });
+          String(newStatus)
+        ]);
+
+        // Send Push Notification
+        await sendNotification({
+          userType: "customer",
+          userId: existingOrder.customer_id,
+          title: notifParams.title,
+          body: notifParams.body,
+          data: {
+            order_number,
+            status: String(newStatus)
+          }
+        });
+      }
     }
 
     return res.json({ status: 1, message: "Order status updated successfully" });
