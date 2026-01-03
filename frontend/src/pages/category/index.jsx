@@ -30,6 +30,11 @@ export default function Category() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
+  // GLOBAL SEARCH STATE
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState("");
+  const [globalSearchResults, setGlobalSearchResults] = useState([]);
+
   // =============================
   // FETCH ALL CATEGORIES (SORT SAFE)
   // =============================
@@ -60,6 +65,60 @@ export default function Category() {
     );
     return () => clearTimeout(t);
   }, [searchQuery]);
+
+  // =============================
+  // GLOBAL SEARCH EFFECT
+  // =============================
+  useEffect(() => {
+    if (!showSearchModal || !globalSearchQuery.trim()) {
+      setGlobalSearchResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      fetch(`${API}/category/search-global?q=${encodeURIComponent(globalSearchQuery)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((data) => setGlobalSearchResults(Array.isArray(data) ? data : []))
+        .catch(err => console.error(err));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [globalSearchQuery, showSearchModal, API, token]);
+
+  // =============================
+  // ADD GLOBAL CATEGORY
+  // =============================
+  const handleAddGlobalCategory = async (cat) => {
+    if (!confirm(`Add "${cat.name}" to your categories?`)) return;
+
+    const fd = new FormData();
+    fd.append("name", cat.name);
+    if (cat.image) fd.append("existingImage", cat.image);
+
+    try {
+      const res = await fetch(`${API}/category`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.message || "Failed to add");
+        return;
+      }
+
+      const newData = await res.json();
+      setCategories((prev) =>
+        [...prev, newData].sort((a, b) => a.sort_order - b.sort_order)
+      );
+      setShowSearchModal(false);
+      setGlobalSearchQuery("");
+    } catch (err) {
+      console.error("Add global error:", err);
+      alert("Something went wrong");
+    }
+  };
 
   // =============================
   // FILTERED LIST
@@ -219,36 +278,36 @@ export default function Category() {
   // DRAG & DROP SAVE ORDER
   // =============================
   const saveOrder = async (newList) => {
-  const payload = newList.map((item, index) => ({
-    id: item.id,
-    sort_order: index + 1,
-  }));
+    const payload = newList.map((item, index) => ({
+      id: item.id,
+      sort_order: index + 1,
+    }));
 
-  try {
-    await fetch(`${API}/category/reorder`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ order: payload }),
-    });
+    try {
+      await fetch(`${API}/category/reorder`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ order: payload }),
+      });
 
-    // 🔥 IMPORTANT: RELOAD FROM SERVER
-    fetch(`${API}/category`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) =>
-        setCategories(
-          [...data].sort((a, b) => a.sort_order - b.sort_order)
-        )
-      );
+      // 🔥 IMPORTANT: RELOAD FROM SERVER
+      fetch(`${API}/category`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((data) =>
+          setCategories(
+            [...data].sort((a, b) => a.sort_order - b.sort_order)
+          )
+        );
 
-  } catch (err) {
-    console.error("Reorder save failed:", err);
-  }
-};
+    } catch (err) {
+      console.error("Reorder save failed:", err);
+    }
+  };
 
   // =============================
   // DRAG END FUNCTION
@@ -277,9 +336,8 @@ export default function Category() {
 
     return (
       <div
-        className={`bg-white border rounded-xl p-3 shadow-sm ${
-          item.status === 0 ? "opacity-70" : ""
-        }`}
+        className={`bg-white border rounded-xl p-3 shadow-sm ${item.status === 0 ? "opacity-70" : ""
+          }`}
       >
         <div className="flex items-start gap-3">
           {/* IMAGE */}
@@ -397,6 +455,15 @@ export default function Category() {
                   )}
                 </div>
 
+
+                {/* GLOBAL SEARCH BUTTON */}
+                <button
+                  onClick={() => setShowSearchModal(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm shadow flex items-center gap-2"
+                >
+                  <span>🔍</span> Search & Add
+                </button>
+
                 {/* ADD BUTTON */}
                 <button
                   onClick={() => {
@@ -453,9 +520,8 @@ export default function Category() {
                                 <tr
                                   ref={dragProvided.innerRef}
                                   {...dragProvided.draggableProps}
-                                  className={`${
-                                    item.status === 0 ? "opacity-70" : ""
-                                  } hover:bg-slate-50`}
+                                  className={`${item.status === 0 ? "opacity-70" : ""
+                                    } hover:bg-slate-50`}
                                 >
                                   {/* DRAG HANDLE */}
                                   <td
@@ -637,6 +703,72 @@ export default function Category() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================
+          GLOBAL SEARCH MODAL
+      ========================== */}
+      {showSearchModal && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowSearchModal(false)}
+          />
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 overflow-hidden">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg text-slate-800">Search to Add</h3>
+              <button
+                onClick={() => setShowSearchModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <input
+              autoFocus
+              className="w-full border border-slate-300 rounded-lg px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              placeholder="Search available categories..."
+              value={globalSearchQuery}
+              onChange={(e) => setGlobalSearchQuery(e.target.value)}
+            />
+
+            <div className="mt-4 max-h-[60vh] overflow-y-auto space-y-2">
+              {globalSearchResults.length === 0 && globalSearchQuery && (
+                <div className="text-center text-slate-500 py-8">
+                  No matching categories found.
+                </div>
+              )}
+
+              {globalSearchResults.map((game, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleAddGlobalCategory(game)}
+                  className="w-full flex items-center gap-4 p-3 hover:bg-slate-50 border rounded-xl transition text-left group"
+                >
+                  <div className="h-12 w-12 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
+                    {game.image ? (
+                      <img
+                        src={`${API_BASE}/uploads/${game.image}`}
+                        className="h-full w-full object-cover"
+                        alt=""
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-xs text-slate-400">?</div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-slate-700 group-hover:text-blue-600 transition">{game.name}</div>
+                    <div className="text-xs text-slate-500">Click to add</div>
+                  </div>
+                  <div className="text-blue-600 opacity-0 group-hover:opacity-100 transition">
+                    + Add
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

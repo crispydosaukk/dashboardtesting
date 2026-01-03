@@ -29,6 +29,11 @@ export default function ProductPage() {
   // Debounced query to avoid filtering on every keystroke
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
+  // GLOBAL SEARCH STATE
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState("");
+  const [globalSearchResults, setGlobalSearchResults] = useState([]);
+
   const [form, setForm] = useState({
     id: null,
     name: "",
@@ -83,6 +88,115 @@ export default function ProductPage() {
     const t = setTimeout(() => setDebouncedQuery(searchQuery.trim().toLowerCase()), 300);
     return () => clearTimeout(t);
   }, [searchQuery]);
+
+  // =============================
+  // GLOBAL SEARCH EFFECT
+  // =============================
+  useEffect(() => {
+    if (!showSearchModal || !globalSearchQuery.trim()) {
+      setGlobalSearchResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      fetch(`${API}/products/search-global?q=${encodeURIComponent(globalSearchQuery)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((data) => setGlobalSearchResults(Array.isArray(data) ? data : []))
+        .catch(err => console.error(err));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [globalSearchQuery, showSearchModal, API, token]);
+
+  // =============================
+  // ADD GLOBAL PRODUCT
+  // =============================
+  const handleAddGlobalProduct = async (item) => {
+    if (!confirm(`Add "${item.name}"?`)) return;
+
+    try {
+      let targetCatId = null;
+
+      // 1. Check Category
+      if (item.category_name) {
+        const match = categories.find(c => c.name.toLowerCase() === item.category_name.toLowerCase());
+        if (match) {
+          targetCatId = match.id;
+        } else {
+          // Create Category
+          const catFd = new FormData();
+          catFd.append("name", item.category_name);
+          if (item.category_image) catFd.append("existingImage", item.category_image);
+          // We don't have cat image from product search unfortunately, or we could add it to query?
+          // For now creates category with no image
+
+          const catRes = await fetch(`${API}/category`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: catFd
+          });
+
+          if (catRes.ok) {
+            const newCat = await catRes.json();
+            setCategories(prev => [...prev, newCat].sort((a, b) => a.sort_order - b.sort_order));
+            targetCatId = newCat.id;
+          }
+        }
+      }
+
+      if (!targetCatId) {
+        // If still no category (no name in global item, or creation failed), fallback to first or alert?
+        // Lets try to use the first available category if exists
+        if (categories.length > 0) targetCatId = categories[0].id;
+        else {
+          alert("Please create a category first!");
+          return;
+        }
+      }
+
+      // 2. Create Product
+      const fd = new FormData();
+      fd.append("name", item.name);
+      fd.append("description", item.description || "");
+      fd.append("price", item.price || 0);
+      fd.append("discountPrice", item.discountPrice || "");
+      fd.append("cat_id", targetCatId);
+      fd.append("contains", JSON.stringify(item.contains || []));
+      if (item.image) fd.append("existingImage", item.image);
+
+      const res = await fetch(`${API}/products`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        if (res.status === 409) alert("Product already exists.");
+        else alert(err.message || "Failed to add product");
+        return;
+      }
+
+      const saved = await res.json();
+      // Fix contains parsing
+      let savedContains = saved.contains;
+      try {
+        if (typeof savedContains === 'string') savedContains = JSON.parse(savedContains);
+        if (typeof savedContains === 'string') savedContains = JSON.parse(savedContains);
+      } catch (e) { }
+      saved.contains = Array.isArray(savedContains) ? savedContains : [];
+
+      setProducts(prev => [saved, ...prev].sort((a, b) => a.sort_order - b.sort_order));
+
+      setShowSearchModal(false);
+      setGlobalSearchQuery("");
+      alert("Product added successfully!");
+
+    } catch (err) {
+      console.error("Add global product error:", err);
+      alert("Something went wrong");
+    }
+  };
 
   // --- Helpers
   const formatGBP = (value) =>
@@ -537,6 +651,15 @@ export default function ProductPage() {
                     ))}
                   </select>
                 </div>
+
+
+                {/* GLOBAL SEARCH BUTTON */}
+                <button
+                  onClick={() => setShowSearchModal(true)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow"
+                >
+                  <span>🔍</span> Search & Add
+                </button>
 
                 <button
                   onClick={() => {
@@ -1092,6 +1215,73 @@ export default function ProductPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ==========================
+          GLOBAL SEARCH MODAL
+      ========================== */}
+      {showSearchModal && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowSearchModal(false)}
+          />
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 overflow-hidden max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4 flex-shrink-0">
+              <h3 className="font-bold text-lg text-slate-800">Search to Add Product</h3>
+              <button
+                onClick={() => setShowSearchModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <input
+              autoFocus
+              className="w-full border border-slate-300 rounded-lg px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition flex-shrink-0"
+              placeholder="Search available products..."
+              value={globalSearchQuery}
+              onChange={(e) => setGlobalSearchQuery(e.target.value)}
+            />
+
+            <div className="mt-4 overflow-y-auto space-y-2 flex-1">
+              {globalSearchResults.length === 0 && globalSearchQuery && (
+                <div className="text-center text-slate-500 py-8">
+                  No matching products found.
+                </div>
+              )}
+
+              {globalSearchResults.map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleAddGlobalProduct(item)}
+                  className="w-full flex items-center gap-4 p-3 hover:bg-slate-50 border rounded-xl transition text-left group"
+                >
+                  <div className="h-14 w-14 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
+                    {item.image ? (
+                      <img
+                        src={`${API_BASE}/uploads/${item.image}`}
+                        className="h-full w-full object-cover"
+                        alt=""
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-xs text-slate-400">?</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-slate-700 truncate group-hover:text-blue-600 transition">{item.name}</div>
+                    <div className="text-xs text-slate-500 mb-1">{item.category_name || "No Category"}</div>
+                    <div className="text-sm font-medium text-emerald-600">{formatGBP(item.price)}</div>
+                  </div>
+                  <div className="text-blue-600 opacity-0 group-hover:opacity-100 transition whitespace-nowrap text-sm font-medium">
+                    + Add
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

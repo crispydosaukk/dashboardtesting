@@ -56,7 +56,7 @@ export const addProduct = async (req, res) => {
       const logPath = path.resolve("debug_log.txt");
       fs.appendFileSync(logPath, `[${new Date().toISOString()}] addProduct: userId=${userId}, name=${name}\n`);
     } catch (e) { }
-    const image = req.file ? req.file.filename : null;
+    const image = req.file ? req.file.filename : (req.body.existingImage || null);
 
     // Fix for FormData sending contains as stringified JSON
     if (typeof contains === "string") {
@@ -235,9 +235,9 @@ export const updateProduct = async (req, res) => {
   }
 };
 
-/* ===========================================
-   REORDER PRODUCTS
-=========================================== */
+// ===========================================
+// REORDER PRODUCTS
+// ===========================================
 export const reorderProducts = async (req, res) => {
   try {
     const { order } = req.body;
@@ -257,6 +257,46 @@ export const reorderProducts = async (req, res) => {
     res.json({ success: true, message: "Product order updated" });
   } catch (err) {
     console.error("reorderProducts error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ===========================================
+// SEARCH GLOBAL PRODUCTS
+// ===========================================
+export const searchGlobalProducts = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.json([]);
+
+    // Select distinct product names
+    const [rows] = await pool.query(
+      `SELECT 
+        p.product_name AS name,
+        MAX(p.product_image) AS image,
+        MAX(p.product_desc) AS description,
+        MAX(p.product_price) AS price,
+        MAX(p.product_discount_price) AS discountPrice,
+        MAX(p.contains) AS contains,
+        MAX(c.category_name) AS category_name,
+        MAX(c.category_image) AS category_image,
+        1 AS status
+      FROM products p
+      LEFT JOIN categories c ON p.cat_id = c.id
+      WHERE p.product_name LIKE ?
+      GROUP BY p.product_name
+      LIMIT 20`,
+      [`%${q}%`]
+    );
+
+    const data = rows.map((r) => ({
+      ...r,
+      contains: r.contains ? JSON.parse(r.contains) : [],
+    }));
+
+    res.json(data);
+  } catch (err) {
+    console.error("searchGlobalProducts error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

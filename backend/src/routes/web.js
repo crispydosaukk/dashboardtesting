@@ -8,7 +8,8 @@ import {
   addProduct,
   removeProduct,
   updateProduct,
-  reorderProducts
+  reorderProducts,
+  searchGlobalProducts
 } from "../controllers/admin/ProductController.js";
 
 import {
@@ -42,7 +43,8 @@ import {
   addCategory,
   removeCategory,
   updateCategory,
-  reorderCategories
+  reorderCategories,
+  searchGlobalCategories
 } from "../controllers/admin/CategoryController.js";
 
 import {
@@ -90,6 +92,7 @@ router.post("/restaurant", auth, upload.single("photo"), upsertRestaurant);
 
 /* CATEGORY */
 router.put("/category/reorder", auth, reorderCategories);
+router.get("/category/search-global", auth, searchGlobalCategories);
 router.get("/category", auth, getCategories);
 router.post("/category", auth, upload.single("image"), addCategory);
 router.put("/category/:id", auth, upload.single("image"), updateCategory);
@@ -98,6 +101,7 @@ router.delete("/category/:id", auth, removeCategory);
 /* PRODUCTS */
 /* PRODUCT REORDER */
 router.put("/products/reorder", auth, reorderProducts);
+router.get("/products/search-global", auth, searchGlobalProducts);
 
 router.get("/products", auth, getProducts);
 router.post("/products", auth, upload.single("image"), addProduct);

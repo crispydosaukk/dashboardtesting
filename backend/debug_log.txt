@@ -14,3 +14,19 @@
 [2025-12-29T17:56:45.076Z] getProducts: userId=1
 [2025-12-29T17:56:51.287Z] getProducts: userId=1
 [2025-12-29T17:56:51.315Z] getProducts: userId=1
+[2026-01-03T13:41:01.555Z] getProducts: userId=1
+[2026-01-03T13:41:01.591Z] getProducts: userId=1
+[2026-01-03T13:46:00.320Z] getProducts: userId=1
+[2026-01-03T13:46:00.332Z] getProducts: userId=1
+[2026-01-03T13:52:04.344Z] getProducts: userId=1
+[2026-01-03T14:01:02.585Z] getProducts: userId=25
+[2026-01-03T14:01:02.605Z] getProducts: userId=25
+[2026-01-03T14:01:27.659Z] addProduct: userId=25, name=test1
+[2026-01-03T14:01:44.880Z] addProduct: userId=25, name=Testing product
+[2026-01-03T14:02:13.062Z] getProducts: userId=25
+[2026-01-03T14:02:13.070Z] getProducts: userId=25
+[2026-01-03T14:02:25.591Z] addProduct: userId=25, name=rahulb
+[2026-01-03T14:02:44.718Z] getProducts: userId=25
+[2026-01-03T14:02:44.727Z] getProducts: userId=25
+[2026-01-03T14:02:47.051Z] getProducts: userId=25
+[2026-01-03T14:02:47.061Z] getProducts: userId=25
