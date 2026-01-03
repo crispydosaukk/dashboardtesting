@@ -64,9 +64,10 @@ export default function Header({ onToggleSidebar }) {
       const newOrders = uniqueOrders.filter((o) => Number(o.order_status) === 0);
 
       setOrders((prev) => {
-        if (prev.length === 0 && newOrders.length > 0) {
-          const audio = new Audio("/notification.mp3");
-          audio.play().catch(() => { });
+        // Play sound if we have MORE orders than before (meaning a new one arrived)
+        if (newOrders.length > prev.length) {
+          const audio = new Audio("/message.mp3");
+          audio.play().catch((err) => console.log("Audio play failed:", err));
         }
         return newOrders;
       });
