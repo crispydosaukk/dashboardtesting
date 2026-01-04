@@ -86,13 +86,52 @@ export default function Category() {
   }, [globalSearchQuery, showSearchModal, API, token]);
 
   // =============================
+  // IMPORT PRODUCTS HELPER
+  // =============================
+  const handleImportProducts = async (categoryName, targetCategoryId) => {
+    try {
+      const res = await fetch(`${API}/products/import-global`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ categoryName, targetCategoryId }),
+      });
+      const data = await res.json();
+      if (data.count > 0) {
+        alert(`Successfully imported ${data.count} products for "${categoryName}".`);
+      } else {
+        alert(`No new products found for "${categoryName}" to import.`);
+      }
+    } catch (err) {
+      console.error("Import products error:", err);
+      alert("Failed to import products.");
+    }
+  };
+
+  // =============================
   // ADD GLOBAL CATEGORY
   // =============================
   const handleAddGlobalCategory = async (cat) => {
+    // Check if it already exists in the user's list
+    const existingCat = categories.find(
+      (c) => c.name.trim().toLowerCase() === cat.name.trim().toLowerCase()
+    );
+
+    if (existingCat) {
+      if (confirm(`Category "${cat.name}" already exists in your list. Do you want to check and add any remaining products for it?`)) {
+        await handleImportProducts(cat.name, existingCat.id);
+      }
+      setShowSearchModal(false);
+      setGlobalSearchQuery("");
+      return;
+    }
+
     if (!confirm(`Add "${cat.name}" to your categories?`)) return;
 
     const fd = new FormData();
-    fd.append("name", cat.name);
+    fd.append("name", cat.name.trim());
     if (cat.image) fd.append("existingImage", cat.image);
 
     try {
@@ -114,6 +153,11 @@ export default function Category() {
       );
       setShowSearchModal(false);
       setGlobalSearchQuery("");
+
+      // ASK TO ADD PRODUCTS for NEWly added
+      if (confirm(`Category "${cat.name}" added. Do you want to add all related products to it?`)) {
+        await handleImportProducts(cat.name, newData.id);
+      }
     } catch (err) {
       console.error("Add global error:", err);
       alert("Something went wrong");
@@ -183,6 +227,11 @@ export default function Category() {
         setCategories((prev) =>
           [...prev, newData].sort((a, b) => a.sort_order - b.sort_order)
         );
+
+        // ASK TO ADD PRODUCTS (New Category)
+        if (confirm(`Category "${nameTrim}" added. Do you want to add all related products to it?`)) {
+          await handleImportProducts(nameTrim, newData.id);
+        }
       } else {
         // UPDATE
         res = await fetch(`${API}/category/${form.id}`, {
@@ -376,6 +425,19 @@ export default function Category() {
               </label>
 
               {/* EDIT */}
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => {
+                  if (confirm(`Add remaining products for "${item.name}"?`)) {
+                    handleImportProducts(item.name, item.id);
+                  }
+                }}
+                className="text-blue-600"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </motion.button>
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => handleEdit(item)}
@@ -578,6 +640,19 @@ export default function Category() {
                                   {/* ACTION BUTTONS */}
                                   <td className="px-4 text-center">
                                     <div className="flex items-center gap-4 justify-center">
+                                      <button
+                                        onClick={() => {
+                                          if (confirm(`Add remaining products for "${item.name}"?`)) {
+                                            handleImportProducts(item.name, item.id);
+                                          }
+                                        }}
+                                        className="text-blue-600"
+                                        title="Import missing products"
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                          <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                                        </svg>
+                                      </button>
                                       <button
                                         onClick={() => handleEdit(item)}
                                         className="text-emerald-600"

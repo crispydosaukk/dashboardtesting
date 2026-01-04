@@ -24,6 +24,15 @@ export default function Orders() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [autoRefresh, setAutoRefresh] = useState(() => {
+    return localStorage.getItem("orderAutoRefresh") === "true";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("orderAutoRefresh", autoRefresh);
+  }, [autoRefresh]);
+
+  const refreshInterval = 30; // Hardcoded default to 30s as requested to remove selection UI
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
@@ -38,18 +47,28 @@ export default function Orders() {
   };
 
   const updateOrderStatus = async (orderNumber, status, readyInMinutes = null) => {
-  await api.post("/mobile/orders/update-status", {
-    order_number: orderNumber,
-    status,
-    ready_in_minutes: readyInMinutes
-  });
+    await api.post("/mobile/orders/update-status", {
+      order_number: orderNumber,
+      status,
+      ready_in_minutes: readyInMinutes
+    });
 
-  loadOrders();
-};
+    loadOrders();
+  };
 
   useEffect(() => {
     loadOrders();
   }, []);
+
+  useEffect(() => {
+    let interval;
+    if (autoRefresh) {
+      interval = setInterval(() => {
+        loadOrders();
+      }, refreshInterval * 1000);
+    }
+    return () => clearInterval(interval);
+  }, [autoRefresh, refreshInterval]);
 
   const loadOrders = async () => {
     try {
@@ -61,8 +80,12 @@ export default function Orders() {
           restaurant_name:
             o.restaurant_name || o.restaurantName || o.restaurant || "-",
         }));
-        setOrders(mapped);
-        setFilteredOrders(mapped);
+
+        // Prevent unnecessary state updates that cause flickering/disappearing
+        setOrders(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(mapped)) return prev;
+          return mapped;
+        });
       }
     } catch (err) {
       console.error("Order fetch error:", err);
@@ -143,8 +166,12 @@ export default function Orders() {
       });
     }
 
-    setFilteredOrders(data);
-    setCurrentPage(1);
+    // Only update and reset page if data has actually changed
+    setFilteredOrders(prev => {
+      if (JSON.stringify(prev) === JSON.stringify(data)) return prev;
+      setCurrentPage(1);
+      return data;
+    });
   }, [searchOrder, filterPayment, filterStatus, fromDate, toDate, orders]);
 
   // Group by order_number
@@ -179,6 +206,38 @@ export default function Orders() {
           <h1 className="text-3xl font-bold text-emerald-700 mb-6">
             Order Management
           </h1>
+
+          <div className="flex flex-wrap items-center gap-4 mb-6 bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+            <div className="flex items-center gap-2">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                <span className="ml-3 text-sm font-medium text-gray-700">Auto Refresh</span>
+              </label>
+            </div>
+
+            {autoRefresh && (
+              <div className="flex items-center gap-2">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-xs text-emerald-600 font-medium uppercase tracking-wider">Live Monitoring Active (30s)</span>
+              </div>
+            )}
+
+            <button
+              onClick={loadOrders}
+              className="ml-auto flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg border border-emerald-200 shadow-sm transition-all active:scale-95"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh Now
+            </button>
+          </div>
 
           {/* FILTER SECTION */}
           <div className="bg-white shadow-md p-4 rounded-lg mb-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -651,7 +710,7 @@ export default function Orders() {
             >
               Previous
             </button>
-            
+
 
             {[...Array(totalPages).keys()].map((num) => (
               <button
@@ -678,7 +737,7 @@ export default function Orders() {
             </button>
           </div>
         </div>
-       
+
         <Footer />
       </div>
     </div>

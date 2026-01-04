@@ -9,7 +9,9 @@ import {
   removeProduct,
   updateProduct,
   reorderProducts,
-  searchGlobalProducts
+  searchGlobalProducts,
+  getGlobalProductsByCategory,
+  importGlobalProducts
 } from "../controllers/admin/ProductController.js";
 
 import {
@@ -102,6 +104,8 @@ router.delete("/category/:id", auth, removeCategory);
 /* PRODUCT REORDER */
 router.put("/products/reorder", auth, reorderProducts);
 router.get("/products/search-global", auth, searchGlobalProducts);
+router.get("/products/global-by-category", auth, getGlobalProductsByCategory);
+router.post("/products/import-global", auth, importGlobalProducts);
 
 router.get("/products", auth, getProducts);
 router.post("/products", auth, upload.single("image"), addProduct);

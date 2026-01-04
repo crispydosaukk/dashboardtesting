@@ -300,3 +300,114 @@ export const searchGlobalProducts = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// ===========================================
+// GET GLOBAL PRODUCTS BY CATEGORY NAME
+// ===========================================
+export const getGlobalProductsByCategory = async (req, res) => {
+  try {
+    const { name } = req.query;
+    if (!name) return res.json([]);
+
+    // Find products linked to this category name across the system
+    const [rows] = await pool.query(
+      `SELECT 
+        p.product_name AS name,
+        MAX(p.product_image) AS image,
+        MAX(p.product_desc) AS description,
+        MAX(p.product_price) AS price,
+        MAX(p.product_discount_price) AS discountPrice,
+        MAX(p.contains) AS contains
+       FROM products p
+       JOIN categories c ON p.cat_id = c.id
+       WHERE LOWER(c.category_name) = LOWER(?)
+       GROUP BY p.product_name`,
+      [name]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error("getGlobalProductsByCategory error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ===========================================
+// IMPORT GLOBAL PRODUCTS FROM CATEGORY
+// ===========================================
+export const importGlobalProducts = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { categoryName, targetCategoryId } = req.body;
+
+    if (!categoryName || !targetCategoryId)
+      return res.status(400).json({ message: "Missing fields" });
+
+    // 1. Get candidate products
+    const [candidates] = await pool.query(
+      `SELECT 
+        p.product_name AS name,
+        MAX(p.product_image) AS image,
+        MAX(p.product_desc) AS description,
+        MAX(p.product_price) AS price,
+        MAX(p.product_discount_price) AS discountPrice,
+        MAX(p.contains) AS contains
+       FROM products p
+       JOIN categories c ON p.cat_id = c.id
+       WHERE LOWER(c.category_name) = LOWER(?)
+       GROUP BY p.product_name`,
+      [categoryName]
+    );
+
+    if (candidates.length === 0) {
+      return res.json({ count: 0 });
+    }
+
+    // 2. Get existing products for this user to avoid duplicates
+    // We check existence by Name generally
+    const [existing] = await pool.query(
+      "SELECT product_name FROM products WHERE user_id = ?",
+      [userId]
+    );
+    const existingNames = new Set(existing.map(e => e.product_name.toLowerCase()));
+
+    let addedCount = 0;
+
+    // 3. Get max sort order
+    const [[maxOrder]] = await pool.query(
+      "SELECT IFNULL(MAX(sort_order),0) AS maxOrder FROM products WHERE user_id=?",
+      [userId]
+    );
+    let currentSortOrder = maxOrder.maxOrder;
+
+    for (const prod of candidates) {
+      if (!existingNames.has(prod.name.toLowerCase())) {
+        currentSortOrder++;
+        await pool.query(
+          `INSERT INTO products 
+           (user_id, cat_id, product_name, product_image, product_desc, contains,
+            product_price, product_discount_price, status, sort_order)
+           VALUES (?,?,?,?,?,?,?,?,1,?)`,
+          [
+            userId,
+            targetCategoryId,
+            prod.name,
+            prod.image,
+            prod.description,
+            prod.contains, // typically stringified JSON already from MAX() but we should check
+            prod.price,
+            prod.discountPrice,
+            currentSortOrder
+          ]
+        );
+        addedCount++;
+      }
+    }
+
+    res.json({ count: addedCount });
+
+  } catch (err) {
+    console.error("importGlobalProducts error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
