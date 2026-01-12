@@ -4,10 +4,13 @@ import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
 import { v4 as uuidv4 } from "uuid";
 import api from "../../api.js";
+import {
+  Store, MapPin, Phone, Mail, Facebook, Twitter, Instagram, Linkedin,
+  ParkingCircle, Upload, X, Clock, Plus, Trash2, Save, Image as ImageIcon,
+  CheckCircle2, AlertCircle, Calendar
+} from "lucide-react";
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-
 
 export default function Restuarent() {
   const API = import.meta.env.VITE_API_URL;
@@ -153,17 +156,13 @@ export default function Restuarent() {
           headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
-        // ✅ FIX: When no new photo, don't send restaurant_photo field
-        // Backend will preserve existing photo
         res = await api.post("/restaurant", payload);
       }
 
-      // ✅ CRITICAL: Refresh state with backend response
       if (res?.data?.data) {
         apiToFrontend(res.data.data);
       }
 
-      // Clear local file/preview after successful save
       setPhotoFile(null);
       setPhotoPreview(null);
 
@@ -176,175 +175,406 @@ export default function Restuarent() {
     }
   }
 
+  const InputField = ({ icon: Icon, label, value, onChange, placeholder, type = "text", className = "" }) => (
+    <div className={`group ${className}`}>
+      <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+        {Icon && <Icon size={16} className="text-[#7b5cf5]" />}
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          type={type}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 
+                   focus:outline-none focus:border-[#7b5cf5] focus:ring-4 focus:ring-[#7b5cf5]/10 
+                   transition-all duration-200 hover:border-gray-300"
+        />
+      </div>
+    </div>
+  );
+
   return (
-    <div className="font-jakarta min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30">
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="lg:pl-72 pt-20 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto pb-10">
+      <main className="pt-24 pb-12 px-4 sm:px-6 lg:pl-80 lg:pr-8">
+        <div className="max-w-7xl mx-auto">
 
-          <h2 className="leading-tight font-extrabold ml-0 sm:ml-10">
-              <span className="block text-xl md:text-2xl text-emerald-700">Manage your restaurant profile & timings.</span>
-            </h2>
+          {/* Page Header */}
+          <div className="mb-8">
+            <div className="flex items-center gap-4 mb-2">
+              <div className="p-3 bg-gradient-to-br from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] rounded-2xl shadow-lg shadow-purple-500/20">
+                <Store className="text-white" size={28} />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Restaurant Profile</h1>
+                <p className="text-gray-500 mt-1">Manage your restaurant information and operating hours</p>
+              </div>
+            </div>
+          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            {/* Left Form */}
-            <section className="lg:col-span-2 bg-white rounded-2xl p-6 sm:p-8 shadow-xl border border-black space-y-6 ml-0 sm:ml-10">
-              <h2 className="leading-tight font-extrabold">
-              <span className="block text-xl md:text-2xl text-emerald-700">Restaurant Details</span>
-            </h2>
+            {/* Main Form - Left Side (2 columns) */}
+            <div className="lg:col-span-2 space-y-6">
 
+              {/* Basic Information Card */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] px-6 py-4">
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Store size={20} />
+                    Basic Information
+                  </h2>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {[
-                  ["restaurant_name", "Restaurant Name"],
-                  ["phone", "Phone Number"],
-                  ["email", "Email Address"],
-                  ["facebook", "Facebook Link"],
-                  ["instagram", "Instagram Link"],
-                  ["twitter", "Twitter Link"],
-                  ["linkedin", "LinkedIn Link"]
-                ].map(([key, placeholder]) => (
-                  <div key={key} className="w-full">
-                    <label className="block text-sm font-medium mb-1">{placeholder}</label>
-                    <input placeholder={placeholder} className="w-full rounded-lg border border-slate-200 px-4 py-3"
-                      value={info[key]} onChange={onInfoChange(key)} />
+                <div className="p-6 space-y-5">
+                  <InputField
+                    icon={Store}
+                    label="Restaurant Name"
+                    value={info.restaurant_name}
+                    onChange={onInfoChange("restaurant_name")}
+                    placeholder="Enter restaurant name"
+                  />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <InputField
+                      icon={Phone}
+                      label="Phone Number"
+                      value={info.phone}
+                      onChange={onInfoChange("phone")}
+                      placeholder="+44 123 456 7890"
+                      type="tel"
+                    />
+                    <InputField
+                      icon={Mail}
+                      label="Email Address"
+                      value={info.email}
+                      onChange={onInfoChange("email")}
+                      placeholder="contact@restaurant.com"
+                      type="email"
+                    />
                   </div>
-                ))}
 
-                <div className="col-span-1 sm:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Address</label>
-                  <textarea rows={3} placeholder="Full address"
-                    className="w-full rounded-lg border border-slate-200 px-4 py-3"
-                    value={info.address} onChange={onInfoChange("address")} />
-                </div>
-
-                <div className="col-span-1 sm:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Parking Info</label>
-                  <input placeholder="Parking details (e.g. valet, nearby lot)"
-                    className="w-full rounded-lg border border-slate-200 px-4 py-3"
-                    value={info.parking_info} onChange={onInfoChange("parking_info")} />
-                </div>
-              </div>
-              <div className="col-span-1 sm:col-span-2">
-                <label className="block text-sm font-medium mb-2">Service Options</label>
-
-                <div className="flex gap-6">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={info.instore}
-                      onChange={(e) =>
-                        setInfo((p) => ({ ...p, instore: e.target.checked }))
-                      }
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                      <MapPin size={16} className="text-[#7b5cf5]" />
+                      Address
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={info.address}
+                      onChange={onInfoChange("address")}
+                      placeholder="Full restaurant address"
+                      className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 
+                               focus:outline-none focus:border-[#7b5cf5] focus:ring-4 focus:ring-[#7b5cf5]/10 
+                               transition-all duration-200 hover:border-gray-300 resize-none"
                     />
-                    <span>In-store</span>
-                  </label>
+                  </div>
 
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={info.kerbside}
-                      onChange={(e) =>
-                        setInfo((p) => ({ ...p, kerbside: e.target.checked }))
-                      }
-                    />
-                    <span>Kerbside</span>
-                  </label>
+                  <InputField
+                    icon={ParkingCircle}
+                    label="Parking Information"
+                    value={info.parking_info}
+                    onChange={onInfoChange("parking_info")}
+                    placeholder="e.g., Free parking available, Valet service"
+                  />
                 </div>
               </div>
 
-            </section>
-            
-            {/* Photo Upload */}
-            <aside className="space-y-6">
-              <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100">
-                <h3 className="text-lg font-semibold mb-2">Restaurant Photo</h3>
-                <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                  <div className="h-48 bg-slate-50 rounded-lg overflow-hidden flex items-center justify-center">
-                    {photoPreview ? (
-                      <img src={photoPreview} className="w-full h-full object-cover" />
-                    ) : info.photo ? (
-                      <img 
-                        src={
-                          info.photo.startsWith('http')
-                            ? info.photo
-                            : `${API_BASE}/uploads/${info.photo}`
-                        }
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          console.error("Image load failed:", e.target.src);
-                          e.target.src = "";
-                        }}
+              {/* Social Media Links Card */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] px-6 py-4">
+                  <h2 className="text-xl font-bold text-white">Social Media</h2>
+                </div>
+
+                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <InputField
+                    icon={Facebook}
+                    label="Facebook"
+                    value={info.facebook}
+                    onChange={onInfoChange("facebook")}
+                    placeholder="Facebook profile URL"
+                  />
+                  <InputField
+                    icon={Instagram}
+                    label="Instagram"
+                    value={info.instagram}
+                    onChange={onInfoChange("instagram")}
+                    placeholder="Instagram profile URL"
+                  />
+                  <InputField
+                    icon={Twitter}
+                    label="Twitter"
+                    value={info.twitter}
+                    onChange={onInfoChange("twitter")}
+                    placeholder="Twitter profile URL"
+                  />
+                  <InputField
+                    icon={Linkedin}
+                    label="LinkedIn"
+                    value={info.linkedin}
+                    onChange={onInfoChange("linkedin")}
+                    placeholder="LinkedIn profile URL"
+                  />
+                </div>
+              </div>
+
+              {/* Service Options Card */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] px-6 py-4">
+                  <h2 className="text-xl font-bold text-white">Service Options</h2>
+                </div>
+
+                <div className="p-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className="relative flex items-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 cursor-pointer hover:shadow-md transition-all duration-200 group">
+                      <input
+                        type="checkbox"
+                        checked={info.instore}
+                        onChange={(e) => setInfo((p) => ({ ...p, instore: e.target.checked }))}
+                        className="w-5 h-5 text-[#7b5cf5] border-gray-300 rounded focus:ring-[#7b5cf5] focus:ring-2"
                       />
-                    ) : (
-                      <span className="text-sm text-slate-400">No Image Uploaded</span>
-                    )}
+                      <div className="ml-3 flex-1">
+                        <span className="block text-sm font-bold text-gray-900">In-Store Pickup</span>
+                        <span className="text-xs text-gray-500">Customers can pick up orders inside</span>
+                      </div>
+                      {info.instore && <CheckCircle2 className="text-[#7b5cf5]" size={20} />}
+                    </label>
+
+                    <label className="relative flex items-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 cursor-pointer hover:shadow-md transition-all duration-200 group">
+                      <input
+                        type="checkbox"
+                        checked={info.kerbside}
+                        onChange={(e) => setInfo((p) => ({ ...p, kerbside: e.target.checked }))}
+                        className="w-5 h-5 text-[#7b5cf5] border-gray-300 rounded focus:ring-[#7b5cf5] focus:ring-2"
+                      />
+                      <div className="ml-3 flex-1">
+                        <span className="block text-sm font-bold text-gray-900">Kerbside Pickup</span>
+                        <span className="text-xs text-gray-500">Curbside delivery available</span>
+                      </div>
+                      {info.kerbside && <CheckCircle2 className="text-[#7b5cf5]" size={20} />}
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="space-y-6">
+
+              {/* Photo Upload Card */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-24">
+                <div className="bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] px-6 py-4">
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <ImageIcon size={20} />
+                    Restaurant Photo
+                  </h2>
+                </div>
+
+                <div className="p-6">
+                  <div className="relative group">
+                    <div className="aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-50 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 group-hover:border-purple-400 transition-all duration-200">
+                      {photoPreview ? (
+                        <div className="relative w-full h-full">
+                          <img src={photoPreview} className="w-full h-full object-cover" alt="Preview" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button
+                              onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
+                              className="p-3 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transform hover:scale-110 transition-all"
+                            >
+                              <X size={20} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : info.photo ? (
+                        <div className="relative w-full h-full">
+                          <img
+                            src={info.photo.startsWith('http') ? info.photo : `${API_BASE}/uploads/${info.photo}`}
+                            className="w-full h-full object-cover"
+                            alt="Restaurant"
+                            onError={(e) => {
+                              console.error("Image load failed:", e.target.src);
+                              e.target.src = "";
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button
+                              onClick={() => fileInputRef.current.click()}
+                              className="p-3 bg-gradient-to-r from-[#5f6eea] to-[#7b5cf5] hover:from-[#7b5cf5] hover:to-[#ec4899] text-white rounded-full shadow-lg transform hover:scale-110 transition-all"
+                            >
+                              <Upload size={20} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                          <ImageIcon size={48} strokeWidth={1.5} className="mb-3" />
+                          <span className="text-sm font-medium">No image uploaded</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <input ref={fileInputRef} type="file" accept="image/*" onChange={(e)=>setPhotoFile(e.target.files[0])} className="hidden" />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setPhotoFile(e.target.files[0])}
+                    className="hidden"
+                  />
 
-                  <button onClick={()=>fileInputRef.current.click()} className="mt-4 px-4 py-2 border rounded-md w-full text-sm">
-                    Upload Image
+                  <button
+                    onClick={() => fileInputRef.current.click()}
+                    className="mt-4 w-full py-3 px-4 bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] hover:from-[#7b5cf5] hover:to-[#ec4899] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2"
+                  >
+                    <Upload size={18} />
+                    {photoFile || info.photo ? "Change Photo" : "Upload Photo"}
                   </button>
 
                   {photoFile && (
-                    <button onClick={()=>{ setPhotoFile(null); setPhotoPreview(null); }} className="mt-2 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-md text-sm w-full">
-                      Remove
+                    <button
+                      onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
+                      className="mt-2 w-full py-2 px-4 bg-red-50 hover:bg-red-100 text-red-600 font-medium rounded-xl border-2 border-red-200 transition-all duration-200 flex items-center justify-center gap-2"
+                    >
+                      <X size={16} />
+                      Remove New Photo
                     </button>
                   )}
                 </div>
+
+                {/* Save Button */}
+                <div className="p-6 pt-0">
+                  <button
+                    onClick={saveAll}
+                    disabled={saving}
+                    className="w-full py-4 px-6 bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] hover:from-[#7b5cf5] hover:to-[#ec4899] disabled:from-gray-400 disabled:to-gray-500 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:scale-100 transition-all duration-200 flex items-center justify-center gap-2"
+                  >
+                    <Save size={20} />
+                    {saving ? "Saving..." : "Save All Changes"}
+                  </button>
+                </div>
               </div>
-
-              <button onClick={saveAll} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-lg font-medium shadow-lg">
-                {saving ? "Saving..." : "Save Changes"}
-              </button>
-            </aside>
-
+            </div>
           </div>
 
-          {/* Timings Section */}
-          <section className="mt-10 rounded-2xl p-6 sm:p-8 shadow-xl border border-black ml-0 sm:ml-10">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-              <h2 className="leading-tight font-extrabold">
-                <span className="block text-xl md:text-2xl text-emerald-700">Weekly Timings</span>
+          {/* Operating Hours Section */}
+          <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Calendar size={24} />
+                Operating Hours
               </h2>
-              <button onClick={handleAddManual} disabled={timings.length >= 7}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm">
-                + Add Day
+              <button
+                onClick={handleAddManual}
+                disabled={timings.length >= 7}
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 disabled:bg-white/10 text-white font-semibold rounded-lg backdrop-blur-sm transition-all duration-200 flex items-center gap-2 justify-center sm:justify-start disabled:cursor-not-allowed"
+              >
+                <Plus size={18} />
+                Add Day
               </button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-base min-w-[600px]">
-                <tbody>
-                  {timings.map((t) => (
-                    <tr key={t.id} className={`border-b transition ${!t.is_active ? "opacity-50 bg-slate-200" : "hover:bg-slate-50"}`}>
-                      <td className="py-3 px-2 sm:px-4">
-                        <select value={t.day} onChange={(e)=>changeDay(t.id,e.target.value)} className="rounded-md border px-2 py-2 w-full">
+            <div className="p-6">
+              <div className="space-y-3">
+                {timings.map((t, index) => (
+                  <div
+                    key={t.id}
+                    className={`group relative bg-gradient-to-br ${t.is_active
+                      ? 'from-white to-purple-50/30 border-purple-200 hover:shadow-md'
+                      : 'from-gray-50 to-gray-100 border-gray-300 opacity-60'
+                      } border-2 rounded-xl p-4 transition-all duration-200`}
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+
+                      {/* Day Selector */}
+                      <div className="sm:col-span-3">
+                        <label className="block text-xs font-semibold text-gray-500 mb-1">Day</label>
+                        <select
+                          value={t.day}
+                          onChange={(e) => changeDay(t.id, e.target.value)}
+                          className="w-full px-3 py-2.5 bg-white border-2 border-gray-200 rounded-lg text-gray-800 font-medium focus:outline-none focus:border-[#7b5cf5] focus:ring-2 focus:ring-[#7b5cf5]/20 transition-all"
+                        >
                           {WEEKDAYS.map((d) => (
-                            <option key={d} value={d} disabled={isWeekdayPresent(d) && t.day !== d}>{d}</option>
+                            <option key={d} value={d} disabled={isWeekdayPresent(d) && t.day !== d}>
+                              {d}
+                            </option>
                           ))}
                         </select>
-                      </td>
-                      <td className="py-3 px-2 sm:px-4"><input type="time" value={t.start} onChange={(e)=>updateTiming(t.id,{start:e.target.value})} className="rounded-md border px-2 py-2 w-full" /></td>
-                      <td className="py-3 px-2 sm:px-4"><input type="time" value={t.end} onChange={(e)=>updateTiming(t.id,{end:e.target.value})} className="rounded-md border px-2 py-2 w-full" /></td>
-                      <td className="py-3 px-2 sm:px-4 text-center"><input type="checkbox" checked={!!t.is_active} onChange={(e)=>updateTiming(t.id,{is_active:e.target.checked})} /></td>
-                      <td className="py-3 px-2 sm:px-4"><button onClick={()=>removeTiming(t.id)} className="text-red-600 text-sm">Remove</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
 
-            <div className="mt-6 flex justify-end">
-              <button onClick={saveAll} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-lg">
-                {saving ? "Saving..." : "Update Timings"}
-              </button>
+                      {/* Start Time */}
+                      <div className="sm:col-span-3">
+                        <label className="block text-xs font-semibold text-gray-500 mb-1">Opening Time</label>
+                        <div className="relative">
+                          <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="time"
+                            value={t.start}
+                            onChange={(e) => updateTiming(t.id, { start: e.target.value })}
+                            className="w-full pl-10 pr-3 py-2.5 bg-white border-2 border-gray-200 rounded-lg text-gray-800 font-medium focus:outline-none focus:border-[#7b5cf5] focus:ring-2 focus:ring-[#7b5cf5]/20 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* End Time */}
+                      <div className="sm:col-span-3">
+                        <label className="block text-xs font-semibold text-gray-500 mb-1">Closing Time</label>
+                        <div className="relative">
+                          <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="time"
+                            value={t.end}
+                            onChange={(e) => updateTiming(t.id, { end: e.target.value })}
+                            className="w-full pl-10 pr-3 py-2.5 bg-white border-2 border-gray-200 rounded-lg text-gray-800 font-medium focus:outline-none focus:border-[#7b5cf5] focus:ring-2 focus:ring-[#7b5cf5]/20 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Active Toggle & Remove */}
+                      <div className="sm:col-span-3 flex items-center justify-between sm:justify-end gap-3">
+                        <label className="flex items-center gap-2 cursor-pointer group/toggle">
+                          <input
+                            type="checkbox"
+                            checked={!!t.is_active}
+                            onChange={(e) => updateTiming(t.id, { is_active: e.target.checked })}
+                            className="w-5 h-5 text-[#7b5cf5] border-gray-300 rounded focus:ring-[#7b5cf5] focus:ring-2"
+                          />
+                          <span className="text-sm font-semibold text-gray-700 group-hover/toggle:text-[#7b5cf5] transition-colors">
+                            {t.is_active ? 'Active' : 'Closed'}
+                          </span>
+                        </label>
+
+                        <button
+                          onClick={() => removeTiming(t.id)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200 hover:scale-110"
+                          title="Remove this day"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Active Indicator */}
+                    {t.is_active && (
+                      <div className="absolute top-2 right-2 w-2 h-2 bg-[#7b5cf5] rounded-full animate-pulse"></div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {timings.length === 0 && (
+                <div className="text-center py-12 text-gray-400">
+                  <AlertCircle size={48} className="mx-auto mb-3 opacity-50" />
+                  <p className="font-medium">No operating hours set</p>
+                  <p className="text-sm mt-1">Click "Add Day" to add your first operating hour</p>
+                </div>
+              )}
             </div>
-          </section>
+          </div>
+
         </div>
       </main>
 

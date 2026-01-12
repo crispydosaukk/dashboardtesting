@@ -14,6 +14,8 @@ import {
   importGlobalProducts
 } from "../controllers/admin/ProductController.js";
 
+import { getDashboardStats } from "../controllers/admin/DashboardController.js";
+
 import {
   index as listPermissions,
   create as createPermission,
@@ -123,6 +125,9 @@ router.delete("/customers/:id", removeCustomer);
 /* SETTINGS */
 router.get("/settings", auth, getSettings);
 router.post("/settings", auth, saveSettings);
+
+/* DASHBOARD */
+router.get("/dashboard-stats", auth, getDashboardStats);
 
 
 export default router;

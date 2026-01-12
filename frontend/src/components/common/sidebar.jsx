@@ -9,11 +9,12 @@ const Item = ({ to = "#", icon, label }) => (
     end
     className={({ isActive }) =>
       `
-      flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium tracking-wide
+      flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] font-medium tracking-wide
       transition-all duration-200 border border-transparent
-      ${isActive
-        ? "bg-emerald-600 text-white shadow-[0_6px_20px_rgba(16,185,129,0.12)] scale-[1.02]"
-        : "text-emerald-800 hover:bg-emerald-50 hover:border-emerald-100"
+      ${
+        isActive
+          ? "bg-white/25 text-white shadow-lg backdrop-blur-md scale-[1.03]"
+          : "text-white/80 hover:bg-white/10 hover:text-white"
       }
       `
     }
@@ -39,9 +40,9 @@ function Group({ label, icon, children, defaultOpen = false, hidden = false, ope
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="
-          w-full flex items-center justify-between px-3 py-2.5 rounded-lg
-          text-[15px] font-semibold text-emerald-800 hover:bg-emerald-50
-          border border-emerald-100 transition-all duration-200
+          w-full flex items-center justify-between px-3 py-2.5 rounded-xl
+          text-[15px] font-semibold text-white/90 hover:bg-white/10
+          border border-white/10 backdrop-blur-md transition-all
         "
         aria-expanded={open}
       >
@@ -50,10 +51,9 @@ function Group({ label, icon, children, defaultOpen = false, hidden = false, ope
           <span className="truncate">{label}</span>
         </span>
         <svg
-          className={`h-4 w-4 text-emerald-600 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-4 w-4 text-white/80 transition-transform ${open ? "rotate-180" : ""}`}
           viewBox="0 0 20 20"
           fill="currentColor"
-          aria-hidden
         >
           <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.127l3.71-3.896a.75.75 0 111.08 1.04l-4.24 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
         </svg>
@@ -77,12 +77,12 @@ export default function Sidebar({ open, onClose }) {
     },
     [open, onClose]
   );
+
   useEffect(() => {
     document.addEventListener("keydown", escHandler);
     return () => document.removeEventListener("keydown", escHandler);
   }, [escHandler]);
 
-  /* TOP LEVEL MENU (Category & Product removed here) */
   const rawMenu = useMemo(
     () => [
       { label: "Dashboard", to: "/dashboard", icon: iconDashboard(), perm: "dashboard" },
@@ -95,8 +95,6 @@ export default function Sidebar({ open, onClose }) {
     []
   );
 
-
-  /* NEW GROUP: MENU MANAGEMENT (Category + Product) */
   const rawMenuManagementChildren = useMemo(
     () => [
       { label: "Category", to: "/category", icon: iconCategory(), perm: "category" },
@@ -105,7 +103,6 @@ export default function Sidebar({ open, onClose }) {
     []
   );
 
-  /* ACCESS CONTROL (unchanged) */
   const rawAccessChildren = useMemo(
     () => [
       { label: "Permissions", to: "/access", icon: iconLock(), perm: "access" },
@@ -117,6 +114,7 @@ export default function Sidebar({ open, onClose }) {
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query.trim().toLowerCase()), 160);
     return () => clearTimeout(t);
@@ -124,45 +122,25 @@ export default function Sidebar({ open, onClose }) {
 
   const visibleMenu = useMemo(() => {
     const q = debouncedQuery;
-    return rawMenu.filter((m) => {
-      if (!can(m.perm)) return false;
-      if (!q) return true;
-      return m.label.toLowerCase().includes(q);
-    });
+    return rawMenu.filter((m) => can(m.perm) && (!q || m.label.toLowerCase().includes(q)));
   }, [rawMenu, debouncedQuery]);
 
   const filteredMenuManagement = useMemo(() => {
     const q = debouncedQuery;
-    return rawMenuManagementChildren.filter((c) => {
-      if (!can(c.perm)) return false;
-      if (!q) return true;
-      return c.label.toLowerCase().includes(q);
-    });
+    return rawMenuManagementChildren.filter(
+      (c) => can(c.perm) && (!q || c.label.toLowerCase().includes(q))
+    );
   }, [rawMenuManagementChildren, debouncedQuery]);
 
   const filteredAccessChildren = useMemo(() => {
     const q = debouncedQuery;
-    return rawAccessChildren.filter((c) => {
-      if (!can(c.perm)) return false;
-      if (!q) return true;
-      return c.label.toLowerCase().includes(q);
-    });
+    return rawAccessChildren.filter(
+      (c) => can(c.perm) && (!q || c.label.toLowerCase().includes(q))
+    );
   }, [rawAccessChildren, debouncedQuery]);
 
-  const accessMatchesGroupLabel =
-    (debouncedQuery && "access control".includes(debouncedQuery)) ||
-    (debouncedQuery && "access".includes(debouncedQuery));
-
   const showAccessGroup =
-    filteredAccessChildren.length > 0 ||
-    accessMatchesGroupLabel ||
-    location.pathname.startsWith("/access");
-
-  const accessAutoOpen = Boolean(
-    debouncedQuery
-      ? filteredAccessChildren.length > 0 || accessMatchesGroupLabel
-      : location.pathname.startsWith("/access")
-  );
+    filteredAccessChildren.length > 0 || location.pathname.startsWith("/access");
 
   const [user] = useState(() => {
     try {
@@ -173,105 +151,69 @@ export default function Sidebar({ open, onClose }) {
     }
   });
 
-  const clearSearch = () => setQuery("");
-
   return (
     <>
-      {/* small styles unchanged */}
       <style>{`
         .animate-fadeIn { animation: fadeIn 240ms ease both; }
         @keyframes fadeIn { from { opacity:0; transform: translateY(-6px) } to { opacity:1; transform: translateY(0) } }
-        input[type="search"]:focus { box-shadow: 0 0 0 1px rgba(16,185,129,0.4), 0 0 12px rgba(16,185,129,0.5); }
-        input[type="search"]::placeholder { transition: opacity 0.4s ease; }
-        input[type="search"]:focus::placeholder { opacity: 0.25; }
-        .sidebar-scroll::-webkit-scrollbar { width: 8px; }
-        .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(15, 118, 110, 0.12); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+        .sidebar-scroll::-webkit-scrollbar { width: 6px; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.25); border-radius: 999px; }
       `}</style>
 
-      {/* overlay + aside unchanged */}
       <div
         onClick={onClose}
-        className={`fixed inset-0 top-16 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-          }`}
+        className={`fixed inset-0 top-16 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity ${
+          open ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
       />
 
       <aside
         className={`
           fixed left-0 top-16 bottom-0 z-40 w-72
-          bg-white/95 backdrop-blur-xl
-          border-r border-emerald-100 shadow-lg
+          bg-gradient-to-b from-[#5f6eea] via-[#7b5cf5] to-[#ec4899]
+          shadow-2xl
           transform transition-transform duration-300
           ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
-        <div className="p-4 border-b border-emerald-100">
-          <div className="mt-3 relative">
-            <label className="relative block">
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search..."
-                className="
-                  w-full text-sm rounded-xl px-8 py-2.5
-                  bg-white/40 backdrop-blur-md
-                  border border-emerald-200/40
-                  text-emerald-900 placeholder:text-emerald-600/50
-                  shadow-[inset_0_0_0_1px_rgba(16,185,129,0.25)]
-                  focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400
-                  transition-all
-                "
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">⌕</span>
-              {query && (
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs px-1"
-                >
-                  ✕
-                </button>
-              )}
-            </label>
-          </div>
+        {/* Search */}
+        <div className="p-4 border-b border-white/15">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search..."
+            className="
+              w-full text-sm rounded-xl px-4 py-2.5
+              bg-white/15 backdrop-blur-md
+              border border-white/20
+              text-white placeholder:text-white/60
+              focus:outline-none
+            "
+          />
         </div>
 
         <nav className="p-4 space-y-3 overflow-y-auto h-[calc(100%-220px)] sidebar-scroll">
-          {visibleMenu.length === 0 &&
-            !filteredMenuManagement.length &&
-            !filteredAccessChildren.length &&
-            debouncedQuery && (
-              <div className="text-xs text-slate-400 px-2">
-                No results for “{debouncedQuery}”
-              </div>
-            )}
-
           {visibleMenu.map((m) => (
             <Item key={m.label} to={m.to} label={m.label} icon={m.icon} />
           ))}
 
-          {/* NEW MENU MANAGEMENT GROUP INSERTED HERE */}
           <Group
             label="Menu Management"
             icon={iconCategory()}
             hidden={filteredMenuManagement.length === 0}
-            openProp={
-              location.pathname.startsWith("/category") ||
-              location.pathname.startsWith("/product")
-            }
+            openProp={location.pathname.startsWith("/category") || location.pathname.startsWith("/product")}
           >
             {filteredMenuManagement.map((m) => (
               <Item key={m.label} to={m.to} label={m.label} icon={m.icon} />
             ))}
           </Group>
 
-          {/* ACCESS CONTROL GROUP UNCHANGED */}
           <Group
             label="Access Control"
             icon={iconShield()}
-            defaultOpen={accessAutoOpen}
             hidden={!showAccessGroup}
-            openProp={accessAutoOpen}
+            openProp={location.pathname.startsWith("/access")}
           >
             {filteredAccessChildren.map((m) => (
               <Item key={m.label} to={m.to} label={m.label} icon={m.icon} />
@@ -279,40 +221,27 @@ export default function Sidebar({ open, onClose }) {
           </Group>
         </nav>
 
-        {/* FOOTER UNCHANGED */}
-        <div className="p-4 pt-3 border-t border-emerald-100 bg-gradient-to-t from-[#f6fffb] to-white">
+        {/* Footer */}
+        <div className="p-4 border-t border-white/15 bg-white/10 backdrop-blur-md">
           <div className="flex items-center gap-3 mb-3">
-            <div className="h-11 w-11 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 font-semibold text-sm">
+            <div className="h-11 w-11 rounded-full bg-white/25 flex items-center justify-center text-white font-semibold">
               {user?.name ? user.name.charAt(0).toUpperCase() : "A"}
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-emerald-800 truncate">{user?.name || "Admin"}</div>
-              <div className="text-xs text-slate-500 truncate">{user?.email || "admin@crispy.dosa"}</div>
+            <div>
+              <div className="text-sm font-semibold text-white">{user?.name || "Admin"}</div>
+              <div className="text-xs text-white/70">{user?.email || "admin@crispy.dosa"}</div>
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                localStorage.clear();
-                window.location.href = "/login";
-              }}
-              className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg font-semibold shadow-sm transition-all"
-            >
-              <span className="h-4 w-4">{iconLogout()}</span>
-              Logout
-            </button>
-
-            <button
-              onClick={() => {
-                window.location.href = "/profile";
-              }}
-              className="w-12 h-10 rounded-lg border border-emerald-100 bg-white flex items-center justify-center text-emerald-700 hover:bg-emerald-50 transition"
-              title="Profile"
-            >
-              {iconUser()}
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              localStorage.clear();
+              window.location.href = "/login";
+            }}
+            className="w-full bg-white/25 hover:bg-white/35 text-white py-2 rounded-xl font-semibold transition"
+          >
+            Logout
+          </button>
         </div>
       </aside>
     </>

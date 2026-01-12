@@ -1,1 +1,6 @@
-backend/firebaseServiceAccount.json
+backend/firebaseServiceAccount.jsonnode_modules/
+.vite/
+dist/
+.env
+node_modules/
+.env
