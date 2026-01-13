@@ -14,7 +14,7 @@ const Item = ({ to = "#", icon, label }) => (
       ${
         isActive
           ? "bg-white/25 text-white shadow-lg backdrop-blur-md scale-[1.03]"
-          : "text-white/80 hover:bg-white/10 hover:text-white"
+          : "text-[#f7c7ce] hover:bg-white/10 hover:text-white"
       }
       `
     }
@@ -41,7 +41,7 @@ function Group({ label, icon, children, defaultOpen = false, hidden = false, ope
         onClick={() => setOpen((v) => !v)}
         className="
           w-full flex items-center justify-between px-3 py-2.5 rounded-xl
-          text-[15px] font-semibold text-white/90 hover:bg-white/10
+          text-[15px] font-semibold text-[#f7c7ce] hover:bg-white/10
           border border-white/10 backdrop-blur-md transition-all
         "
         aria-expanded={open}
@@ -51,7 +51,7 @@ function Group({ label, icon, children, defaultOpen = false, hidden = false, ope
           <span className="truncate">{label}</span>
         </span>
         <svg
-          className={`h-4 w-4 text-white/80 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-4 w-4 text-[#f7c7ce] transition-transform ${open ? "rotate-180" : ""}`}
           viewBox="0 0 20 20"
           fill="currentColor"
         >
@@ -170,7 +170,7 @@ export default function Sidebar({ open, onClose }) {
       <aside
         className={`
           fixed left-0 top-16 bottom-0 z-40 w-72
-          bg-gradient-to-b from-[#5f6eea] via-[#7b5cf5] to-[#ec4899]
+          bg-gradient-to-br from-[#1A4D3A] to-[#8B1538]
           shadow-2xl
           transform transition-transform duration-300
           ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
@@ -187,7 +187,7 @@ export default function Sidebar({ open, onClose }) {
               w-full text-sm rounded-xl px-4 py-2.5
               bg-white/15 backdrop-blur-md
               border border-white/20
-              text-white placeholder:text-white/60
+              text-[#f7c7ce] placeholder:text-white/60
               focus:outline-none
             "
           />
@@ -224,7 +224,7 @@ export default function Sidebar({ open, onClose }) {
         {/* Footer */}
         <div className="p-4 border-t border-white/15 bg-white/10 backdrop-blur-md">
           <div className="flex items-center gap-3 mb-3">
-            <div className="h-11 w-11 rounded-full bg-white/25 flex items-center justify-center text-white font-semibold">
+            <div className="h-11 w-11 rounded-full bg-white/25 flex items-center justify-center text-[#f7c7ce] font-semibold">
               {user?.name ? user.name.charAt(0).toUpperCase() : "A"}
             </div>
             <div>

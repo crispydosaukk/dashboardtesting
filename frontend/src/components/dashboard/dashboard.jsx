@@ -1,58 +1,219 @@
 import React, { useEffect, useState } from "react";
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend
 } from "recharts";
 import {
-  ShoppingBag, Users, Store, UserPlus, ArrowUp, ArrowRight, CheckCircle, Clock
+  ShoppingBag, Users, Store, UserPlus, ArrowUp, ArrowRight, CheckCircle, Clock, Eye, X, Calendar, DollarSign, TrendingUp, CreditCard, ChevronDown
 } from "lucide-react";
 import Header from "../common/header.jsx";
 import Sidebar from "../common/sidebar.jsx";
 import Footer from "../common/footer.jsx";
 import api from "../../api.js";
+import { motion, AnimatePresence } from "framer-motion";
 
-const StatCard = ({ title, value, subtext, colorClass, icon: Icon, delay }) => (
-  <div
-    className={`relative overflow-hidden rounded-2xl p-6 shadow-lg transform transition-all duration-300 hover:scale-[1.02] ${colorClass}`}
-    style={{ animation: `fadeInUp 0.5s ease-out ${delay}s backwards` }}
+// --- Components ---
+
+const StatCard = ({ title, value, subtext, icon: Icon, colorClass, delay }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay, duration: 0.4 }}
+    className="relative overflow-hidden rounded-2xl p-6 border border-white/20 bg-white/10 backdrop-blur-xl shadow-xl group hover:bg-white/15 transition-all duration-300"
   >
     <div className="relative z-10 flex justify-between items-start">
       <div>
-        <div className="flex items-center gap-2 mb-2 opacity-90">
-          <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-            <Icon size={20} className="text-white" />
-          </div>
+        <div className={`p-3 rounded-xl backdrop-blur-md mb-3 inline-block ${colorClass}`}>
+          <Icon size={22} className="text-white" />
         </div>
-        <p className="text-sm font-medium text-white/80">{title}</p>
-        <h3 className="text-3xl font-bold text-white mt-1">{value}</h3>
+        <p className="text-sm font-medium text-white/70">{title}</p>
+        <h3 className="text-3xl font-bold text-white mt-1 drop-shadow-md">{value}</h3>
       </div>
     </div>
     <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
-      <span className="text-xs font-medium text-white/90 flex items-center gap-1">
+      <span className="text-xs font-medium text-emerald-300 flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-lg">
         <ArrowUp size={12} strokeWidth={3} /> {subtext}
       </span>
-      <span className="text-xs text-white/60">Updated just now</span>
     </div>
-
-    {/* Decorative Circle */}
-    <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-  </div>
+    {/* Decorative Glow */}
+    <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-white/5 rounded-full blur-3xl group-hover:bg-white/10 transition-colors" />
+  </motion.div>
 );
 
-const ChartCard = ({ title, subtitle, children, darkMode = false }) => (
-  <div className={`rounded-2xl p-6 shadow-sm border transition-shadow duration-300 relative overflow-hidden ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100 hover:shadow-md'}`}>
-    <div className="mb-6 relative z-10">
-      <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{title}</h3>
-      <p className={`text-xs mt-1 ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>{subtitle}</p>
+const ChartCard = ({ title, subtitle, children, delay }) => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.95 }}
+    animate={{ opacity: 1, scale: 1 }}
+    transition={{ delay, duration: 0.4 }}
+    className="rounded-2xl p-6 shadow-xl border border-white/20 bg-white/10 backdrop-blur-xl flex flex-col h-full"
+  >
+    <div className="mb-6">
+      <h3 className="text-lg font-bold text-white">{title}</h3>
+      <p className="text-xs mt-1 text-white/60">{subtitle}</p>
     </div>
-    <div className="h-64 w-full relative z-10">
+    <div className="flex-1 w-full min-h-[250px] relative">
       {children}
     </div>
-    <div className={`mt-4 flex items-center gap-2 text-xs ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
-      <Clock size={12} />
-      <span>campaign sent 2 days ago</span>
-    </div>
-  </div>
+  </motion.div>
 );
+
+const OrderDetailsModal = ({ order, onClose }) => {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (order?.order_number) {
+      api.get(`/dashboard/order-details/${encodeURIComponent(order.order_number)}`)
+        .then(res => {
+          if (res.data.status === 1) setItems(res.data.data);
+        })
+        .catch(err => console.error("Failed to load items", err))
+        .finally(() => setLoading(false));
+    }
+  }, [order]);
+
+  if (!order) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#1a1c23] border border-white/10 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]"
+      >
+        <div className="bg-gradient-to-r from-emerald-900 to-teal-900 px-6 py-4 flex justify-between items-center border-b border-white/10 shrink-0">
+          <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <ShoppingBag size={20} /> Order #{order.order_number}
+          </h3>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6 overflow-y-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* Customer Info */}
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+              <h4 className="text-emerald-400 text-sm font-bold uppercase mb-3 flex items-center gap-2">
+                <Users size={14} /> Customer Details
+              </h4>
+              <div className="space-y-2">
+                <p className="text-white font-medium text-lg">{order.customer_name || "Guest"}</p>
+                <div className="flex items-center gap-2 text-white/60 text-sm">
+                  <Clock size={14} />
+                  <span>{order.customer_email || "No Email"}</span>
+                </div>
+                <div className="flex items-center gap-2 text-white/60 text-sm">
+                  <Clock size={14} />
+                  <span>{order.customer_phone || "No Phone"}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Order Info */}
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+              <h4 className="text-emerald-400 text-sm font-bold uppercase mb-3 flex items-center gap-2">
+                <CreditCard size={14} /> Payment & Status
+              </h4>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-white/60 text-sm">Amount</span>
+                  <span className="text-white font-bold text-lg">{order.grand_total ? `£${Number(order.grand_total).toFixed(2)}` : '£0.00'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-white/60 text-sm">Status</span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${Number(order.order_status) === 4 ? "bg-emerald-500/20 text-emerald-400" :
+                    Number(order.order_status) === 0 ? "bg-blue-500/20 text-blue-400" :
+                      Number(order.order_status) === 2 ? "bg-red-500/20 text-red-400" :
+                        "bg-amber-500/20 text-amber-400"
+                    }`}>
+                    {Number(order.order_status) === 0 ? 'Placed' :
+                      Number(order.order_status) === 1 ? 'Accepted' :
+                        Number(order.order_status) === 2 ? 'Rejected' :
+                          Number(order.order_status) === 3 ? 'Ready' :
+                            Number(order.order_status) === 4 ? 'Delivered' : 'Cancelled'}
+                  </span>
+                </div>
+                <div className="text-xs text-white/40 mt-2">
+                  Placed on {new Date(order.created_at).toLocaleString()}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Product List */}
+          <div>
+            <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+              <ShoppingBag size={16} className="text-emerald-400" /> Order Items
+            </h4>
+            <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+              {loading ? (
+                <div className="p-8 text-center text-white/40">Loading items...</div>
+              ) : items.length === 0 ? (
+                <div className="p-8 text-center text-white/40">No items found</div>
+              ) : (
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-white/5 text-white/50 border-b border-white/10">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Product</th>
+                      <th className="px-4 py-3 font-medium text-center">Qty</th>
+                      <th className="px-4 py-3 font-medium text-right">Price</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/10">
+                    {items.map((item, idx) => (
+                      <tr key={idx}>
+                        <td className="px-4 py-3 text-white flex items-center gap-3">
+                          {/* Optional Image */}
+                          <div className="w-8 h-8 rounded bg-white/10 flex items-center justify-center text-xs overflow-hidden">
+                            {item.product_image ? (
+                              <img
+                                src={`${(import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/api\/?$/, '')}/uploads/${item.product_image}`}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <ShoppingBag size={12} className="opacity-50" />
+                            )}
+                          </div>
+                          <span>{item.product_name}</span>
+                        </td>
+                        <td className="px-4 py-3 text-white/70 text-center">x{item.quantity}</td>
+                        <td className="px-4 py-3 text-emerald-300 font-medium text-right">£{Number(item.price).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-white/5 border-t border-white/10">
+                    <tr>
+                      <td colSpan="2" className="px-4 py-3 text-right font-bold text-white">Total</td>
+                      <td className="px-4 py-3 text-right font-bold text-emerald-400">£{Number(order.grand_total).toFixed(2)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white/5 p-4 border-t border-white/10 flex justify-end shrink-0">
+          <button onClick={onClose} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium">
+            Close
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+
+// --- Main Dashboard ---
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -61,20 +222,27 @@ export default function Dashboard() {
     total_revenue: 0,
     today_users: 0,
     followers: 0,
-    bar_chart: [],
-    line_chart: [],
+    orders_vs_yesterday: [],
+    today_revenue: [],
+    completed_week: [],
+    top_selling_products: [],
     recent_orders: [],
-    // data for overview if needed, reusing recent_orders for now
   });
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // Default Today
+
+  const ordersPerPage = 10;
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [selectedDate]); // Refetch when date changes
 
   const fetchStats = async () => {
     try {
-      const res = await api.get("/dashboard-stats");
+      setLoading(true);
+      const res = await api.get(`/dashboard-stats?date=${selectedDate}`);
       if (res.data.status === 1) {
         setStats(res.data.data);
       }
@@ -86,260 +254,295 @@ export default function Dashboard() {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount);
+    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(amount) || 0);
   };
+
+  // derived stats
+  const todayRevenueTotal = stats.today_revenue?.reduce((acc, curr) => acc + Number(curr.revenue), 0) || 0;
+  // stats.today_users is effectively "Orders Count" for the day per backend changes
+  const todayOrdersCount = stats.today_users || 0;
+
+
+  // Pagination Logic
+  const indexOfLastOrder = currentPage * ordersPerPage;
+  const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+  const currentOrders = stats.recent_orders?.slice(indexOfFirstOrder, indexOfLastOrder) || [];
+  const totalPages = Math.ceil((stats.recent_orders?.length || 0) / ordersPerPage);
 
   const getStatusBadge = (status) => {
-    const statuses = {
-      0: { label: "Placed", color: "bg-blue-100 text-blue-700" },
-      1: { label: "Accepted", color: "bg-indigo-100 text-indigo-700" },
-      2: { label: "Rejected", color: "bg-red-100 text-red-700" },
-      3: { label: "Ready", color: "bg-orange-100 text-orange-700" },
-      4: { label: "Delivered", color: "bg-emerald-100 text-emerald-700" },
-      5: { label: "Cancelled", color: "bg-gray-100 text-gray-700" }
-    };
-    const s = statuses[status] || statuses[0];
-    return <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${s.color}`}>{s.label}</span>;
+    const s = Number(status);
+    if (s === 0) return <span className="px-2 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">Placed</span>;
+    if (s === 1) return <span className="px-2 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Accepted</span>;
+    if (s === 2) return <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/30">Rejected</span>;
+    if (s === 3) return <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Ready</span>;
+    if (s === 4) return <span className="px-2 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Delivered</span>;
+    return <span className="px-2 py-1 rounded-full text-xs font-bold bg-gray-500/20 text-gray-300">Cancelled</span>;
   };
 
-  // Prepare chart data if empty, ensuring safe access
-  const barData = stats.bar_chart && stats.bar_chart.length > 0 ? stats.bar_chart : [
-    { name: "M", count: 0 }, { name: "T", count: 0 }, { name: "W", count: 0 }, { name: "T", count: 0 }, { name: "F", count: 0 }, { name: "S", count: 0 }, { name: "S", count: 0 }
-  ];
-
-  const lineData = stats.line_chart && stats.line_chart.length > 0 ? stats.line_chart : [
-    { month: "Jan", sales: 0 }
-  ];
-
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 font-sans">
-      <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
+    <div className="min-h-screen bg-gradient-to-br from-amber-900 via-teal-800 to-emerald-900 text-white font-sans selection:bg-emerald-500/30">
+      <style dangerouslySetInnerHTML={{
+        __html: `
+            .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+            }
+        `}} />
+      <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} darkMode={true} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col pt-16 lg:pl-72 transition-all duration-300">
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
+      <main className="pt-24 pb-12 px-4 sm:px-6 lg:pl-80 lg:pr-8">
+        <div className="max-w-7xl mx-auto">
 
-          <div className="flex justify-between items-end mb-8">
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-              <p className="text-sm text-slate-500 mt-1">Overview of your notifications and analytics</p>
+              <h1 className="text-3xl font-bold text-white drop-shadow-md">Dashboard</h1>
+              <p className="text-white/70 mt-1">Real-time overview of your restaurant's performance</p>
             </div>
-            <div className="hidden sm:block text-slate-400 text-sm">
-              {new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+
+            {/* Date Picker */}
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-white/70 group-hover:text-white transition-colors">
+                <Calendar size={16} />
+              </div>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="pl-10 pr-4 py-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 text-white font-medium shadow-lg hover:bg-white/20 focus:ring-2 focus:ring-emerald-400 focus:outline-none transition-all cursor-pointer [&::-webkit-calendar-picker-indicator]:invert"
+              />
             </div>
           </div>
 
-          {/* STATS GRID */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
-              title="Total Orders"
-              value={stats.total_bookings}
-              subtext="+55% than last week"
-              colorClass="bg-slate-800"
+              title="Orders (Selected Date)"
+              value={todayOrdersCount}
+              subtext="Orders on this day"
               icon={ShoppingBag}
+              colorClass="bg-blue-500/20 border border-blue-400/30"
               delay={0}
             />
             <StatCard
-              title="Today's Users"
-              value={stats.today_users}
-              subtext="+3% than last month"
-              colorClass="bg-blue-500"
-              icon={Users}
+              title="Revenue (Selected Date)"
+              value={formatCurrency(todayRevenueTotal)}
+              subtext="Revenue on this day"
+              icon={DollarSign}
+              colorClass="bg-emerald-500/20 border border-emerald-400/30"
               delay={0.1}
-            />
-            <StatCard
-              title="Total Revenue"
-              value={formatCurrency(stats.total_revenue)}
-              subtext="+1% than yesterday"
-              colorClass="bg-emerald-500"
-              icon={Store}
-              delay={0.2}
             />
             <StatCard
               title="Total Customers"
               value={stats.followers}
-              subtext="Just updated"
-              colorClass="bg-rose-500"
-              icon={UserPlus}
+              subtext="Lifetime customers"
+              icon={Users}
+              colorClass="bg-amber-500/20 border border-amber-400/30"
+              delay={0.2}
+            />
+            <StatCard
+              title="Total Revenue"
+              value={formatCurrency(stats.total_revenue)}
+              subtext="Lifetime revenue"
+              icon={TrendingUp}
+              colorClass="bg-purple-500/20 border border-purple-400/30"
               delay={0.3}
             />
           </div>
 
-
-          {/* CHARTS SECTION */}
+          {/* Charts Section 1: Comparisons & Trends */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 
-            {/* 1. Orders Comparison (Today vs Yesterday) */}
-            <ChartCard title="Orders Overview" subtitle="Today vs Yesterday Performance">
+            <ChartCard title="Orders Comparison" subtitle="Target Date vs Previous Day" delay={0.4}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats?.orders_vs_yesterday || []}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis
-                    dataKey="hourLabel"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 10, fill: '#94a3b8' }}
-                    interval={3} // Show every 3rd hour to avoid crowding
-                  />
+                <BarChart data={stats.orders_vs_yesterday || []}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+                  <XAxis dataKey="hourLabel" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 10 }} interval={3} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 10 }} />
                   <Tooltip
-                    cursor={{ fill: '#f8fafc' }}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                    contentStyle={{ borderRadius: '12px', background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
                   />
-                  {/* Yesterday - Grey/Light Blue */}
-                  <Bar name="Yesterday" dataKey="yesterday" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={6} />
-                  {/* Today - Primary Blue */}
-                  <Bar name="Today" dataKey="today" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={6} />
+                  <Bar dataKey="yesterday" name="Previous Day" fill="#9ca3af" radius={[4, 4, 0, 0]} barSize={8} fillOpacity={0.5} />
+                  <Bar dataKey="today" name="Selected Date" fill="#34d399" radius={[4, 4, 0, 0]} barSize={8} />
+                  <Legend wrapperStyle={{ paddingTop: '10px' }} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
 
-            {/* 2. Today's Revenue Trend */}
-            <ChartCard title="Daily Sales" subtitle={`Today's Revenue: ${formatCurrency(stats.today_revenue ? stats.today_revenue.reduce((a, b) => a + Number(b.revenue), 0) : 0)}`}>
+            <ChartCard title="Revenue Trend" subtitle="Hourly Sales Breakdown" delay={0.5}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={stats.today_revenue && stats.today_revenue.length > 0 ? stats.today_revenue : []}>
+                <AreaChart data={stats.today_revenue || []}>
                   <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.1} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis
-                    dataKey="time"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 10, fill: '#94a3b8' }}
-                    interval={3}
-                  />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 10 }} interval={3} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 10 }} tickFormatter={(v) => `£${v}`} />
                   <Tooltip
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value) => [formatCurrency(value), "Revenue"]}
+                    contentStyle={{ borderRadius: '12px', background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+                    formatter={(value) => [`£${value}`, "Revenue"]}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorRevenue)"
-                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
                 </AreaChart>
               </ResponsiveContainer>
             </ChartCard>
 
-            {/* 3. Completed Orders Last 7 Days (Dark) */}
-            <ChartCard title="Completed Tasks" subtitle="Weekly Delivery Performance" darkMode={true}>
+            <ChartCard title="Weekly Orders" subtitle="Completed orders (Leading up to selection)" delay={0.6}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats.completed_week && stats.completed_week.length > 0 ? stats.completed_week : []}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
-                  <XAxis
-                    dataKey="date"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 10, fill: '#94a3b8' }}
-                    tickFormatter={(str) => new Date(str).getDate()} // Just show day number
-                  />
-                  <Tooltip
-                    contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#1e293b', color: '#fff' }}
-                    itemStyle={{ color: '#fff' }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="count"
-                    stroke="#fff"
-                    strokeWidth={3}
-                    dot={{ r: 4, fill: '#fff', strokeWidth: 2, stroke: '#334155' }}
-                  />
+                <LineChart data={stats.completed_week || []}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 10 }} tickFormatter={(str) => new Date(str).getDate()} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: '12px', background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+                  <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={3} dot={{ r: 4, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
           </div>
 
+          {/* Charts Section 2: Top Products & Table */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
-            {/* RECENT ORDERS TABLE (2/3 width) */}
-            <div className="xl:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-800">Recent Orders</h3>
-                  <div className="flex items-center gap-1 text-xs text-green-600 font-medium mt-1">
-                    <CheckCircle size={12} />
-                    <span>30 done this month</span>
-                  </div>
+            {/* Top Selling Products (Replaced Pie Chart) */}
+            <div className="xl:col-span-1">
+              <ChartCard title="Top Selling Items" subtitle="Most popular products" delay={0.7}>
+                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  {stats.top_selling_products && stats.top_selling_products.length > 0 ? (
+                    stats.top_selling_products.map((product, idx) => (
+                      <div key={idx} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                        <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-medium text-white text-sm truncate">{product.name}</h5>
+                          <p className="text-xs text-white/50">{product.count} sales</p>
+                        </div>
+                        <div className="w-16 bg-white/10 rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className="bg-emerald-400 h-full rounded-full"
+                            style={{ width: `${Math.min((product.count / (stats.top_selling_products[0]?.count || 1)) * 100, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center text-white/40 py-10">No sales data available</div>
+                  )}
                 </div>
-                <button className="p-2 hover:bg-gray-50 rounded-full text-gray-400">
-                  <span className="sr-only">Menu</span>
-                  ⋮
-                </button>
+              </ChartCard>
+            </div>
+
+            {/* Recent Orders Table */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.4 }}
+              className="xl:col-span-2 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-xl overflow-hidden flex flex-col"
+            >
+              <div className="px-6 py-5 border-b border-white/10 flex justify-between items-center bg-white/5">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <ShoppingBag size={20} className="text-emerald-400" /> Recent Orders
+                </h2>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full text-left">
+                  <thead className="bg-white/5 text-white/60 text-xs uppercase tracking-wider font-semibold">
                     <tr>
-                      <th className="px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">Order No</th>
-                      <th className="px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">Customer</th>
-                      <th className="px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">Amount</th>
-                      <th className="px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-4">Order No</th>
+                      <th className="px-6 py-4">Customer</th>
+                      <th className="px-6 py-4">Amount</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4 text-center">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {!stats.recent_orders || stats.recent_orders.length === 0 ? (
-                      <tr>
-                        <td colSpan="5" className="px-6 py-8 text-center text-gray-400 text-sm">
-                          No orders found
-                        </td>
-                      </tr>
-                    ) : (
-                      stats.recent_orders.slice(0, 5).map((order, i) => (
-                        <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-6 py-4 text-sm font-semibold text-gray-700">#{order.order_number}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600 flex items-center gap-2">
-                            {order.customer_name || "Guest"}
-                          </td>
-                          <td className="px-6 py-4 text-sm font-medium text-gray-700">{formatCurrency(order.grand_total)}</td>
+                  <tbody className="divide-y divide-white/10 text-sm">
+                    {loading ? (
+                      <tr><td colSpan="6" className="px-6 py-12 text-center text-white/40">Loading orders...</td></tr>
+                    ) : currentOrders.length > 0 ? (
+                      currentOrders.map((order, i) => (
+                        <tr key={i} className="hover:bg-white/5 transition-colors group">
+                          <td className="px-6 py-4 font-medium">#{order.order_number}</td>
+                          <td className="px-6 py-4 text-white/80">{order.customer_name || "Guest"}</td>
+                          <td className="px-6 py-4 font-semibold text-emerald-300">{formatCurrency(order.grand_total)}</td>
                           <td className="px-6 py-4">{getStatusBadge(order.order_status)}</td>
+                          <td className="px-6 py-4 text-white/60">
+                            {new Date(order.created_at).toLocaleDateString()}
+                            <br />
+                            <span className="text-xs text-white/40">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <button
+                              onClick={() => setSelectedOrder(order)}
+                              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg text-emerald-300 hover:text-emerald-200 transition-all shadow-md active:scale-95"
+                            >
+                              <Eye size={18} />
+                            </button>
+                          </td>
                         </tr>
                       ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" className="px-6 py-12 text-center text-white/40">No orders found for this date</td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
               </div>
-            </div>
 
-            {/* ORDERS OVERVIEW (1/3 width) */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <div className="mb-6">
-                <h3 className="text-lg font-bold text-gray-800">Orders overview</h3>
-                <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium mt-1">
-                  <ArrowUp size={12} strokeWidth={3} />
-                  <span>24% this month</span>
-                </div>
-              </div>
-
-              <div className="space-y-6 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-100">
-                {stats.recent_orders && stats.recent_orders.slice(0, 5).map((order, i) => (
-                  <div key={i} className="relative pl-8">
-                    <div className={`absolute left-0 top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${order.order_status == 1 ? 'bg-indigo-500' :
-                      order.order_status == 4 ? 'bg-emerald-500' :
-                        order.order_status == 2 ? 'bg-red-500' : 'bg-blue-500'
-                      }`} />
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-800">Order #{order.order_number}</h4>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {new Date(order.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
+              {/* Pagination */}
+              {stats.recent_orders?.length > ordersPerPage && (
+                <div className="px-6 py-4 border-t border-white/10 flex items-center justify-between bg-white/5">
+                  <div className="text-sm text-white/60">
+                    Page {currentPage} of {totalPages}
                   </div>
-                ))}
-              </div>
-            </div>
-
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
           </div>
+        </div>
+      </main>
 
-        </main>
-        <Footer />
-      </div>
+      <Footer />
+
+      <AnimatePresence>
+        {selectedOrder && (
+          <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

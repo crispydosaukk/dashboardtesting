@@ -177,8 +177,8 @@ export default function Restuarent() {
 
   const InputField = ({ icon: Icon, label, value, onChange, placeholder, type = "text", className = "" }) => (
     <div className={`group ${className}`}>
-      <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-        {Icon && <Icon size={16} className="text-[#7b5cf5]" />}
+      <label className="block text-sm font-semibold text-white/90 mb-2 flex items-center gap-2 drop-shadow">
+        {Icon && <Icon size={16} className="text-emerald-300" />}
         {label}
       </label>
       <div className="relative">
@@ -187,17 +187,17 @@ export default function Restuarent() {
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 
-                   focus:outline-none focus:border-[#7b5cf5] focus:ring-4 focus:ring-[#7b5cf5]/10 
-                   transition-all duration-200 hover:border-gray-300"
+          className="w-full px-4 py-3 bg-white/10 backdrop-blur-md border-2 border-white/20 rounded-xl text-white placeholder-white/50 
+                   focus:outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 
+                   transition-all duration-200 hover:border-white/30 shadow-lg"
         />
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30">
-      <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
+    <div className="min-h-screen bg-gradient-to-br from-amber-900 via-teal-800 to-emerald-900">
+      <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} darkMode={true} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="pt-24 pb-12 px-4 sm:px-6 lg:pl-80 lg:pr-8">
@@ -206,12 +206,12 @@ export default function Restuarent() {
           {/* Page Header */}
           <div className="mb-8">
             <div className="flex items-center gap-4 mb-2">
-              <div className="p-3 bg-gradient-to-br from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] rounded-2xl shadow-lg shadow-purple-500/20">
+              <div className="p-3 bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20">
                 <Store className="text-white" size={28} />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Restaurant Profile</h1>
-                <p className="text-gray-500 mt-1">Manage your restaurant information and operating hours</p>
+                <h1 className="text-3xl font-bold text-white drop-shadow-lg">Restaurant Profile</h1>
+                <p className="text-white/90 mt-1 text-base drop-shadow">Manage your restaurant information and operating hours</p>
               </div>
             </div>
           </div>
@@ -222,15 +222,15 @@ export default function Restuarent() {
             <div className="lg:col-span-2 space-y-6">
 
               {/* Basic Information Card */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] px-6 py-4">
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+                <div className="bg-white/10 backdrop-blur-md px-6 py-4 border-b border-white/10">
+                  <h2 className="text-xl font-bold text-white drop-shadow-lg flex items-center gap-2">
                     <Store size={20} />
                     Basic Information
                   </h2>
                 </div>
 
-                <div className="p-6 space-y-5">
+                <div className="p-6 space-y-5 bg-white/5 backdrop-blur-sm">
                   <InputField
                     icon={Store}
                     label="Restaurant Name"
@@ -259,8 +259,8 @@ export default function Restuarent() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                      <MapPin size={16} className="text-[#7b5cf5]" />
+                    <label className="block text-sm font-semibold text-white/90 mb-2 flex items-center gap-2 drop-shadow">
+                      <MapPin size={16} className="text-emerald-300" />
                       Address
                     </label>
                     <textarea
@@ -268,9 +268,9 @@ export default function Restuarent() {
                       value={info.address}
                       onChange={onInfoChange("address")}
                       placeholder="Full restaurant address"
-                      className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 
-                               focus:outline-none focus:border-[#7b5cf5] focus:ring-4 focus:ring-[#7b5cf5]/10 
-                               transition-all duration-200 hover:border-gray-300 resize-none"
+                      className="w-full px-4 py-3 bg-white/10 backdrop-blur-md border-2 border-white/20 rounded-xl text-white placeholder-white/50 
+                               focus:outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 
+                               transition-all duration-200 hover:border-white/30 resize-none shadow-lg"
                     />
                   </div>
 
@@ -285,9 +285,9 @@ export default function Restuarent() {
               </div>
 
               {/* Social Media Links Card */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] px-6 py-4">
-                  <h2 className="text-xl font-bold text-white">Social Media</h2>
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+                <div className="bg-white/10 backdrop-blur-md px-6 py-4 border-b border-white/10">
+                  <h2 className="text-xl font-bold text-white drop-shadow-lg">Social Media</h2>
                 </div>
 
                 <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -323,39 +323,45 @@ export default function Restuarent() {
               </div>
 
               {/* Service Options Card */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] px-6 py-4">
-                  <h2 className="text-xl font-bold text-white">Service Options</h2>
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+                <div className="bg-white/10 backdrop-blur-md px-6 py-4 border-b border-white/10">
+                  <h2 className="text-xl font-bold text-white drop-shadow-lg">Service Options</h2>
                 </div>
 
                 <div className="p-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label className="relative flex items-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 cursor-pointer hover:shadow-md transition-all duration-200 group">
+                    <label className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer hover:shadow-lg transition-all duration-200 group ${info.instore
+                      ? 'bg-emerald-500/20 border-emerald-400/50'
+                      : 'bg-white/5 border-white/10 hover:bg-white/10'
+                      }`}>
                       <input
                         type="checkbox"
                         checked={info.instore}
                         onChange={(e) => setInfo((p) => ({ ...p, instore: e.target.checked }))}
-                        className="w-5 h-5 text-[#7b5cf5] border-gray-300 rounded focus:ring-[#7b5cf5] focus:ring-2"
+                        className="w-5 h-5 text-emerald-500 border-white/30 rounded focus:ring-emerald-500 focus:ring-2 bg-white/10"
                       />
                       <div className="ml-3 flex-1">
-                        <span className="block text-sm font-bold text-gray-900">In-Store Pickup</span>
-                        <span className="text-xs text-gray-500">Customers can pick up orders inside</span>
+                        <span className="block text-sm font-bold text-white">In-Store Pickup</span>
+                        <span className="text-xs text-white/50">Customers can pick up orders inside</span>
                       </div>
-                      {info.instore && <CheckCircle2 className="text-[#7b5cf5]" size={20} />}
+                      {info.instore && <CheckCircle2 className="text-emerald-400" size={20} />}
                     </label>
 
-                    <label className="relative flex items-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 cursor-pointer hover:shadow-md transition-all duration-200 group">
+                    <label className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer hover:shadow-lg transition-all duration-200 group ${info.kerbside
+                      ? 'bg-emerald-500/20 border-emerald-400/50'
+                      : 'bg-white/5 border-white/10 hover:bg-white/10'
+                      }`}>
                       <input
                         type="checkbox"
                         checked={info.kerbside}
                         onChange={(e) => setInfo((p) => ({ ...p, kerbside: e.target.checked }))}
-                        className="w-5 h-5 text-[#7b5cf5] border-gray-300 rounded focus:ring-[#7b5cf5] focus:ring-2"
+                        className="w-5 h-5 text-emerald-500 border-white/30 rounded focus:ring-emerald-500 focus:ring-2 bg-white/10"
                       />
                       <div className="ml-3 flex-1">
-                        <span className="block text-sm font-bold text-gray-900">Kerbside Pickup</span>
-                        <span className="text-xs text-gray-500">Curbside delivery available</span>
+                        <span className="block text-sm font-bold text-white">Kerbside Pickup</span>
+                        <span className="text-xs text-white/50">Curbside delivery available</span>
                       </div>
-                      {info.kerbside && <CheckCircle2 className="text-[#7b5cf5]" size={20} />}
+                      {info.kerbside && <CheckCircle2 className="text-emerald-400" size={20} />}
                     </label>
                   </div>
                 </div>
@@ -366,9 +372,9 @@ export default function Restuarent() {
             <div className="space-y-6">
 
               {/* Photo Upload Card */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-24">
-                <div className="bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] px-6 py-4">
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden sticky top-24">
+                <div className="bg-white/10 backdrop-blur-md px-6 py-4 border-b border-white/10">
+                  <h2 className="text-xl font-bold text-white drop-shadow-lg flex items-center gap-2">
                     <ImageIcon size={20} />
                     Restaurant Photo
                   </h2>
@@ -376,7 +382,7 @@ export default function Restuarent() {
 
                 <div className="p-6">
                   <div className="relative group">
-                    <div className="aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-50 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 group-hover:border-purple-400 transition-all duration-200">
+                    <div className="aspect-[4/3] bg-white/5 rounded-xl overflow-hidden border-2 border-dashed border-white/20 group-hover:border-emerald-400/50 transition-all duration-200">
                       {photoPreview ? (
                         <div className="relative w-full h-full">
                           <img src={photoPreview} className="w-full h-full object-cover" alt="Preview" />
@@ -428,7 +434,7 @@ export default function Restuarent() {
 
                   <button
                     onClick={() => fileInputRef.current.click()}
-                    className="mt-4 w-full py-3 px-4 bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] hover:from-[#7b5cf5] hover:to-[#ec4899] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2"
+                    className="mt-4 w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2"
                   >
                     <Upload size={18} />
                     {photoFile || info.photo ? "Change Photo" : "Upload Photo"}
@@ -437,7 +443,7 @@ export default function Restuarent() {
                   {photoFile && (
                     <button
                       onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
-                      className="mt-2 w-full py-2 px-4 bg-red-50 hover:bg-red-100 text-red-600 font-medium rounded-xl border-2 border-red-200 transition-all duration-200 flex items-center justify-center gap-2"
+                      className="mt-2 w-full py-2 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-200 font-medium rounded-xl border border-red-500/30 transition-all duration-200 flex items-center justify-center gap-2"
                     >
                       <X size={16} />
                       Remove New Photo
@@ -450,7 +456,7 @@ export default function Restuarent() {
                   <button
                     onClick={saveAll}
                     disabled={saving}
-                    className="w-full py-4 px-6 bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] hover:from-[#7b5cf5] hover:to-[#ec4899] disabled:from-gray-400 disabled:to-gray-500 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:scale-100 transition-all duration-200 flex items-center justify-center gap-2"
+                    className="w-full py-4 px-6 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:scale-100 transition-all duration-200 flex items-center justify-center gap-2"
                   >
                     <Save size={20} />
                     {saving ? "Saving..." : "Save All Changes"}
@@ -461,8 +467,8 @@ export default function Restuarent() {
           </div>
 
           {/* Operating Hours Section */}
-          <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-gradient-to-r from-[#5f6eea] via-[#7b5cf5] to-[#ec4899] px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="mt-8 bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+            <div className="bg-white/10 backdrop-blur-md px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/10">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <Calendar size={24} />
                 Operating Hours
@@ -482,20 +488,20 @@ export default function Restuarent() {
                 {timings.map((t, index) => (
                   <div
                     key={t.id}
-                    className={`group relative bg-gradient-to-br ${t.is_active
-                      ? 'from-white to-purple-50/30 border-purple-200 hover:shadow-md'
-                      : 'from-gray-50 to-gray-100 border-gray-300 opacity-60'
-                      } border-2 rounded-xl p-4 transition-all duration-200`}
+                    className={`group relative border-2 rounded-xl p-4 transition-all duration-200 ${t.is_active
+                      ? 'bg-white/10 border-emerald-400/30 hover:bg-white/15 shadow-md'
+                      : 'bg-white/5 border-white/10 opacity-60 hover:opacity-100'
+                      }`}
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
 
                       {/* Day Selector */}
                       <div className="sm:col-span-3">
-                        <label className="block text-xs font-semibold text-gray-500 mb-1">Day</label>
+                        <label className="block text-xs font-semibold text-white/70 mb-1">Day</label>
                         <select
                           value={t.day}
                           onChange={(e) => changeDay(t.id, e.target.value)}
-                          className="w-full px-3 py-2.5 bg-white border-2 border-gray-200 rounded-lg text-gray-800 font-medium focus:outline-none focus:border-[#7b5cf5] focus:ring-2 focus:ring-[#7b5cf5]/20 transition-all"
+                          className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white font-medium focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all [&>option]:text-black"
                         >
                           {WEEKDAYS.map((d) => (
                             <option key={d} value={d} disabled={isWeekdayPresent(d) && t.day !== d}>
@@ -507,28 +513,28 @@ export default function Restuarent() {
 
                       {/* Start Time */}
                       <div className="sm:col-span-3">
-                        <label className="block text-xs font-semibold text-gray-500 mb-1">Opening Time</label>
+                        <label className="block text-xs font-semibold text-white/70 mb-1">Opening Time</label>
                         <div className="relative">
-                          <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50" />
                           <input
                             type="time"
                             value={t.start}
                             onChange={(e) => updateTiming(t.id, { start: e.target.value })}
-                            className="w-full pl-10 pr-3 py-2.5 bg-white border-2 border-gray-200 rounded-lg text-gray-800 font-medium focus:outline-none focus:border-[#7b5cf5] focus:ring-2 focus:ring-[#7b5cf5]/20 transition-all"
+                            className="w-full pl-10 pr-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white font-medium focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all [color-scheme:dark]"
                           />
                         </div>
                       </div>
 
                       {/* End Time */}
                       <div className="sm:col-span-3">
-                        <label className="block text-xs font-semibold text-gray-500 mb-1">Closing Time</label>
+                        <label className="block text-xs font-semibold text-white/70 mb-1">Closing Time</label>
                         <div className="relative">
-                          <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50" />
                           <input
                             type="time"
                             value={t.end}
                             onChange={(e) => updateTiming(t.id, { end: e.target.value })}
-                            className="w-full pl-10 pr-3 py-2.5 bg-white border-2 border-gray-200 rounded-lg text-gray-800 font-medium focus:outline-none focus:border-[#7b5cf5] focus:ring-2 focus:ring-[#7b5cf5]/20 transition-all"
+                            className="w-full pl-10 pr-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white font-medium focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all [color-scheme:dark]"
                           />
                         </div>
                       </div>
@@ -540,16 +546,16 @@ export default function Restuarent() {
                             type="checkbox"
                             checked={!!t.is_active}
                             onChange={(e) => updateTiming(t.id, { is_active: e.target.checked })}
-                            className="w-5 h-5 text-[#7b5cf5] border-gray-300 rounded focus:ring-[#7b5cf5] focus:ring-2"
+                            className="w-5 h-5 text-emerald-500 border-white/30 rounded focus:ring-emerald-500 focus:ring-2 bg-white/10"
                           />
-                          <span className="text-sm font-semibold text-gray-700 group-hover/toggle:text-[#7b5cf5] transition-colors">
+                          <span className="text-sm font-semibold text-white/90 group-hover/toggle:text-emerald-400 transition-colors">
                             {t.is_active ? 'Active' : 'Closed'}
                           </span>
                         </label>
 
                         <button
                           onClick={() => removeTiming(t.id)}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200 hover:scale-110"
+                          className="p-2 text-red-300 hover:bg-red-500/20 rounded-lg transition-all duration-200 hover:scale-110"
                           title="Remove this day"
                         >
                           <Trash2 size={18} />
@@ -559,7 +565,7 @@ export default function Restuarent() {
 
                     {/* Active Indicator */}
                     {t.is_active && (
-                      <div className="absolute top-2 right-2 w-2 h-2 bg-[#7b5cf5] rounded-full animate-pulse"></div>
+                      <div className="absolute top-2 right-2 w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.5)]"></div>
                     )}
                   </div>
                 ))}
