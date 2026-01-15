@@ -3,6 +3,11 @@ import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Search, Plus, X, Edit, Trash2, Save, Upload, Filter,
+  GripVertical, DollarSign, Tag, Image as ImageIcon, AlertCircle
+} from "lucide-react";
 
 export default function ProductPage() {
   const API = import.meta.env.VITE_API_URL;
@@ -484,24 +489,27 @@ export default function ProductPage() {
     const imgUrl = p.image ? `${API_BASE}/uploads/${p.image}` : null;
     return (
       <div
-        className={`bg-white border rounded-2xl p-4 shadow-sm flex gap-4 items-center ${p.status === 0 ? "opacity-60" : ""}`}
+        className={`bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-lg flex gap-4 items-center ${p.status === 0 ? "opacity-60" : ""}`}
       >
-        {imgUrl ? (
-          <img
-            src={imgUrl}
-            alt={p.name}
-            className="h-20 w-20 rounded-lg object-cover flex-shrink-0 border"
-          />
-        ) : (
-          <div className="h-20 w-20 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center text-xs text-gray-400 border">
-            No image
-          </div>
-        )}
+        <div className="h-20 w-20 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex-shrink-0">
+          {imgUrl ? (
+            <img
+              src={imgUrl}
+              alt={p.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center text-xs text-white/40">
+              No image
+            </div>
+          )}
+        </div>
+
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="font-semibold text-gray-900 truncate">{p.name}</h3>
-              <p className="text-sm text-gray-500 truncate mt-1">{p.description}</p>
+              <h3 className="font-semibold text-white truncate">{p.name}</h3>
+              <p className="text-sm text-white/60 truncate mt-1">{p.description}</p>
               {Array.isArray(p.contains) && p.contains.length > 0 && (
                 <div className="flex gap-1 mt-2">
                   {p.contains.map((c) => {
@@ -512,7 +520,7 @@ export default function ProductPage() {
                         src={icon.icon}
                         alt={c}
                         title={c}
-                        className="h-4 w-4"
+                        className="h-4 w-4 drop-shadow-md"
                       />
                     ) : null;
                   })}
@@ -520,16 +528,15 @@ export default function ProductPage() {
               )}
             </div>
             <div className="text-right">
-              <div className="font-semibold text-gray-900">{formatGBP(p.price)}</div>
+              <div className="font-semibold text-white">{formatGBP(p.price)}</div>
               {p.discountPrice && Number(p.discountPrice) > 0 && (
-                <div className="text-sm text-gray-400 line-through">{formatGBP(p.discountPrice)}</div>
+                <div className="text-sm text-white/50 line-through">{formatGBP(p.discountPrice)}</div>
               )}
-
             </div>
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="text-sm text-gray-500">{categories.find((c) => c.id == p.cat_id)?.name || "—"}</div>
+          <div className="mt-3 flex items-center justify-between gap-3 pt-3 border-t border-white/10">
+            <div className="text-sm text-white/50">{categories.find((c) => c.id == p.cat_id)?.name || "—"}</div>
 
             <div className="flex items-center gap-2">
               <label className="inline-flex items-center cursor-pointer">
@@ -539,7 +546,9 @@ export default function ProductPage() {
                   onChange={() => handleToggleStatus(p)}
                   className="sr-only peer"
                 />
-                <div className="w-10 h-5 bg-gray-200 rounded-full peer-checked:bg-emerald-500 relative after:content-[''] after:absolute after:left-[2px] after:top-[2px] after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-5"></div>
+                <div className="w-10 h-5 bg-white/20 rounded-full peer-checked:bg-emerald-500 relative transition-colors border border-white/10">
+                  <div className="absolute top-[2px] left-[2px] w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5" />
+                </div>
               </label>
 
               {/* Edit icon (mobile card) */}
@@ -566,25 +575,19 @@ export default function ProductPage() {
                     setShowModal(true);
                   }
                 }}
-                aria-label={`Edit ${p.name}`}
-                className="p-2 rounded-md hover:scale-105 transition-transform duration-150 inline-flex items-center justify-center focus:outline-none"
+                className="p-2 rounded-lg bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition shadow-sm"
                 type="button"
               >
-                <svg className="w-5 h-5 text-blue-600 hover:text-blue-800 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M4 13.5V20h6.5L20.873 9.627a2 2 0 000-2.828L17.243 3.07a2 2 0 00-2.828 0L4 13.5z" />
-                </svg>
+                <Edit size={16} />
               </button>
 
               {/* Delete icon (mobile card) */}
               <button
                 onClick={() => handleDelete(p.id)}
-                aria-label={`Delete ${p.name}`}
-                className="p-2 rounded-md hover:rotate-6 transition-transform duration-150 inline-flex items-center justify-center focus:outline-none"
+                className="p-2 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 transition shadow-sm"
                 type="button"
               >
-                <svg className="w-5 h-5 text-red-600 hover:text-red-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-                </svg>
+                <Trash2 size={16} />
               </button>
             </div>
           </div>
@@ -595,70 +598,68 @@ export default function ProductPage() {
 
   // --- UI
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-amber-900 via-teal-800 to-emerald-900 font-sans">
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col pt-16 lg:pl-72">
-        <main className="flex-1 px-4 lg:px-8 py-8">
-          <div className="max-w-7xl mx-auto space-y-6">
+        <main className="flex-1 px-4 sm:px-6 lg:px-10 py-8">
+          <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6"
+            >
               <div>
-                <h2 className="leading-tight font-extrabold">
-                  <span className="block text-xl md:text-2xl text-emerald-700">Product Management</span>
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">Manage menu items — prices, categories, and availability.</p>
+                <h2 className="text-3xl font-bold text-white drop-shadow-lg">Product Management</h2>
+                <p className="mt-2 text-white/80 text-base">Manage menu items — prices, categories, and availability.</p>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-3">
-                <div className="w-full sm:w-auto">
-                  <div className="relative">
-                    <svg className="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z" />
-                    </svg>
-                    <input
-                      placeholder="Search products..."
-                      className="pl-10 pr-10 py-2 border rounded-lg shadow-sm w-full sm:w-72 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    {/* Clear button */}
-                    {searchQuery && (
-                      <button
-                        onClick={() => {
-                          setSearchQuery("");
-                          setDebouncedQuery("");
-                        }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        aria-label="clear search"
-                        type="button"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
+              <div className="flex flex-col sm:flex-row items-stretch gap-3">
+                <div className="relative flex-grow sm:max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50" size={18} />
+                  <input
+                    placeholder="Search products..."
+                    className="pl-10 pr-10 h-12 w-full border border-white/10 bg-white/10 backdrop-blur-md rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 shadow-lg transition-all"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        setDebouncedQuery("");
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                      type="button"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
                 </div>
-                <div className="w-full sm:w-auto">
+
+                <div className="relative sm:w-48">
+                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50" size={18} />
                   <select
                     value={filterCategory}
                     onChange={(e) => setFilterCategory(e.target.value)}
-                    className="border px-3 py-2 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="pl-10 pr-8 h-12 w-full border border-white/10 bg-white/10 backdrop-blur-md rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 shadow-lg appearance-none cursor-pointer"
                   >
-                    <option value="all">All Categories</option>
+                    <option value="all" className="bg-slate-800">All Categories</option>
                     {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id} className="bg-slate-800">{c.name}</option>
                     ))}
                   </select>
                 </div>
 
-
-                {/* GLOBAL SEARCH BUTTON */}
                 <button
                   onClick={() => setShowSearchModal(true)}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow"
+                  className="inline-flex items-center justify-center gap-2 px-5 h-12 bg-blue-600/80 hover:bg-blue-600 backdrop-blur-md text-white rounded-xl font-semibold shadow-lg border border-white/20 transition-all transform hover:-translate-y-0.5 whitespace-nowrap"
                 >
-                  <span>🔍</span> Search & Add
+                  <Search size={18} />
+                  <span>Search Global</span>
                 </button>
 
                 <button
@@ -675,7 +676,6 @@ export default function ProductPage() {
                       oldImage: null,
                     });
                     if (isMobile) {
-                      // mount modal then slide up
                       setShowModal(true);
                       setModalSlideIn(false);
                       setTimeout(() => setModalSlideIn(true), 20);
@@ -683,34 +683,39 @@ export default function ProductPage() {
                       setShowModal(true);
                     }
                   }}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow"
+                  className="inline-flex items-center justify-center gap-2 px-5 h-12 bg-emerald-600/80 hover:bg-emerald-600 backdrop-blur-md text-white rounded-xl font-semibold shadow-lg border border-white/20 transition-all transform hover:-translate-y-0.5 whitespace-nowrap"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add Products
+                  <Plus size={18} />
+                  <span>Add Product</span>
                 </button>
               </div>
-            </div>
+            </motion.div>
 
             {/* Content container */}
             <div className="grid grid-cols-1 gap-6">
               {/* Table (desktop) */}
-              <div className="hidden md:block rounded-xl bg-white p-4 shadow-sm border border-gray-200">
+              <div className="hidden md:block rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-white/5">
+                  <h3 className="text-lg font-bold text-white drop-shadow">Products List</h3>
+                  <span className="text-sm px-3 py-1 bg-white/10 rounded-full text-white/80 border border-white/10">
+                    {filteredProducts.length} items
+                  </span>
+                </div>
                 {filteredProducts.length === 0 ? (
-                  <div className="py-8 text-center text-gray-500">No products match your search.</div>
+                  <div className="py-12 text-center text-white/50">No products match your search.</div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm table-auto min-w-[700px]">
+                    <table className="w-full text-sm table-auto min-w-[900px]">
                       <thead>
-                        <tr className="bg-gray-50 text-gray-700">
-                          <th className="py-3 px-4 text-left">Drag</th>
-                          <th className="py-3 px-4 text-left">Image</th>
-                          <th className="py-3 px-4 text-left">Name</th>
-                          <th className="py-3 px-4 text-left">Price</th>
-                          <th className="py-3 px-4 text-left">Category</th>
-                          <th className="py-3 px-4 text-center">Status</th>
-                          <th className="py-3 px-4 text-left">Actions</th>
+                        <tr className="bg-white/5 text-white/80 uppercase text-xs font-bold tracking-wider border-b border-white/10">
+                          <th className="py-4 px-6 text-left w-12"></th>
+                          <th className="py-4 px-6 text-left">Image</th>
+                          <th className="py-4 px-6 text-left">Name</th>
+                          <th className="py-4 px-6 text-left">Contains</th>
+                          <th className="py-4 px-6 text-left">Price</th>
+                          <th className="py-4 px-6 text-left">Category</th>
+                          <th className="py-4 px-6 text-center">Status</th>
+                          <th className="py-4 px-6 text-center">Actions</th>
                         </tr>
                       </thead>
 
@@ -720,7 +725,7 @@ export default function ProductPage() {
                             <tbody
                               ref={provided.innerRef}
                               {...provided.droppableProps}
-                              className="text-gray-700"
+                              className="divide-y divide-white/5"
                             >
                               {filteredProducts.map((p, index) => (
                                 <Draggable
@@ -732,47 +737,53 @@ export default function ProductPage() {
                                     <tr
                                       ref={drag.innerRef}
                                       {...drag.draggableProps}
-                                      className={`border-b transition ${p.status === 0 ? "opacity-60 bg-gray-50" : "hover:bg-gray-50"
-                                        }`}
+                                      className={`transition-colors ${p.status === 0 ? "opacity-60" : ""
+                                        } hover:bg-white/5`}
                                     >
                                       {/* Drag Handle */}
-                                      <td {...drag.dragHandleProps} className="px-3 cursor-grab">≡</td>
-
-                                      <td className="py-3 px-4">
-                                        <img
-                                          src={`${API_BASE}/uploads/${p.image}`}
-                                          className="h-12 w-12 rounded-md object-cover border"
-                                        />
+                                      <td {...drag.dragHandleProps} className="px-6 py-4 cursor-grab text-white/30 hover:text-white/60">
+                                        <GripVertical size={20} />
                                       </td>
 
-                                      <td className="py-3 px-4 font-medium max-w-[260px]">
-                                        <div className="truncate">{p.name}</div>
-                                        <div className="text-xs text-gray-400 truncate">{p.description}</div>
+                                      <td className="px-6 py-4">
+                                        <div className="h-12 w-12 rounded-lg bg-white/10 border border-white/10 overflow-hidden">
+                                          <img
+                                            src={`${API_BASE}/uploads/${p.image}`}
+                                            className="h-full w-full object-cover"
+                                            alt={p.name}
+                                            onError={(e) => e.target.style.display = 'none'}
+                                          />
+                                        </div>
                                       </td>
-                                      <td className="py-3 px-4">
-                                        <div className="flex gap-1">
+
+                                      <td className="px-6 py-4 max-w-[260px]">
+                                        <div className="font-semibold text-white truncate text-base">{p.name}</div>
+                                        <div className="text-xs text-white/50 truncate mt-0.5">{p.description}</div>
+                                      </td>
+                                      <td className="px-6 py-4">
+                                        <div className="flex gap-1.5 flex-wrap">
                                           {Array.isArray(p.contains) && p.contains.map((c) => {
                                             const icon = CONTAINS_OPTIONS.find((i) => i.key === c);
                                             return icon ? (
-                                              <img key={c} src={icon.icon} className="h-4 w-4" />
+                                              <img key={c} src={icon.icon} className="h-5 w-5 drop-shadow-sm" title={c} />
                                             ) : null;
                                           })}
                                         </div>
                                       </td>
-                                      <td className="py-3 px-4">
-                                        <div className="font-semibold">{formatGBP(p.price)}</div>
-                                        {p.discountPrice > 0 && (
-                                          <div className="text-xs text-gray-400 line-through">
+                                      <td className="px-6 py-4">
+                                        <div className="font-bold text-white text-base">{formatGBP(p.price)}</div>
+                                        {p.discountPrice && Number(p.discountPrice) > 0 && (
+                                          <div className="text-xs text-white/50 line-through">
                                             {formatGBP(p.discountPrice)}
                                           </div>
                                         )}
                                       </td>
 
-                                      <td className="py-3 px-4">
+                                      <td className="px-6 py-4 text-white/80 font-medium">
                                         {categories.find((c) => c.id == p.cat_id)?.name || "—"}
                                       </td>
 
-                                      <td className="py-3 px-4 text-center">
+                                      <td className="px-6 py-4 text-center">
                                         <label className="inline-flex items-center cursor-pointer">
                                           <input
                                             type="checkbox"
@@ -780,13 +791,17 @@ export default function ProductPage() {
                                             onChange={() => handleToggleStatus(p)}
                                             className="sr-only peer"
                                           />
-                                          <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-emerald-500 relative after:content-[''] after:absolute after:left-[2px] after:top-[2px] after:w-5 after:h-5 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-full"></div>
+                                          <div className="w-11 h-6 bg-white/20 rounded-full peer-checked:bg-emerald-500 relative transition-colors border border-white/10 shadow-inner">
+                                            <div className="absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-all peer-checked:translate-x-5 shadow-sm" />
+                                          </div>
                                         </label>
                                       </td>
 
-                                      <td className="py-3 px-4">
-                                        <div className="flex items-center gap-4">
-                                          <button
+                                      <td className="px-6 py-4 text-center">
+                                        <div className="flex items-center justify-center gap-3">
+                                          <motion.button
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
                                             onClick={() => {
                                               setForm({
                                                 id: p.id,
@@ -801,17 +816,19 @@ export default function ProductPage() {
                                               });
                                               setShowModal(true);
                                             }}
-                                            className="p-1 rounded-md hover:scale-105"
+                                            className="p-2 bg-blue-500/20 text-blue-300 hover:bg-blue-500/40 rounded-lg border border-blue-500/30 transition shadow-sm"
                                           >
-                                            ✏️
-                                          </button>
+                                            <Edit size={16} />
+                                          </motion.button>
 
-                                          <button
+                                          <motion.button
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
                                             onClick={() => handleDelete(p.id)}
-                                            className="p-1 rounded-md hover:rotate-6"
+                                            className="p-2 bg-red-500/20 text-red-300 hover:bg-red-500/40 rounded-lg border border-red-500/30 transition shadow-sm"
                                           >
-                                            🗑
-                                          </button>
+                                            <Trash2 size={16} />
+                                          </motion.button>
                                         </div>
                                       </td>
                                     </tr>
@@ -833,7 +850,7 @@ export default function ProductPage() {
               {/* Cards (mobile) */}
               <div className="md:hidden space-y-4">
                 {filteredProducts.length === 0 ? (
-                  <div className="py-8 text-center text-gray-500">No products match your search.</div>
+                  <div className="py-8 text-center text-white/50">No products match your search.</div>
                 ) : (
                   filteredProducts.map((p) => <ProductCard key={p.id} p={p} />)
                 )}
@@ -847,285 +864,115 @@ export default function ProductPage() {
 
 
       {/* Modal */}
-      {/* We mount modal only when showModal is true to match previous behaviour,
-          but for mobile we control slide-in with modalSlideIn state to animate entry/exit. */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-          aria-modal="true"
-          role="dialog"
-        >
-          {/* Desktop / centered modal */}
-          {!isMobile ? (
-            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden md:rounded-2xl">
-              <div className="flex items-center justify-between p-5 border-b">
-                <h3 className="text-lg font-semibold">{form.id ? "Edit Product" : "Add Product"}</h3>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                  aria-label="Close modal"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+      <AnimatePresence>
+        {showModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            aria-modal="true"
+            role="dialog"
+          >
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className={`absolute inset-0 bg-black/60 backdrop-blur-sm ${isMobile ? "" : ""}`}
+              onClick={() => !isMobile && setShowModal(false)}
+            />
 
-              <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="text-sm text-gray-600">Product Name</label>
-                  <input
-                    type="text"
-                    placeholder="Product Name"
-                    required
-                    className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    value={form.name}
-                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="text-sm text-gray-600">Description</label>
-                  <textarea
-                    placeholder="Description"
-
-                    className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    rows="3"
-                    value={form.description}
-                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm text-gray-600">Price</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Price"
-                    required
-                    className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    value={form.price}
-                    onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm text-gray-600">Discount Price in %</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Discount Price"
-                    className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    value={form.discountPrice}
-                    onChange={(e) => setForm((f) => ({ ...f, discountPrice: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm text-gray-600">Category</label>
-                  <select
-                    required
-                    className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    value={form.cat_id}
-                    onChange={(e) => setForm((f) => ({ ...f, cat_id: e.target.value }))}
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-sm text-gray-600 mb-2 block">Contains</label>
-
-                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-3">
-                    {CONTAINS_OPTIONS.map((item) => {
-                      const active = form.contains.includes(item.key);
-
-                      return (
-                        <button
-                          key={item.key}
-                          type="button"
-                          onClick={() => toggleContains(item.key)}
-                          className={`border rounded-lg p-2 flex flex-col items-center gap-1 transition
-            ${active ? "border-emerald-500 bg-emerald-50" : "border-gray-200 hover:bg-gray-50"}
-          `}
-                        >
-                          <img
-                            src={item.icon}
-                            alt={item.key}
-                            className={`h-8 w-8 ${active ? "opacity-100" : "opacity-40"}`}
-                          />
-                          <span className={`text-xs ${active ? "text-emerald-700 font-medium" : "text-gray-500"}`}>
-                            {item.key}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-
-                <div>
-                  <label className="text-sm text-gray-600">Image</label>
-
-                  <div className="mt-1 flex items-center gap-3">
-                    <label className="flex items-center gap-2 cursor-pointer bg-gray-50 border rounded-md px-3 py-2">
-                      <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v-6m0 0l-2 2m2-2 2 2" />
-                      </svg>
-                      <span className="text-sm text-gray-600">Choose Image</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            image: e.target.files && e.target.files[0] ? e.target.files[0] : null,
-                          }))
-                        }
-                      />
-                    </label>
-
-                    {imagePreviewUrl ? (
-                      <img src={imagePreviewUrl} alt="preview" className="h-16 w-16 rounded-md object-cover border" />
-                    ) : (
-                      <div className="h-16 w-16 rounded-md bg-gray-100 flex items-center justify-center text-xs text-gray-400 border">No image</div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+            {/* Desktop / centered modal */}
+            {!isMobile ? (
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="relative bg-white/10 backdrop-blur-2xl w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-white/20"
+              >
+                <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
+                  <h3 className="text-xl font-bold text-white">{form.id ? "Edit Product" : "Add Product"}</h3>
                   <button
-                    type="button"
-                    onClick={() => {
-                      setShowModal(false);
-                      setForm({
-                        id: null,
-                        name: "",
-                        description: "",
-                        price: "",
-                        discountPrice: "",
-                        cat_id: "",
-                        contains: [],
-                        image: null,
-                        oldImage: null,
-                      });
-                    }}
-                    className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+                    onClick={() => setShowModal(false)}
+                    className="text-white/50 hover:text-white transition-colors"
                   >
-                    Cancel
-                  </button>
-
-                  <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
-                    {form.id ? "Update" : "Save"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          ) : (
-            /* Mobile bottom-sheet modal */
-            <div
-              // container transforms for slide animation
-              className={`fixed inset-x-0 bottom-0 z-50 max-h-[92vh] ${modalSlideIn ? "translate-y-0" : "translate-y-full"
-                } transform transition-transform duration-300`}
-              style={{ display: "block" }}
-            >
-              <div className="bg-white w-full rounded-t-2xl shadow-xl overflow-auto max-h-[92vh]">
-                <div className="flex items-center justify-between p-4 border-b">
-                  <div className="flex items-center gap-3">
-                    <div className="h-1.5 w-10 bg-gray-200 rounded-full" />
-                    <h3 className="text-lg font-semibold">{form.id ? "Edit Product" : "Add Product"}</h3>
-                  </div>
-                  <button
-                    onClick={() => {
-                      // slide out first then unmount
-                      setModalSlideIn(false);
-                      setTimeout(() => setShowModal(false), 300);
-                    }}
-                    className="text-gray-500 hover:text-gray-700"
-                    aria-label="Close"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <X size={20} />
                   </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-4 grid grid-cols-1 gap-4">
-                  <div>
-                    <label className="text-sm text-gray-600">Product Name</label>
+                <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[85vh] overflow-y-auto custom-scrollbar">
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-white/80 mb-2 block">Product Name</label>
                     <input
                       type="text"
-                      placeholder="Product Name"
+                      placeholder="e.g. Margherita Pizza"
                       required
-                      className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                       value={form.name}
                       onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                     />
                   </div>
 
-                  <div>
-                    <label className="text-sm text-gray-600">Description</label>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-white/80 mb-2 block">Description</label>
                     <textarea
-                      placeholder="Description"
-                      className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      placeholder="Brief description of the product..."
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                       rows="3"
                       value={form.description}
                       onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-sm text-gray-600">Price</label>
+                  <div>
+                    <label className="text-sm font-medium text-white/80 mb-2 block">Price (£)</label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
                       <input
                         type="number"
                         step="0.01"
-                        placeholder="Price"
+                        placeholder="0.00"
                         required
-                        className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="w-full pl-10 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                         value={form.price}
                         onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
                       />
                     </div>
+                  </div>
 
-                    <div>
-                      <label className="text-sm text-gray-600">Discount Price in %</label>
+                  <div>
+                    <label className="text-sm font-medium text-white/80 mb-2 block">Discount (%)</label>
+                    <div className="relative">
+                      <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
                       <input
                         type="number"
                         step="0.01"
-                        placeholder="Discount Price"
-                        className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="0"
+                        className="w-full pl-10 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                         value={form.discountPrice}
                         onChange={(e) => setForm((f) => ({ ...f, discountPrice: e.target.value }))}
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-sm text-gray-600">Category</label>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-white/80 mb-2 block">Category</label>
                     <select
                       required
-                      className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all appearance-none cursor-pointer"
                       value={form.cat_id}
                       onChange={(e) => setForm((f) => ({ ...f, cat_id: e.target.value }))}
                     >
-                      <option value="">Select Category</option>
+                      <option value="" className="bg-slate-800">Select Category</option>
                       {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
+                        <option key={c.id} value={c.id} className="bg-slate-800">
                           {c.name}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  <div>
-                    <label className="text-sm text-gray-600 mb-2 block">Contains</label>
-                    <div className="grid grid-cols-4 gap-3">
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-white/80 mb-2 block">Contains</label>
+                    <div className="grid grid-cols-4 sm:grid-cols-7 gap-3">
                       {CONTAINS_OPTIONS.map((item) => {
                         const active = form.contains.includes(item.key);
                         return (
@@ -1133,16 +980,19 @@ export default function ProductPage() {
                             key={item.key}
                             type="button"
                             onClick={() => toggleContains(item.key)}
-                            className={`border rounded-lg p-2 flex flex-col items-center gap-1 transition
-                              ${active ? "border-emerald-500 bg-emerald-50" : "border-gray-200 hover:bg-gray-50"}
-                            `}
+                            className={`
+                            border rounded-xl p-2 flex flex-col items-center gap-1.5 transition-all
+                            ${active
+                                ? "border-emerald-500/50 bg-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                                : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20"}
+                          `}
                           >
                             <img
                               src={item.icon}
                               alt={item.key}
-                              className={`h-8 w-8 ${active ? "opacity-100" : "opacity-40"}`}
+                              className={`h-8 w-8 transition-opacity ${active ? "opacity-100 drop-shadow-md" : "opacity-40"}`}
                             />
-                            <span className={`text-xs ${active ? "text-emerald-700 font-medium" : "text-gray-500"}`}>
+                            <span className={`text-[10px] sm:text-xs font-medium ${active ? "text-emerald-300" : "text-white/50"}`}>
                               {item.key}
                             </span>
                           </button>
@@ -1151,15 +1001,16 @@ export default function ProductPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-sm text-gray-600">Image</label>
 
-                    <div className="mt-1 flex items-center gap-3">
-                      <label className="flex items-center gap-2 cursor-pointer bg-gray-50 border rounded-md px-3 py-2">
-                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v-6m0 0l-2 2m2-2 2 2" />
-                        </svg>
-                        <span className="text-sm text-gray-600">Choose Image</span>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-white/80 mb-2 block">Product Image</label>
+
+                    <div className="flex items-center gap-4">
+                      <label className="flex-1 flex flex-col items-center justify-center h-24 border-2 border-dashed border-white/20 rounded-xl cursor-pointer hover:bg-white/5 hover:border-white/40 transition-all group">
+                        <div className="flex flex-col items-center justify-center pt-2 pb-3">
+                          <Upload className="h-6 w-6 text-white/40 group-hover:text-white/70 mb-1" />
+                          <p className="text-xs text-white/40 group-hover:text-white/70">Click to upload image</p>
+                        </div>
                         <input
                           type="file"
                           accept="image/*"
@@ -1173,117 +1024,268 @@ export default function ProductPage() {
                         />
                       </label>
 
-                      {imagePreviewUrl ? (
-                        <img src={imagePreviewUrl} alt="preview" className="h-16 w-16 rounded-md object-cover border" />
-                      ) : (
-                        <div className="h-16 w-16 rounded-md bg-gray-100 flex items-center justify-center text-xs text-gray-400 border">No image</div>
-                      )}
+                      <div className="h-24 w-24 rounded-xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center flex-shrink-0">
+                        {imagePreviewUrl ? (
+                          <img src={imagePreviewUrl} alt="preview" className="h-full w-full object-cover" />
+                        ) : (
+                          <ImageIcon className="text-white/20 h-8 w-8" />
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex gap-3 justify-end pt-2">
+                  <div className="md:col-span-2 flex justify-end gap-3 pt-4 border-t border-white/10">
                     <button
                       type="button"
                       onClick={() => {
-                        // slide out then unmount
-                        setModalSlideIn(false);
-                        setTimeout(() => {
-                          setShowModal(false);
-                          setForm({
-                            id: null,
-                            name: "",
-                            description: "",
-                            price: "",
-                            discountPrice: "",
-                            cat_id: "",
-                            contains: [],
-                            image: null,
-                            oldImage: null,
-                          });
-                        }, 300);
+                        setShowModal(false);
+                        setForm({
+                          id: null,
+                          name: "",
+                          description: "",
+                          price: "",
+                          discountPrice: "",
+                          cat_id: "",
+                          contains: [],
+                          image: null,
+                          oldImage: null,
+                        });
                       }}
-                      className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+                      className="px-5 py-2.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/10 transition-all"
                     >
                       Cancel
                     </button>
 
-                    <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
-                      {form.id ? "Update" : "Save"}
+                    <button type="submit" className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl shadow-lg border border-white/10 transition-all transform hover:-translate-y-0.5">
+                      {form.id ? "Update Product" : "Save Product"}
                     </button>
                   </div>
                 </form>
+              </motion.div>
+            ) : (
+              /* Mobile bottom-sheet modal */
+              <div
+                className={`fixed inset-x-0 bottom-0 z-50 max-h-[92vh] w-full transform transition-transform duration-300 ${modalSlideIn ? "translate-y-0" : "translate-y-full"}`}
+              >
+                <div className="bg-slate-900 border-t border-white/20 w-full rounded-t-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+                  <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="h-1 w-10 bg-white/20 rounded-full mx-auto" />
+                      <h3 className="text-lg font-bold text-white">{form.id ? "Edit Product" : "Add Product"}</h3>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setModalSlideIn(false);
+                        setTimeout(() => setShowModal(false), 300);
+                      }}
+                      className="text-white/50 hover:text-white"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  {/* Mobile Form content mostly same as desktop but simpler layout if needed, using same structure for consistency */}
+                  <form onSubmit={handleSubmit} className="p-4 grid grid-cols-1 gap-4 overflow-y-auto custom-scrollbar">
+                    {/* ... Same inputs with mobile styling ... */}
+                    <div>
+                      <label className="text-sm font-medium text-white/80 mb-1.5 block">Name</label>
+                      <input
+                        required
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        value={form.name}
+                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-white/80 mb-1.5 block">Description</label>
+                      <textarea
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        rows="2"
+                        value={form.description}
+                        onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-sm font-medium text-white/80 mb-1.5 block">Price</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          value={form.price}
+                          onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-white/80 mb-1.5 block">Discount %</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          value={form.discountPrice}
+                          onChange={(e) => setForm((f) => ({ ...f, discountPrice: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-white/80 mb-1.5 block">Category</label>
+                      <select
+                        required
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none"
+                        value={form.cat_id}
+                        onChange={(e) => setForm((f) => ({ ...f, cat_id: e.target.value }))}
+                      >
+                        <option value="" className="bg-slate-800">Select...</option>
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id} className="bg-slate-800">{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-white/80 mb-1.5 block">Contains</label>
+                      <div className="grid grid-cols-5 gap-2">
+                        {CONTAINS_OPTIONS.map((item) => {
+                          const active = form.contains.includes(item.key);
+                          return (
+                            <button
+                              key={item.key}
+                              type="button"
+                              onClick={() => toggleContains(item.key)}
+                              className={`
+                                border rounded-lg p-1.5 flex flex-col items-center gap-1
+                                ${active ? "border-emerald-500/50 bg-emerald-500/20" : "border-white/10 bg-white/5"}
+                              `}
+                            >
+                              <img src={item.icon} alt={item.key} className={`h-6 w-6 ${active ? "opacity-100" : "opacity-40"}`} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-white/80 mb-1.5 block">Image</label>
+                      <div className="flex items-center gap-3">
+                        <label className="flex-1 border border-dashed border-white/20 rounded-xl h-16 flex items-center justify-center text-white/50 text-sm">
+                          Choose
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => setForm((f) => ({ ...f, image: e.target.files ? e.target.files[0] : null }))}
+                          />
+                        </label>
+                        {imagePreviewUrl && (
+                          <img src={imagePreviewUrl} className="h-16 w-16 rounded-xl object-cover bg-white/5" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 space-y-3">
+                      <button type="submit" className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-lg">
+                        {form.id ? "Update Product" : "Save Product"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalSlideIn(false);
+                          setTimeout(() => setShowModal(false), 300);
+                        }}
+                        className="w-full py-3 border border-white/10 text-white/70 rounded-xl"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
+                  </form>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* ==========================
           GLOBAL SEARCH MODAL
       ========================== */}
-      {showSearchModal && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setShowSearchModal(false)}
-          />
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 overflow-hidden max-h-[80vh] flex flex-col">
-            <div className="flex justify-between items-center mb-4 flex-shrink-0">
-              <h3 className="font-bold text-lg text-slate-800">Search to Add Product</h3>
-              <button
-                onClick={() => setShowSearchModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                ✕
-              </button>
-            </div>
-
-            <input
-              autoFocus
-              className="w-full border border-slate-300 rounded-lg px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition flex-shrink-0"
-              placeholder="Search available products..."
-              value={globalSearchQuery}
-              onChange={(e) => setGlobalSearchQuery(e.target.value)}
+      <AnimatePresence>
+        {showSearchModal && (
+          <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20 p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowSearchModal(false)}
             />
-
-            <div className="mt-4 overflow-y-auto space-y-2 flex-1">
-              {globalSearchResults.length === 0 && globalSearchQuery && (
-                <div className="text-center text-slate-500 py-8">
-                  No matching products found.
-                </div>
-              )}
-
-              {globalSearchResults.map((item, idx) => (
+            <motion.div
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              className="relative w-full max-w-lg bg-white/10 backdrop-blur-2xl rounded-2xl shadow-2xl p-6 overflow-hidden max-h-[80vh] flex flex-col border border-white/20"
+            >
+              <div className="flex justify-between items-center mb-4 flex-shrink-0">
+                <h3 className="font-bold text-lg text-white">Search to Add Product</h3>
                 <button
-                  key={idx}
-                  onClick={() => handleAddGlobalProduct(item)}
-                  className="w-full flex items-center gap-4 p-3 hover:bg-slate-50 border rounded-xl transition text-left group"
+                  onClick={() => setShowSearchModal(false)}
+                  className="text-white/50 hover:text-white"
                 >
-                  <div className="h-14 w-14 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
-                    {item.image ? (
-                      <img
-                        src={`${API_BASE}/uploads/${item.image}`}
-                        className="h-full w-full object-cover"
-                        alt=""
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center text-xs text-slate-400">?</div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-slate-700 truncate group-hover:text-blue-600 transition">{item.name}</div>
-                    <div className="text-xs text-slate-500 mb-1">{item.category_name || "No Category"}</div>
-                    <div className="text-sm font-medium text-emerald-600">{formatGBP(item.price)}</div>
-                  </div>
-                  <div className="text-blue-600 opacity-0 group-hover:opacity-100 transition whitespace-nowrap text-sm font-medium">
-                    + Add
-                  </div>
+                  <X size={20} />
                 </button>
-              ))}
-            </div>
+              </div>
+
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50" size={18} />
+                <input
+                  autoFocus
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all flex-shrink-0"
+                  placeholder="Search available products..."
+                  value={globalSearchQuery}
+                  onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                />
+              </div>
+
+              <div className="overflow-y-auto space-y-2 flex-1 pr-2 custom-scrollbar">
+                {globalSearchResults.length === 0 && globalSearchQuery && (
+                  <div className="text-center text-white/50 py-8">
+                    No matching products found.
+                  </div>
+                )}
+
+                {globalSearchResults.map((item, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleAddGlobalProduct(item)}
+                    className="w-full flex items-center gap-4 p-3 hover:bg-white/10 border border-transparent hover:border-white/10 rounded-xl transition-all text-left group"
+                  >
+                    <div className="h-14 w-14 bg-white/5 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
+                      {item.image ? (
+                        <img
+                          src={`${API_BASE}/uploads/${item.image}`}
+                          className="h-full w-full object-cover"
+                          alt=""
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-xs text-white/30">?</div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-white truncate group-hover:text-blue-300 transition">{item.name}</div>
+                      <div className="text-xs text-white/40 mb-1">{item.category_name || "No Category"}</div>
+                      <div className="text-sm font-medium text-emerald-400">{formatGBP(item.price)}</div>
+                    </div>
+                    <div className="text-blue-400 opacity-0 group-hover:opacity-100 transition whitespace-nowrap text-sm font-medium flex items-center gap-1">
+                      <Plus size={16} /> Add
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

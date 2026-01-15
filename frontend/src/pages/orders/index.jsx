@@ -3,20 +3,194 @@ import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
 import api from "../../api.js";
+import {
+  Search, RefreshCw, Filter, Calendar, DollarSign, User, Truck,
+  MapPin, Phone, Car, Clock, CheckCircle, XCircle, AlertCircle, ShoppingBag, CreditCard, Eye, X
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 function safeNumber(value) {
   const n = parseFloat(value);
   return isNaN(n) ? 0 : n;
 }
 
+const statusConfig = (status) => {
+  switch (status) {
+    case 0: return { text: "Placed", color: "text-amber-300", bg: "bg-amber-500/20", border: "border-amber-500/30", icon: AlertCircle };
+    case 1: return { text: "Accepted", color: "text-blue-300", bg: "bg-blue-500/20", border: "border-blue-500/30", icon: Clock };
+    case 2: return { text: "Rejected", color: "text-red-300", bg: "bg-red-500/20", border: "border-red-500/30", icon: XCircle };
+    case 3: return { text: "Ready", color: "text-purple-300", bg: "bg-purple-500/20", border: "border-purple-500/30", icon: ShoppingBag };
+    case 4: return { text: "Delivered", color: "text-emerald-300", bg: "bg-emerald-500/20", border: "border-emerald-500/30", icon: CheckCircle };
+    case 5: return { text: "Cancelled", color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20", icon: XCircle };
+    default: return { text: "Unknown", color: "text-gray-400", bg: "bg-gray-500/20", border: "border-gray-500/30", icon: AlertCircle };
+  }
+};
+
+const OrderDetailsModal = ({ order, onClose }) => {
+  if (!order) return null;
+
+  const items = order.items || [];
+  const statusInfo = statusConfig(order.order_status);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+      >
+        {/* Modal Header */}
+        <div className="p-6 border-b border-white/10 bg-white/5 flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+              <ShoppingBag className="text-emerald-400" /> Order #{order.order_number}
+            </h2>
+            <p className="text-white/50 text-sm mt-1">Placed on {new Date(order.created_at).toLocaleString()}</p>
+          </div>
+          <button onClick={onClose} className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors">
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-8">
+
+          {/* Customer & Type */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+              <h3 className="text-emerald-400 font-bold uppercase text-xs tracking-wider mb-4 flex items-center gap-2">
+                <User size={14} /> Customer Details
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between border-b border-white/5 pb-2">
+                  <span className="text-white/50 text-sm">Name</span>
+                  <span className="text-white font-medium">{order.customer_name || "Guest"}</span>
+                </div>
+                <div className="flex justify-between border-b border-white/5 pb-2">
+                  <span className="text-white/50 text-sm">Phone</span>
+                  <span className="text-white font-medium">{order.mobile_number || "-"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/50 text-sm">Email</span>
+                  <span className="text-white font-medium">{order.customer_email || "-"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+              <h3 className="text-emerald-400 font-bold uppercase text-xs tracking-wider mb-4 flex items-center gap-2">
+                <Truck size={14} /> Order Type & Status
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between border-b border-white/5 pb-2">
+                  <span className="text-white/50 text-sm">Type</span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${order.instore === 1 ? "bg-blue-500/20 text-blue-300" : "bg-purple-500/20 text-purple-300"}`}>
+                    {order.instore === 1 ? "INSTORE" : "KERBSIDE"}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-white/5 pb-2">
+                  <span className="text-white/50 text-sm">Payment</span>
+                  <span className="text-white font-medium">{order.payment_mode === 0 ? "COD" : "Online"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/50 text-sm">Status</span>
+                  <span className={`font-bold ${statusInfo.color}`}>{statusInfo.text}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Kerbside Specifics */}
+          {order.instore !== 1 && (
+            <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl">
+              <h3 className="text-amber-400 font-bold uppercase text-xs tracking-wider mb-4 flex items-center gap-2">
+                <Car size={14} /> Kerbside Details
+              </h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-black/20 p-3 rounded-lg text-center">
+                  <span className="block text-white/40 text-xs uppercase mb-1">Reg Number</span>
+                  <span className="text-white text-lg font-bold">{order.reg_number || "-"}</span>
+                </div>
+                <div className="bg-black/20 p-3 rounded-lg text-center">
+                  <span className="block text-white/40 text-xs uppercase mb-1">Car Color</span>
+                  <span className="text-white text-lg font-bold">{order.car_color || "-"}</span>
+                </div>
+                <div className="bg-black/20 p-3 rounded-lg text-center">
+                  <span className="block text-white/40 text-xs uppercase mb-1">Owner Name</span>
+                  <span className="text-white text-lg font-bold">{order.owner_name || "-"}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Items Table */}
+          <div>
+            <h3 className="text-white font-bold mb-4 text-lg">Order Items</h3>
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
+              <table className="w-full text-left">
+                <thead className="bg-white/5 text-white/50 text-xs uppercase">
+                  <tr>
+                    <th className="p-4 font-medium">Quantity</th>
+                    <th className="p-4 font-medium">Item Name</th>
+                    <th className="p-4 font-medium text-right">Price</th>
+                    <th className="p-4 font-medium text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {items.map((item, i) => (
+                    <tr key={i} className="hover:bg-white/5">
+                      <td className="p-4">
+                        <span className="text-2xl font-bold text-emerald-400">{safeNumber(item.quantity)}X</span>
+                      </td>
+                      <td className="p-4 text-white font-medium text-lg">
+                        {item.product_name}
+                      </td>
+                      <td className="p-4 text-right text-white/60">
+                        £{safeNumber(item.price).toFixed(2)}
+                      </td>
+                      <td className="p-4 text-right text-white font-bold">
+                        £{(safeNumber(item.price) * safeNumber(item.quantity)).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Modal Footer */}
+        <div className="p-6 bg-white/5 border-t border-white/10 flex justify-between items-center">
+          <div className="text-white/50 text-sm">
+            Total Items: <span className="text-white font-bold">{items.length}</span>
+          </div>
+          <div className="text-3xl font-bold text-emerald-400">
+            £{safeNumber(order.grand_total).toFixed(2)}
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 export default function Orders() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 10;
+  const rowsPerPage = 12;
 
   // Filters
   const [searchOrder, setSearchOrder] = useState("");
@@ -32,7 +206,7 @@ export default function Orders() {
     localStorage.setItem("orderAutoRefresh", autoRefresh);
   }, [autoRefresh]);
 
-  const refreshInterval = 30; // Hardcoded default to 30s as requested to remove selection UI
+  const refreshInterval = 30;
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
@@ -40,20 +214,23 @@ export default function Orders() {
     return d.toLocaleString("en-GB", {
       day: "2-digit",
       month: "short",
-      year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
   };
 
   const updateOrderStatus = async (orderNumber, status, readyInMinutes = null) => {
-    await api.post("/mobile/orders/update-status", {
-      order_number: orderNumber,
-      status,
-      ready_in_minutes: readyInMinutes
-    });
-
-    loadOrders();
+    try {
+      await api.post("/mobile/orders/update-status", {
+        order_number: orderNumber,
+        status,
+        ready_in_minutes: readyInMinutes
+      });
+      loadOrders();
+    } catch (error) {
+      console.error("Failed to update status", error);
+      alert("Failed to update status");
+    }
   };
 
   useEffect(() => {
@@ -81,7 +258,6 @@ export default function Orders() {
             o.restaurant_name || o.restaurantName || o.restaurant || "-",
         }));
 
-        // Prevent unnecessary state updates that cause flickering/disappearing
         setOrders(prev => {
           if (JSON.stringify(prev) === JSON.stringify(mapped)) return prev;
           return mapped;
@@ -92,51 +268,15 @@ export default function Orders() {
     }
   };
 
-  const statusColor = (status) => {
-    switch (status) {
-      case 1:
-        return "text-blue-600";
-      case 2:
-        return "text-red-600";
-      case 3:
-        return "text-purple-600";
-      case 4:
-        return "text-green-700";
-      case 5:
-        return "text-red-700";
-      default:
-        return "text-yellow-600";
-    }
-  };
 
-  const statusText = (status) => {
-    switch (status) {
-      case 0:
-        return "Placed";
-      case 1:
-        return "Accepted";
-      case 2:
-        return "Rejected";
-      case 3:
-        return "Ready";
-      case 4:
-        return "Delivered";
-      case 5:
-        return "Cancelled";
-      default:
-        return "Unknown";
-    }
-  };
 
-  // Apply Filters on raw items
+  // Apply Filters
   useEffect(() => {
     let data = [...orders];
 
     if (searchOrder.trim() !== "") {
       data = data.filter((o) =>
-        (o.order_number || "")
-          .toLowerCase()
-          .includes(searchOrder.toLowerCase())
+        (o.order_number || "").toLowerCase().includes(searchOrder.toLowerCase())
       );
     }
 
@@ -166,7 +306,6 @@ export default function Orders() {
       });
     }
 
-    // Only update and reset page if data has actually changed
     setFilteredOrders(prev => {
       if (JSON.stringify(prev) === JSON.stringify(data)) return prev;
       setCurrentPage(1);
@@ -190,333 +329,255 @@ export default function Orders() {
     return Object.values(map);
   }, [filteredOrders]);
 
-  // Pagination on grouped data
   const totalPages = Math.ceil(groupedOrders.length / rowsPerPage) || 1;
   const indexOfLast = currentPage * rowsPerPage;
   const indexOfFirst = indexOfLast - rowsPerPage;
   const currentOrders = groupedOrders.slice(indexOfFirst, indexOfLast);
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-amber-900 via-teal-800 to-emerald-900 font-sans text-white">
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col pt-16 lg:pl-72">
-        <div className="flex-1 px-4 lg:px-8 py-8">
-          <h1 className="text-3xl font-bold text-emerald-700 mb-6">
-            Order Management
-          </h1>
+      <div className="flex-1 flex flex-col pt-24 lg:pl-72">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
 
-          <div className="flex flex-wrap items-center gap-4 mb-6 bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-            <div className="flex items-center gap-2">
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                <span className="ml-3 text-sm font-medium text-gray-700">Auto Refresh</span>
-              </label>
+          {/* Top Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-white drop-shadow-md flex items-center gap-3">
+                <ShoppingBag className="text-emerald-400" />
+                Order Management
+              </h1>
+              <p className="text-white/60 mt-1">Manage, track, and fulfill customer orders in real-time.</p>
             </div>
 
-            {autoRefresh && (
-              <div className="flex items-center gap-2">
-                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-xs text-emerald-600 font-medium uppercase tracking-wider">Live Monitoring Active (30s)</span>
+            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md p-2 rounded-xl border border-white/10">
+              <label className="flex items-center gap-2 cursor-pointer px-2">
+                <div className="relative">
+                  <input type="checkbox" className="sr-only" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+                  <div className={`w-10 h-6 rounded-full shadow-inner transition-colors ${autoRefresh ? 'bg-emerald-500' : 'bg-white/20'}`}></div>
+                  <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform shadow ${autoRefresh ? 'translate-x-full' : ''}`}></div>
+                </div>
+                <span className="text-sm font-medium">Auto-Refresh</span>
+              </label>
+              <div className="h-6 w-px bg-white/20"></div>
+              <button
+                onClick={loadOrders}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/80 hover:text-white"
+                title="Refresh Now"
+              >
+                <RefreshCw size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-4 rounded-2xl mb-8 shadow-xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
+                <input
+                  placeholder="Search Order No..."
+                  value={searchOrder}
+                  onChange={(e) => setSearchOrder(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                />
               </div>
-            )}
-
-            <button
-              onClick={loadOrders}
-              className="ml-auto flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg border border-emerald-200 shadow-sm transition-all active:scale-95"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refresh Now
-            </button>
+              {/* Payment */}
+              <div className="relative">
+                <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
+                <select
+                  value={filterPayment} onChange={(e) => setFilterPayment(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 appearance-none"
+                >
+                  <option value="all" className="bg-slate-800">All Payments</option>
+                  <option value="cod" className="bg-slate-800">COD</option>
+                  <option value="online" className="bg-slate-800">Online</option>
+                </select>
+              </div>
+              {/* Status */}
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
+                <select
+                  value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 appearance-none"
+                >
+                  <option value="all" className="bg-slate-800">All Status</option>
+                  <option value="0" className="bg-slate-800">Placed</option>
+                  <option value="1" className="bg-slate-800">Accepted</option>
+                  <option value="2" className="bg-slate-800">Rejected</option>
+                  <option value="3" className="bg-slate-800">Ready</option>
+                  <option value="4" className="bg-slate-800">Delivered</option>
+                  <option value="5" className="bg-slate-800">Cancelled</option>
+                </select>
+              </div>
+              {/* Dates */}
+              <div className="relative">
+                <input
+                  type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                />
+              </div>
+              <div className="relative">
+                <input
+                  type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                />
+              </div>
+            </div>
           </div>
 
-          {/* FILTER SECTION */}
-          <div className="bg-white shadow-md p-4 rounded-lg mb-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <input
-              type="text"
-              placeholder="Search Order No..."
-              value={searchOrder}
-              onChange={(e) => setSearchOrder(e.target.value)}
-              className="border rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
+          {/* ORDERS GRID */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
+            {currentOrders.length === 0 ? (
+              <div className="col-span-full py-20 text-center">
+                <ShoppingBag className="mx-auto text-white/20 mb-4" size={64} strokeWidth={1} />
+                <h3 className="text-xl font-bold text-white/50">No orders found</h3>
+                <p className="text-white/30 mt-2">Try adjusting your filters</p>
+              </div>
+            ) : (
+              currentOrders.map((order, index) => {
+                const items = order.items || [];
+                const statusInfo = statusConfig(order.order_status);
+                const StatusIcon = statusInfo.icon;
 
-            <select
-              value={filterPayment}
-              onChange={(e) => setFilterPayment(e.target.value)}
-              className="border rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="all">All Payment Modes</option>
-              <option value="cod">COD</option>
-              <option value="online">Online</option>
-            </select>
+                // Calcs
+                const totalQty = items.reduce((sum, item) => sum + safeNumber(item.quantity), 0);
+                const totalPrice = items.reduce((sum, item) => sum + safeNumber(item.price) * safeNumber(item.quantity), 0);
+                const totalDiscount = items.reduce((sum, item) => sum + safeNumber(item.discount_amount), 0);
+                const totalVat = items.reduce((sum, item) => sum + safeNumber(item.vat), 0);
+                const lineTotal = totalPrice - totalDiscount + totalVat;
+                const grossTotal = items.reduce((sum, item) => {
+                  const g = safeNumber(item.gross_total);
+                  return sum + (g > 0 ? g : 0);
+                }, 0) || lineTotal;
+                const walletUsed = items.reduce((sum, item) => sum + safeNumber(item.wallet_amount), 0);
+                const loyaltyUsed = items.reduce((sum, item) => sum + safeNumber(item.loyalty_amount), 0);
+                const paidTotal = items.reduce((sum, item) => sum + safeNumber(item.grand_total), 0) || Math.max(0, lineTotal - walletUsed);
 
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="border rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="all">All Status</option>
-              <option value="0">Placed</option>
-              <option value="1">Accepted</option>
-              <option value="2">Rejected</option>
-              <option value="3">Ready</option>
-              <option value="4">Delivered</option>
-              <option value="5">Cancelled</option>
-            </select>
-
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="border rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="border rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-
-          {/* DESKTOP TABLE */}
-          <div className="hidden lg:block overflow-x-auto shadow-md rounded-lg">
-            <table className="min-w-full bg-white text-sm">
-              <thead className="bg-emerald-600 text-white">
-                <tr>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Order Date
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Order No
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Restaurant Name
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Customer Name
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Product(s)
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Price (£)
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Discount (£)
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    VAT (£)
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">Qty</th>
-
-                  {/* ✅ NEW SEQUENCE: Gross -> Wallet Used -> Grand (Paid) */}
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Gross Total (£)
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Wallet Used (£)
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Loyalty Used (£)
-                  </th>
-
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Grand Total (£)
-                  </th>
-
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Payment Mode
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Car Name
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Car Color
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Reg Number
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Mobile
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Collection Method
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    Allergy Note
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">Status</th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {currentOrders.map((order, index) => {
-                  const items = order.items || [];
-
-                  const totalQty = items.reduce(
-                    (sum, item) => sum + safeNumber(item.quantity),
-                    0
-                  );
-                  const totalPrice = items.reduce(
-                    (sum, item) =>
-                      sum + safeNumber(item.price) * safeNumber(item.quantity),
-                    0
-                  );
-                  const totalDiscount = items.reduce(
-                    (sum, item) => sum + safeNumber(item.discount_amount),
-                    0
-                  );
-                  const totalVat = items.reduce(
-                    (sum, item) => sum + safeNumber(item.vat),
-                    0
-                  );
-
-                  // line total based on price/discount/vat aggregation
-                  const lineTotal = totalPrice - totalDiscount + totalVat;
-
-                  // ✅ Gross total (before wallet) from backend if present
-                  const grossTotal =
-                    items.reduce((sum, item) => {
-                      const g = safeNumber(item.gross_total);
-                      return sum + (g > 0 ? g : 0);
-                    }, 0) || lineTotal;
-
-                  // ✅ Wallet used (usually stored on first row, but sum is safe)
-                  const walletUsed = items.reduce((sum, item) => {
-                    return sum + safeNumber(item.wallet_amount);
-                  }, 0);
-                  const loyaltyUsed = items.reduce((sum, item) => {
-                    return sum + safeNumber(item.loyalty_amount);
-                  }, 0);
-
-                  // ✅ Paid amount after wallet => sum of grand_total
-                  const paidTotal =
-                    items.reduce((sum, item) => {
-                      return sum + safeNumber(item.grand_total);
-                    }, 0) || Math.max(0, lineTotal - walletUsed);
-
-                  return (
-                    <tr
-                      key={index}
-                      className="border-b hover:bg-emerald-50 transition"
-                    >
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {formatDate(order.created_at)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap font-semibold">
-                        {order.order_number}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {order.restaurant_name || "-"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {order.customer_name || "-"}
-                      </td>
-
-                      {/* Product list with price + qty */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex flex-col gap-1">
-                          {items.length === 0 && <span>-</span>}
-                          {items.map((item, idx) => (
-                            <div key={idx} className="leading-tight">
-                              <div className="font-medium">
-                                {item.product_name || "-"}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                £{safeNumber(item.price).toFixed(2)}
-                              </div>
-                            </div>
-                          ))}
+                return (
+                  <div
+                    key={index}
+                    className="bg-white/10 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:bg-white/15 transition-all shadow-xl flex flex-col"
+                  >
+                    {/* Card Header with Status & View Eye */}
+                    <div className="p-4 border-b border-white/10 flex justify-between items-start bg-black/10">
+                      <div className="flex-1 min-w-0 mr-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xl font-bold text-white truncate">{order.order_number}</h3>
+                          {autoRefresh && order.order_status === 0 && (
+                            <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                          )}
                         </div>
-                      </td>
+                        <div className="text-xs text-white/60 mt-1 flex items-center gap-2">
+                          <Calendar size={12} />
+                          {formatDate(order.created_at)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${statusInfo.bg} ${statusInfo.color} ${statusInfo.border}`}>
+                          <StatusIcon size={12} />
+                          {statusInfo.text}
+                        </div>
+                        {/* EYE ICON TRIGGER */}
+                        <button
+                          onClick={() => setSelectedOrder(order)}
+                          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-emerald-300 transition-colors"
+                          title="View Details"
+                        >
+                          <Eye size={24} />
+                        </button>
+                      </div>
+                    </div>
 
-                      {/* Aggregated amounts */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        £{totalPrice.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        £{totalDiscount.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        £{totalVat.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">{totalQty}</td>
+                    {/* Items Scroll Area - Larger Quantity */}
+                    <div className="p-4 flex-1 max-h-48 overflow-y-auto custom-scrollbar border-b border-white/5 space-y-3">
+                      {items.length === 0 ? <p className="text-white/40 italic">No items</p> : items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-sm">
+                          <div className="flex gap-3 items-center flex-1">
+                            {/* Quantity Enhancement */}
+                            <span className="font-bold text-emerald-300 bg-emerald-500/20 px-2 py-1 rounded-lg text-lg min-w-[2.5rem] text-center border border-emerald-500/30">
+                              {safeNumber(item.quantity)}x
+                            </span>
+                            <span className="text-white/90 font-medium">{item.product_name || "Unknown Item"}</span>
+                          </div>
+                          <span className="text-white/60 ml-2 font-mono">£{safeNumber(item.price).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
 
-                      {/* ✅ NEW columns (sequence) */}
-                      <td className="px-4 py-3 whitespace-nowrap font-semibold">
-                        £{grossTotal.toFixed(2)}
-                      </td>
+                    {/* Order Details & Kerbside Grid */}
+                    <div className="p-4 bg-white/5 space-y-3 text-sm">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2 text-white/70">
+                          <User size={14} className="text-white/40" />
+                          <span className="truncate max-w-[120px]" title={order.customer_name}>{order.customer_name || "Guest"}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-white/70">
+                          <Truck size={14} className="text-white/40" />
+                          <span>{order.instore === 1 ? "Instore" : "Kerbside"}</span>
+                        </div>
+                      </div>
 
-                      <td className="px-4 py-3 whitespace-nowrap font-semibold text-red-700">
-                        -£{walletUsed.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap font-semibold text-purple-700">
-                        -£{loyaltyUsed.toFixed(2)}
-                      </td>
+                      {order.instore !== 1 && (
+                        <div className="pt-2 border-t border-white/10 grid grid-cols-2 gap-2 text-xs">
+                          <div className="bg-black/20 p-2 rounded border border-white/5">
+                            <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-0.5">Reg No.</span>
+                            <span className="text-white font-bold">{order.reg_number || "-"}</span>
+                          </div>
+                          <div className="bg-black/20 p-2 rounded border border-white/5">
+                            <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-0.5">Color</span>
+                            <span className="text-white font-bold">{order.car_color || "-"}</span>
+                          </div>
+                          <div className="bg-black/20 p-2 rounded border border-white/5 col-span-2">
+                            <span className="block text-white/40 text-[10px] uppercase font-bold tracking-wider mb-0.5">Owner</span>
+                            <span className="text-white font-bold">{order.owner_name || "-"}</span>
+                          </div>
+                        </div>
+                      )}
 
-                      <td className="px-4 py-3 whitespace-nowrap font-semibold text-emerald-700">
-                        £{paidTotal.toFixed(2)}
-                      </td>
+                      {order.allergy_note && (
+                        <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg flex items-start gap-2">
+                          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                          {order.allergy_note}
+                        </div>
+                      )}
+                    </div>
 
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {order.payment_mode === 0 ? "COD" : "Online"}
-                      </td>
+                    {/* Totals & Actions */}
+                    <div className="p-4 pt-2">
+                      <div className="flex justify-between items-end mb-4">
+                        <div className="text-xs text-white/50 space-y-0.5">
+                          <div className="flex justify-between w-24"><span>Subtotal:</span> <span>£{grossTotal.toFixed(2)}</span></div>
+                          {walletUsed > 0 && <div className="flex justify-between w-24 text-red-300"><span>Wallet:</span> <span>-£{walletUsed.toFixed(2)}</span></div>}
+                          {loyaltyUsed > 0 && <div className="flex justify-between w-24 text-purple-300"><span>Loyalty:</span> <span>-£{loyaltyUsed.toFixed(2)}</span></div>}
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-white/60 uppercase tracking-wider font-bold">Total Paid</div>
+                          <div className="text-2xl font-bold text-white drop-shadow-sm">£{paidTotal.toFixed(2)}</div>
+                        </div>
+                      </div>
 
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {order.owner_name || "-"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {order.car_color || "-"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {order.reg_number || "-"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {order.mobile_number || "-"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {order.instore === 1 ? "Instore" : "Kerbside"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {order.allergy_note || "-"}
-                      </td>
-                      <td
-                        className={`px-4 py-3 whitespace-nowrap font-semibold ${statusColor(
-                          order.order_status
-                        )}`}
-                      >
-                        {statusText(order.order_status)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      {/* Action Buttons - DYNAMIC */}
+                      <div className="grid grid-cols-1 gap-2">
                         {order.order_status === 0 && (
-                          <div className="flex gap-2">
+                          <div className="grid grid-cols-2 gap-3">
                             <button
                               onClick={() => {
-                                const minutes = prompt("Order will be ready in how many minutes?");
-                                if (!minutes || isNaN(minutes)) return;
-
-                                updateOrderStatus(order.order_number, 1, Number(minutes));
+                                const mins = prompt("Order ready in minutes?", "15");
+                                if (mins && !isNaN(mins)) updateOrderStatus(order.order_number, 1, Number(mins));
                               }}
-                              className="px-3 py-1 bg-green-600 text-white rounded text-xs"
+                              className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                             >
-                              Accept
+                              <CheckCircle size={18} /> Accept
                             </button>
                             <button
                               onClick={() => updateOrderStatus(order.order_number, 2)}
-                              className="px-3 py-1 bg-red-600 text-white rounded text-xs"
+                              className="py-3 bg-white/5 border border-red-500/30 text-red-300 hover:bg-red-500/20 hover:text-red-200 font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2"
                             >
-                              Reject
+                              <XCircle size={18} /> Reject
                             </button>
                           </div>
                         )}
@@ -524,221 +585,73 @@ export default function Orders() {
                         {order.order_status === 1 && (
                           <button
                             onClick={() => updateOrderStatus(order.order_number, 3)}
-                            className="px-3 py-1 bg-purple-600 text-white rounded text-xs"
+                            className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
                           >
-                            Mark Ready
+                            <ShoppingBag size={18} /> Mark as Ready
                           </button>
                         )}
 
                         {order.order_status === 3 && (
                           <button
                             onClick={() => updateOrderStatus(order.order_number, 4)}
-                            className="px-3 py-1 bg-emerald-600 text-white rounded text-xs"
+                            className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
                           >
-                            Delivered
+                            <Truck size={18} /> Mark Delivered
                           </button>
                         )}
-                      </td>
-
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* MOBILE VIEW (GROUPED) */}
-          <div className="lg:hidden space-y-4 mt-4">
-            {currentOrders.map((order, index) => {
-              const items = order.items || [];
-
-              const totalQty = items.reduce(
-                (sum, item) => sum + safeNumber(item.quantity),
-                0
-              );
-              const totalPrice = items.reduce(
-                (sum, item) =>
-                  sum + safeNumber(item.price) * safeNumber(item.quantity),
-                0
-              );
-              const totalDiscount = items.reduce(
-                (sum, item) => sum + safeNumber(item.discount_amount),
-                0
-              );
-              const totalVat = items.reduce(
-                (sum, item) => sum + safeNumber(item.vat),
-                0
-              );
-
-              const lineTotal = totalPrice - totalDiscount + totalVat;
-
-              const grossTotal =
-                items.reduce((sum, item) => {
-                  const g = safeNumber(item.gross_total);
-                  return sum + (g > 0 ? g : 0);
-                }, 0) || lineTotal;
-
-              const walletUsed = items.reduce((sum, item) => {
-                return sum + safeNumber(item.wallet_amount);
-              }, 0);
-              const loyaltyUsed = items.reduce((sum, item) => {
-                return sum + safeNumber(item.loyalty_amount);
-              }, 0);
-
-              const paidTotal =
-                items.reduce((sum, item) => {
-                  return sum + safeNumber(item.grand_total);
-                }, 0) || Math.max(0, lineTotal - walletUsed);
-
-              return (
-                <div
-                  key={index}
-                  className="bg-white shadow-md p-4 rounded-xl border"
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-lg text-emerald-700">
-                      {order.order_number}
-                    </h3>
-                    <span className="text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                      {statusText(order.order_status)}
-                    </span>
-                  </div>
-
-                  <p className="text-sm mb-1">
-                    <strong>Date:</strong> {formatDate(order.created_at)}
-                  </p>
-                  <p className="text-sm mb-1">
-                    <strong>Restaurant:</strong> {order.restaurant_name || "-"}
-                  </p>
-                  <p className="text-sm mb-1">
-                    <strong>Customer:</strong> {order.customer_name || "-"}
-                  </p>
-
-                  <div className="mt-2 mb-2">
-                    <p className="font-semibold text-sm mb-1">Products:</p>
-                    <div className="space-y-1">
-                      {items.length === 0 && (
-                        <div className="text-xs text-gray-500">-</div>
-                      )}
-                      {items.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between text-xs bg-emerald-50/60 rounded-md px-2 py-1"
-                        >
-                          <span className="font-medium">
-                            {item.product_name || "-"}
-                          </span>
-                          <span className="text-gray-600">
-                            £{safeNumber(item.price).toFixed(2)} · Qty{" "}
-                            {safeNumber(item.quantity)}
-                          </span>
-                        </div>
-                      ))}
+                      </div>
                     </div>
                   </div>
-
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                    <p>
-                      <strong>Qty:</strong> {totalQty}
-                    </p>
-                    <p>
-                      <strong>Price:</strong> £{totalPrice.toFixed(2)}
-                    </p>
-                    <p>
-                      <strong>Discount:</strong> £{totalDiscount.toFixed(2)}
-                    </p>
-                    <p>
-                      <strong>VAT:</strong> £{totalVat.toFixed(2)}
-                    </p>
-
-                    {/* ✅ NEW breakdown */}
-                    <p className="col-span-2">
-                      <strong>Gross Total:</strong> £{grossTotal.toFixed(2)}
-                    </p>
-
-                    <p className="col-span-2 text-red-700 font-semibold">
-                      <strong>Wallet Used:</strong> -£{walletUsed.toFixed(2)}
-                    </p>
-                    <p className="col-span-2 text-purple-700 font-semibold">
-                      <strong>Loyalty Used:</strong> -£{loyaltyUsed.toFixed(2)}
-                    </p>
-
-                    <p className="font-semibold text-emerald-700 col-span-2">
-                      <strong>Grand Total (Paid):</strong> £{paidTotal.toFixed(2)}
-                    </p>
-                  </div>
-
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-700">
-                    <p>
-                      <strong>Payment:</strong>{" "}
-                      {order.payment_mode === 0 ? "COD" : "Online"}
-                    </p>
-                    <p>
-                      <strong>Car Name:</strong> {order.owner_name || "-"}
-                    </p>
-                    <p>
-                      <strong>Car Color:</strong> {order.car_color || "-"}
-                    </p>
-                    <p>
-                      <strong>Reg No:</strong> {order.reg_number || "-"}
-                    </p>
-                    <p>
-                      <strong>Mobile:</strong> {order.mobile_number || "-"}
-                    </p>
-                    <p>
-                      <strong>Collection:</strong>{" "}
-                      {order.instore === 1 ? "Instore" : "Kerbside"}
-                    </p>
-                    <p className="col-span-2">
-                      <strong>Allergy:</strong> {order.allergy_note || "-"}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
-          {/* PAGINATION */}
-          <div className="flex justify-center items-center mt-6 gap-3 select-none">
-            <button
-              onClick={() => setCurrentPage((p) => p - 1)}
-              disabled={currentPage === 1}
-              className={`px-4 py-2 rounded-lg border ${currentPage === 1
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-white hover:bg-gray-100 text-gray-700"
-                }`}
-            >
-              Previous
-            </button>
-
-
-            {[...Array(totalPages).keys()].map((num) => (
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center mt-8 gap-2">
               <button
-                key={num}
-                onClick={() => setCurrentPage(num + 1)}
-                className={`px-4 py-2 rounded-lg border ${currentPage === num + 1
-                  ? "bg-emerald-600 text-white"
-                  : "bg-white hover:bg-gray-100"
-                  }`}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
-                {num + 1}
+                Previous
               </button>
-            ))}
 
-            <button
-              onClick={() => setCurrentPage((p) => p + 1)}
-              disabled={currentPage === totalPages}
-              className={`px-4 py-2 rounded-lg border ${currentPage === totalPages
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-white hover:bg-gray-100 text-gray-700"
-                }`}
-            >
-              Next
-            </button>
-          </div>
-        </div>
+              <div className="flex gap-1">
+                {[...Array(totalPages).keys()].slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2)).map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => setCurrentPage(num + 1)}
+                    className={`w-10 h-10 rounded-xl font-bold flex items-center justify-center transition-all ${currentPage === num + 1
+                      ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-110"
+                      : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                      }`}
+                  >
+                    {num + 1}
+                  </button>
+                ))}
+              </div>
 
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          )}
+
+        </main>
         <Footer />
+
+        {/* DETAILS MODAL */}
+        <AnimatePresence>
+          {selectedOrder && (
+            <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

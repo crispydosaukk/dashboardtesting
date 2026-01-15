@@ -1,9 +1,10 @@
-// frontend/src/pages/access/index.jsx
 import React, { useEffect, useState } from "react";
 import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
 import api from "../../api.js";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, Plus, Edit, Trash2, X, Shield } from "lucide-react";
 
 export default function AccessManagement() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -19,7 +20,6 @@ export default function AccessManagement() {
   const [editTitle, setEditTitle] = useState("");
   const [editingId, setEditingId] = useState(null);
 
-  // search (you already added earlier)
   const [search, setSearch] = useState("");
 
   async function loadPermissions() {
@@ -91,171 +91,233 @@ export default function AccessManagement() {
   );
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-amber-900 via-teal-800 to-emerald-900 font-sans">
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col pt-16 lg:pl-72">
-        <main className="flex-1 px-3 sm:px-4 lg:px-6 py-6">
-          <div className="flex items-center justify-between mb-4">
-           <h2 className="leading-tight font-extrabold">
-            <span className="block text-xl md:text-2xl text-emerald-700">Permissions</span>
-          </h2>
+        <main className="flex-1 px-4 sm:px-6 lg:px-10 py-8">
 
-            <button
-              onClick={() => setOpenModal(true)}
-              className="inline-flex items-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              Create Permission
-            </button>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm">
-            <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-2 text-sm">
-                <select className="border rounded-md px-2 py-1.5 bg-white" defaultValue="10" aria-label="entries per page">
-                  <option value="10">10</option><option value="25">25</option>
-                  <option value="50">50</option><option value="100">100</option>
-                </select>
-                <span className="text-gray-600">entries per page</span>
-              </div>
-
-              <label className="text-sm text-gray-700 flex items-center gap-2">
-                <span>Search:</span>
-                <input
-                  type="text"
-                  className="border rounded-md px-2 py-1.5 w-56"
-                  placeholder="Search title..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </label>
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8"
+          >
+            <div>
+              <h2 className="text-3xl font-bold text-white drop-shadow-lg flex items-center gap-3">
+                <Shield className="text-emerald-400" size={32} />
+                Permissions
+              </h2>
+              <p className="mt-2 text-white/70">Manage system access levels and capabilities.</p>
             </div>
 
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <button
+                onClick={() => setOpenModal(true)}
+                className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600/80 hover:bg-emerald-600 backdrop-blur-md text-white rounded-xl font-bold shadow-lg border border-white/20 transition-all hover:-translate-y-0.5"
+              >
+                <Plus size={20} />
+                Create Permission
+              </button>
+            </div>
+          </motion.div>
+
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            {/* Toolbar */}
+            <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white/5">
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search permissions..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+                  />
+                </div>
+              </div>
+              <div className="text-white/50 text-sm font-medium">
+                {filtered.length} entries
+              </div>
+            </div>
+
+            {/* Table */}
             <div className="overflow-x-auto">
-              <table className="min-w-full">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-emerald-700 text-white">
-                    <th className="px-4 py-2 text-left text-sm font-semibold w-20">SR No.</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold">Title</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold w-44">Created</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold w-40">Actions</th>
+                  <tr className="bg-white/5 border-b border-white/10 text-white/70 text-xs uppercase tracking-wider">
+                    <th className="px-6 py-4 font-bold w-20">#</th>
+                    <th className="px-6 py-4 font-bold">Permission Title</th>
+                    <th className="px-6 py-4 font-bold">Created At</th>
+                    <th className="px-6 py-4 font-bold text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-white/5 text-white/90">
                   {loading ? (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-600">Loading…</td></tr>
+                    <tr><td colSpan={4} className="px-6 py-8 text-center text-white/50">Loading permissions...</td></tr>
                   ) : filtered.length === 0 ? (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-600">
-                      {search ? "No matches for your search" : "No records found"}
-                    </td></tr>
+                    <tr><td colSpan={4} className="px-6 py-8 text-center text-white/50">No permissions found</td></tr>
                   ) : (
                     filtered.map((p, idx) => (
-                      <tr key={p.id} className="border-b last:border-0">
-                        <td className="px-4 py-2 text-sm">{idx + 1}</td>
-                        <td className="px-4 py-2 text-sm">{p.title}</td>
-                        <td className="px-4 py-2 text-sm">
-                          {p.created_at ? new Date(p.created_at).toLocaleString() : "-"}
+                      <motion.tr
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: idx * 0.05 }}
+                        key={p.id}
+                        className="hover:bg-white/5 transition-colors"
+                      >
+                        <td className="px-6 py-4 text-white/50">{idx + 1}</td>
+                        <td className="px-6 py-4 font-medium">{p.title}</td>
+                        <td className="px-6 py-4 text-white/60 text-sm">
+                          {p.created_at ? new Date(p.created_at).toLocaleDateString() : "-"}
                         </td>
-                        <td className="px-4 py-2 text-sm">
-                          <div className="flex gap-2">
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => openEdit(p)}
-                              className="px-3 py-1 rounded border border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+                              className="p-2 bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 rounded-lg transition-colors border border-blue-500/30"
+                              title="Edit"
                             >
-                              Edit
+                              <Edit size={16} />
                             </button>
                             <button
                               onClick={() => handleDelete(p.id)}
-                              className="px-3 py-1 rounded border border-red-600 text-red-700 hover:bg-red-50"
+                              className="p-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded-lg transition-colors border border-red-500/30"
+                              title="Delete"
                             >
-                              Delete
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         </td>
-                      </tr>
+                      </motion.tr>
                     ))
                   )}
                 </tbody>
               </table>
             </div>
 
-            <div className="px-4 py-3 flex items-center justify-between text-sm text-gray-600">
-              <span>Showing {filtered.length ? 1 : 0} to {filtered.length} of {filtered.length} entries</span>
-              <div className="inline-flex items-center gap-1">
-                <button className="px-2.5 py-1.5 rounded border text-gray-400 cursor-not-allowed" disabled>«</button>
-                <button className="px-2.5 py-1.5 rounded-full bg-green-700 text-white" disabled>1</button>
-                <button className="px-2.5 py-1.5 rounded border text-gray-400 cursor-not-allowed" disabled>»</button>
+            {/* Footer */}
+            <div className="p-4 border-t border-white/10 bg-white/5 text-white/50 text-sm flex justify-between items-center">
+              <span>Showing {filtered.length} entries</span>
+              {/* Pagination Placeholders */}
+              <div className="flex gap-1">
+                <button className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50" disabled>&laquo;</button>
+                <button className="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">1</button>
+                <button className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50" disabled>&raquo;</button>
               </div>
             </div>
           </div>
 
-          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+          {error && (
+            <div className="mt-4 p-4 bg-red-500/20 border border-red-500/40 rounded-xl text-red-200 flex items-center gap-2 animate-pulse">
+              <div className="w-2 h-2 rounded-full bg-red-400" />
+              {error}
+            </div>
+          )}
         </main>
 
-        <footer className="mt-auto"><Footer /></footer>
+        <Footer />
       </div>
 
-      {/* Create modal (unchanged) */}
-      {openModal && (
-        <>
-          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setOpenModal(false)} aria-hidden="true" />
-          <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center p-4">
-            <div className="w-full max-w-lg rounded-xl bg-white shadow-xl border">
-              <div className="px-5 py-4 border-b">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">Add Permissions</h2>
-                  <button onClick={() => setOpenModal(false)} className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-gray-100" aria-label="Close">
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-                  </button>
-                </div>
-              </div>
-              <div className="px-5 py-6">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title <span className="text-red-600">*</span></label>
-                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div className="px-5 pb-5 flex justify-end gap-3">
-                <button onClick={() => setOpenModal(false)} className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-gray-50">Cancel</button>
-                <button onClick={handleCreate} disabled={submitting} className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60">
-                  {submitting ? "Saving..." : "Add Permissions"}
+      {/* CREATE MODAL */}
+      <AnimatePresence>
+        {openModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setOpenModal(false)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-lg bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden p-6"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-white">New Permission</h3>
+                <button onClick={() => setOpenModal(false)} className="text-white/50 hover:text-white transition-colors">
+                  <X size={24} />
                 </button>
               </div>
-            </div>
-          </div>
-        </>
-      )}
 
-      {/* Edit modal */}
-      {editOpen && (
-        <>
-          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setEditOpen(false)} aria-hidden="true" />
-          <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center p-4">
-            <div className="w-full max-w-lg rounded-xl bg-white shadow-xl border">
-              <div className="px-5 py-4 border-b">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">Edit Permission</h2>
-                  <button onClick={() => setEditOpen(false)} className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-gray-100" aria-label="Close">
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-white/80 mb-2 block">Permission Title</label>
+                  <input
+                    autoFocus
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    placeholder="e.g. DELETE_USERS"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/10">
+                  <button onClick={() => setOpenModal(false)} className="px-5 py-2.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/10 transition-colors">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreate}
+                    disabled={submitting}
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl shadow-lg border border-white/10 transition-all hover:-translate-y-0.5 disabled:opacity-60"
+                  >
+                    {submitting ? "Creating..." : "Create Permission"}
                   </button>
                 </div>
               </div>
-              <div className="px-5 py-6">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title <span className="text-red-600">*</span></label>
-                <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div className="px-5 pb-5 flex justify-end gap-3">
-                <button onClick={() => setEditOpen(false)} className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-gray-50">Cancel</button>
-                <button onClick={handleEditSave} disabled={submitting} className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60">
-                  {submitting ? "Saving..." : "Save Changes"}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* EDIT MODAL */}
+      <AnimatePresence>
+        {editOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setEditOpen(false)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-lg bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden p-6"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-white">Edit Permission</h3>
+                <button onClick={() => setEditOpen(false)} className="text-white/50 hover:text-white transition-colors">
+                  <X size={24} />
                 </button>
               </div>
-            </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-white/80 mb-2 block">Permission Title</label>
+                  <input
+                    autoFocus
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/10">
+                  <button onClick={() => setEditOpen(false)} className="px-5 py-2.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/10 transition-colors">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleEditSave}
+                    disabled={submitting}
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl shadow-lg border border-white/10 transition-all hover:-translate-y-0.5 disabled:opacity-60"
+                  >
+                    {submitting ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
           </div>
-        </>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

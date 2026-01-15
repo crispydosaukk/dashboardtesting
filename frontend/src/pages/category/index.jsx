@@ -3,8 +3,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
-import { motion } from "framer-motion";
-import { Pencil, Trash2, Power, GripVertical } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Pencil, Trash2, GripVertical, Search, Plus, X, Upload, Save, Check } from "lucide-react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 export default function Category() {
@@ -385,12 +385,12 @@ export default function Category() {
 
     return (
       <div
-        className={`bg-white border rounded-xl p-3 shadow-sm ${item.status === 0 ? "opacity-70" : ""
+        className={`bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 shadow-lg ${item.status === 0 ? "opacity-70" : ""
           }`}
       >
         <div className="flex items-start gap-3">
           {/* IMAGE */}
-          <div className="h-16 w-16 rounded-lg overflow-hidden bg-slate-100">
+          <div className="h-16 w-16 rounded-lg overflow-hidden bg-white/5 border border-white/10">
             {imgUrl ? (
               <img
                 src={imgUrl}
@@ -398,7 +398,7 @@ export default function Category() {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="text-xs text-slate-400 p-2 text-center">
+              <div className="text-xs text-white/40 p-2 text-center flex items-center justify-center h-full">
                 No image
               </div>
             )}
@@ -406,8 +406,8 @@ export default function Category() {
 
           {/* DETAILS */}
           <div className="flex-1">
-            <div className="text-sm font-semibold">{item.name}</div>
-            <div className="text-xs text-slate-500">ID: {item.id}</div>
+            <div className="text-sm font-semibold text-white">{item.name}</div>
+            <div className="text-xs text-white/50">ID: {item.id}</div>
 
             {/* ACTIONS */}
             <div className="flex items-center gap-4 mt-3">
@@ -419,7 +419,7 @@ export default function Category() {
                   onChange={() => handleToggleStatus(item)}
                   className="sr-only peer"
                 />
-                <div className="w-10 h-5 bg-slate-200 rounded-full peer-checked:bg-emerald-500 relative transition">
+                <div className="w-10 h-5 bg-white/20 rounded-full peer-checked:bg-emerald-500 relative transition-colors border border-white/10">
                   <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transform transition peer-checked:translate-x-5" />
                 </div>
               </label>
@@ -432,16 +432,16 @@ export default function Category() {
                     handleImportProducts(item.name, item.id);
                   }
                 }}
-                className="text-blue-600"
+                className="text-blue-400 hover:text-blue-300 transition-colors"
+                title="Import products"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
+                <Upload size={18} />
               </motion.button>
+
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => handleEdit(item)}
-                className="text-emerald-600"
+                className="text-emerald-400 hover:text-emerald-300 transition-colors"
               >
                 <Pencil size={18} />
               </motion.button>
@@ -450,7 +450,7 @@ export default function Category() {
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => handleDelete(item.id)}
-                className="text-red-600"
+                className="text-red-400 hover:text-red-300 transition-colors"
               >
                 <Trash2 size={18} />
               </motion.button>
@@ -465,102 +465,102 @@ export default function Category() {
   // RETURN JSX (FULL UI)
   // =============================
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-slate-100 font-jakarta">
+    <div className="min-h-screen bg-gradient-to-br from-amber-900 via-teal-800 to-emerald-900 font-sans">
       <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col pt-16 lg:pl-72">
-        <main className="flex-1 px-4 sm:px-6 lg:px-10 py-6 sm:py-8">
+        <main className="flex-1 px-4 sm:px-6 lg:px-10 py-8">
           <div className="max-w-7xl mx-auto">
             {/* PAGE HEADER */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <div>
-                <h2 className="font-extrabold text-emerald-700 text-xl">
-                  Categories
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-lg">
-                  Manage categories — drag to reorder, toggle visibility, edit or delete.
-                </p>
-              </div>
-
-              {/* SEARCH + ADD */}
-              <div className="flex flex-col md:flex-row gap-3">
-                {/* SEARCH */}
-                <div className="relative">
-                  <input
-                    className="pl-9 pr-10 py-2 border rounded-lg shadow-sm w-full md:w-64 text-sm focus:ring-emerald-500"
-                    placeholder="Search category or ID..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                  <svg
-                    className="absolute left-3 top-3 w-4 h-4 text-slate-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z"
-                    />
-                  </svg>
-
-                  {searchQuery !== "" && (
-                    <button
-                      className="absolute right-2 top-2.5 text-slate-400"
-                      onClick={() => setSearchQuery("")}
-                    >
-                      ✕
-                    </button>
-                  )}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="mb-8"
+            >
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                <div>
+                  <h2 className="font-bold text-white text-3xl drop-shadow-lg">
+                    Categories
+                  </h2>
+                  <p className="text-white/80 mt-1 max-w-lg text-base shadow-sm">
+                    Manage categories — drag to reorder, toggle visibility, edit or delete.
+                  </p>
                 </div>
 
+                {/* SEARCH + ADD */}
+                <div className="flex flex-col md:flex-row gap-3">
+                  {/* SEARCH */}
+                  <div className="relative">
+                    <input
+                      className="pl-10 pr-10 py-3 border-2 border-white/10 rounded-xl w-full md:w-64 text-sm focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/20 bg-white/10 backdrop-blur-md text-white placeholder-white/50 shadow-xl transition-all"
+                      placeholder="Search category or ID..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    <Search
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50"
+                      size={18}
+                    />
 
-                {/* GLOBAL SEARCH BUTTON */}
-                <button
-                  onClick={() => setShowSearchModal(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm shadow flex items-center gap-2"
-                >
-                  <span>🔍</span> Search & Add
-                </button>
+                    {searchQuery !== "" && (
+                      <button
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                        onClick={() => setSearchQuery("")}
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
 
-                {/* ADD BUTTON */}
-                <button
-                  onClick={() => {
-                    setIsEdit(false);
-                    setForm({ id: null, name: "", image: null, oldImage: "" });
-                    setShowModal(true);
-                  }}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm shadow"
-                >
-                  + Add Category
-                </button>
+
+                  {/* GLOBAL SEARCH BUTTON */}
+                  <button
+                    onClick={() => setShowSearchModal(true)}
+                    className="bg-blue-600/80 hover:bg-blue-600 hover:-translate-y-0.5 transform backdrop-blur-md text-white px-5 py-3 rounded-xl text-sm font-semibold shadow-lg border border-white/20 flex items-center gap-2 transition-all"
+                  >
+                    <Search size={18} />
+                    Search & Add
+                  </button>
+
+                  {/* ADD BUTTON */}
+                  <button
+                    onClick={() => {
+                      setIsEdit(false);
+                      setForm({ id: null, name: "", image: null, oldImage: "" });
+                      setShowModal(true);
+                    }}
+                    className="bg-emerald-600/80 hover:bg-emerald-600 hover:-translate-y-0.5 transform backdrop-blur-md text-white px-5 py-3 rounded-xl text-sm font-semibold shadow-lg border border-white/20 flex items-center gap-2 transition-all"
+                  >
+                    <Plus size={18} />
+                    Add Category
+                  </button>
+                </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* ===========================
                 CATEGORY LIST WRAPPER
             ============================ */}
-            <div className="mt-6 bg-white border rounded-2xl shadow overflow-hidden">
-              <div className="px-4 py-3 border-b flex justify-between">
-                <h3 className="text-sm font-medium">All Categories</h3>
-                <span className="text-sm text-slate-500">
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-white/5">
+                <h3 className="text-lg font-bold text-white drop-shadow">All Categories</h3>
+                <span className="text-sm px-3 py-1 bg-white/10 rounded-full text-white/80 border border-white/10">
                   {filteredCategories.length} total
                 </span>
               </div>
 
               {/* DESKTOP TABLE WITH DRAG-DROP */}
-              <div className="hidden md:block p-4 overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead className="bg-slate-50">
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-white/10">
+                  <thead className="bg-white/5 text-white/80 uppercase text-xs font-bold tracking-wider">
                     <tr>
-                      <th className="px-4 w-10"></th>
-                      <th className="px-4 text-left">Image</th>
-                      <th className="px-4 text-left">Name</th>
-                      <th className="px-4 text-center">Status</th>
-                      <th className="px-4 text-center">Actions</th>
+                      <th className="px-6 py-4 w-10"></th>
+                      <th className="px-6 py-4 text-left">Image</th>
+                      <th className="px-6 py-4 text-left">Name</th>
+                      <th className="px-6 py-4 text-center">Status</th>
+                      <th className="px-6 py-4 text-center">Actions</th>
                     </tr>
                   </thead>
 
@@ -570,7 +570,7 @@ export default function Category() {
                         <tbody
                           {...provided.droppableProps}
                           ref={provided.innerRef}
-                          className="divide-y divide-slate-100"
+                          className="divide-y divide-white/5"
                         >
                           {filteredCategories.map((item, index) => (
                             <Draggable
@@ -582,37 +582,38 @@ export default function Category() {
                                 <tr
                                   ref={dragProvided.innerRef}
                                   {...dragProvided.draggableProps}
-                                  className={`${item.status === 0 ? "opacity-70" : ""
-                                    } hover:bg-slate-50`}
+                                  className={`${item.status === 0 ? "opacity-60" : ""
+                                    } hover:bg-white/5 transition-colors`}
                                 >
                                   {/* DRAG HANDLE */}
                                   <td
                                     {...dragProvided.dragHandleProps}
-                                    className="px-4 cursor-grab text-slate-400"
+                                    className="px-6 py-4 cursor-grab text-white/30 hover:text-white/60"
                                   >
-                                    <GripVertical size={18} />
+                                    <GripVertical size={20} />
                                   </td>
 
                                   {/* IMAGE */}
-                                  <td className="px-4 py-3">
-                                    <div className="flex items-center gap-3">
-                                      <div className="h-14 w-14 rounded-lg overflow-hidden bg-slate-100">
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-4">
+                                      <div className="h-14 w-14 rounded-lg overflow-hidden bg-white/10 border border-white/10 shadow-md">
                                         {item.image ? (
                                           <img
                                             src={`${API_BASE}/uploads/${item.image}`}
                                             className="h-full w-full object-cover"
+                                            alt={item.name}
                                           />
                                         ) : (
-                                          <div className="p-3 text-xs text-slate-400">
-                                            No image
+                                          <div className="h-full w-full flex items-center justify-center text-xs text-white/30">
+                                            No img
                                           </div>
                                         )}
                                       </div>
-                                      <div className="text-xs">
-                                        <div className="font-medium">
+                                      <div className="text-sm">
+                                        <div className="font-semibold text-white">
                                           {item.name}
                                         </div>
-                                        <div className="text-slate-500">
+                                        <div className="text-white/40 text-xs">
                                           ID: {item.id}
                                         </div>
                                       </div>
@@ -620,10 +621,10 @@ export default function Category() {
                                   </td>
 
                                   {/* NAME */}
-                                  <td className="px-4">{item.name}</td>
+                                  <td className="px-6 py-4 text-white font-medium">{item.name}</td>
 
                                   {/* STATUS SWITCH */}
-                                  <td className="px-4 text-center">
+                                  <td className="px-6 py-4 text-center">
                                     <label className="inline-flex items-center cursor-pointer">
                                       <input
                                         type="checkbox"
@@ -631,40 +632,44 @@ export default function Category() {
                                         onChange={() => handleToggleStatus(item)}
                                         className="sr-only peer"
                                       />
-                                      <div className="w-12 h-6 rounded-full bg-slate-200 peer-checked:bg-emerald-500 relative">
-                                        <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition peer-checked:translate-x-6" />
+                                      <div className="w-11 h-6 bg-white/20 rounded-full peer-checked:bg-emerald-500 relative transition-colors border border-white/10 shadow-inner">
+                                        <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition transform peer-checked:translate-x-5 shadow-sm" />
                                       </div>
                                     </label>
                                   </td>
 
                                   {/* ACTION BUTTONS */}
-                                  <td className="px-4 text-center">
-                                    <div className="flex items-center gap-4 justify-center">
-                                      <button
+                                  <td className="px-6 py-4 text-center">
+                                    <div className="flex items-center gap-3 justify-center">
+                                      <motion.button
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
                                         onClick={() => {
                                           if (confirm(`Add remaining products for "${item.name}"?`)) {
                                             handleImportProducts(item.name, item.id);
                                           }
                                         }}
-                                        className="text-blue-600"
+                                        className="p-2 bg-blue-500/20 hover:bg-blue-500/40 text-blue-300 rounded-lg border border-blue-500/30 transition-all"
                                         title="Import missing products"
                                       >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                          <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                                        </svg>
-                                      </button>
-                                      <button
+                                        <Upload size={16} />
+                                      </motion.button>
+                                      <motion.button
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
                                         onClick={() => handleEdit(item)}
-                                        className="text-emerald-600"
+                                        className="p-2 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 rounded-lg border border-emerald-500/30 transition-all"
                                       >
-                                        <Pencil size={18} />
-                                      </button>
-                                      <button
+                                        <Pencil size={16} />
+                                      </motion.button>
+                                      <motion.button
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
                                         onClick={() => handleDelete(item.id)}
-                                        className="text-red-600"
+                                        className="p-2 bg-red-500/20 hover:bg-red-500/40 text-red-300 rounded-lg border border-red-500/30 transition-all"
                                       >
-                                        <Trash2 size={18} />
-                                      </button>
+                                        <Trash2 size={16} />
+                                      </motion.button>
                                     </div>
                                   </td>
                                 </tr>
@@ -681,7 +686,7 @@ export default function Category() {
               </div>
 
               {/* MOBILE VIEW */}
-              <div className="md:hidden p-4 space-y-3">
+              <div className="md:hidden p-4 space-y-4">
                 {filteredCategories.map((item) => (
                   <CategoryCard key={item.id} item={item} />
                 ))}
@@ -696,157 +701,200 @@ export default function Category() {
       {/* ==========================
           ADD / EDIT MODAL
       ========================== */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => {
-              setShowModal(false);
-              setIsEdit(false);
-              setForm({ id: null, name: "", image: null, oldImage: "" });
-            }}
-          />
+      <AnimatePresence>
+        {showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => {
+                setShowModal(false);
+                setIsEdit(false);
+                setForm({ id: null, name: "", image: null, oldImage: "" });
+              }}
+            />
 
-          <div className="relative w-full sm:w-[600px] bg-white rounded-t-xl sm:rounded-2xl shadow-xl p-5">
-            <h3 className="font-semibold text-lg mb-4">
-              {isEdit ? "Edit Category" : "Add Category"}
-            </h3>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* NAME */}
-              <div>
-                <label className="text-sm font-medium">Category Name</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) =>
-                    setForm({ ...form, name: e.target.value })
-                  }
-                  required
-                  className="mt-2 w-full border rounded-lg px-3 py-2 text-sm"
-                />
-              </div>
-
-              {/* IMAGE */}
-              <div>
-                <label className="text-sm font-medium">Image</label>
-                <input
-                  type="file"
-                  className="mt-2"
-                  accept="image/*"
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      image: e.target.files ? e.target.files[0] : null,
-                    })
-                  }
-                />
-
-                {/* Preview */}
-                <div className="mt-2">
-                  {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      className="h-16 w-16 object-cover rounded-lg"
-                    />
-                  ) : form.oldImage ? (
-                    <img
-                      src={`${API_BASE}/uploads/${form.oldImage}`}
-                      className="h-16 w-16 object-cover rounded-lg"
-                    />
-                  ) : (
-                    <div className="text-xs text-slate-400">No image</div>
-                  )}
-                </div>
-              </div>
-
-              {/* ACTIONS */}
-              <div className="flex justify-end gap-3 pt-2">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-lg bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-white/5">
+                <h3 className="font-bold text-xl text-white">
+                  {isEdit ? "Edit Category" : "Add Category"}
+                </h3>
                 <button
-                  type="button"
                   onClick={() => setShowModal(false)}
-                  className="border px-4 py-2 rounded-lg"
+                  className="text-white/50 hover:text-white transition-colors"
                 >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="bg-emerald-600 text-white px-4 py-2 rounded-lg"
-                >
-                  {isEdit ? "Update" : "Save"}
+                  <X size={20} />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                {/* NAME */}
+                <div>
+                  <label className="text-sm font-medium text-white/80 block mb-2">Category Name</label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(e) =>
+                      setForm({ ...form, name: e.target.value })
+                    }
+                    required
+                    placeholder="e.g. Appetizers"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                  />
+                </div>
+
+                {/* IMAGE */}
+                <div>
+                  <label className="text-sm font-medium text-white/80 block mb-2">Image</label>
+                  <div className="flex items-center gap-4">
+                    <div className="h-20 w-20 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+                      {previewUrl ? (
+                        <img
+                          src={previewUrl}
+                          className="h-full w-full object-cover"
+                          alt="Preview"
+                        />
+                      ) : form.oldImage ? (
+                        <img
+                          src={`${API_BASE}/uploads/${form.oldImage}`}
+                          className="h-full w-full object-cover"
+                          alt="Current"
+                        />
+                      ) : (
+                        <span className="text-xs text-white/30">No Image</span>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            image: e.target.files ? e.target.files[0] : null,
+                          })
+                        }
+                        className="block w-full text-sm text-white/60
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-xl file:border-0
+                          file:text-sm file:font-semibold
+                          file:bg-white/10 file:text-white
+                          hover:file:bg-white/20
+                          cursor-pointer"
+                      />
+                      <p className="mt-1 text-xs text-white/40">Expected format: JPG, PNG</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ACTIONS */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="px-5 py-2.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl shadow-lg transition-all transform hover:-translate-y-0.5"
+                  >
+                    {isEdit ? "Update Category" : "Save Category"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* ==========================
           GLOBAL SEARCH MODAL
       ========================== */}
-      {showSearchModal && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setShowSearchModal(false)}
-          />
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 overflow-hidden">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-lg text-slate-800">Search to Add</h3>
-              <button
-                onClick={() => setShowSearchModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                ✕
-              </button>
-            </div>
-
-            <input
-              autoFocus
-              className="w-full border border-slate-300 rounded-lg px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-              placeholder="Search available categories..."
-              value={globalSearchQuery}
-              onChange={(e) => setGlobalSearchQuery(e.target.value)}
+      <AnimatePresence>
+        {showSearchModal && (
+          <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20 p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowSearchModal(false)}
             />
-
-            <div className="mt-4 max-h-[60vh] overflow-y-auto space-y-2">
-              {globalSearchResults.length === 0 && globalSearchQuery && (
-                <div className="text-center text-slate-500 py-8">
-                  No matching categories found.
-                </div>
-              )}
-
-              {globalSearchResults.map((game, idx) => (
+            <motion.div
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              className="relative w-full max-w-lg bg-white/10 backdrop-blur-2xl rounded-2xl shadow-2xl p-6 border border-white/20 overflow-hidden"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-xl text-white">Search to Add</h3>
                 <button
-                  key={idx}
-                  onClick={() => handleAddGlobalCategory(game)}
-                  className="w-full flex items-center gap-4 p-3 hover:bg-slate-50 border rounded-xl transition text-left group"
+                  onClick={() => setShowSearchModal(false)}
+                  className="text-white/50 hover:text-white transition-colors"
                 >
-                  <div className="h-12 w-12 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
-                    {game.image ? (
-                      <img
-                        src={`${API_BASE}/uploads/${game.image}`}
-                        className="h-full w-full object-cover"
-                        alt=""
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center text-xs text-slate-400">?</div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-semibold text-slate-700 group-hover:text-blue-600 transition">{game.name}</div>
-                    <div className="text-xs text-slate-500">Click to add</div>
-                  </div>
-                  <div className="text-blue-600 opacity-0 group-hover:opacity-100 transition">
-                    + Add
-                  </div>
+                  <X size={20} />
                 </button>
-              ))}
-            </div>
+              </div>
+
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50" size={18} />
+                <input
+                  autoFocus
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                  placeholder="Search available categories..."
+                  value={globalSearchQuery}
+                  onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                />
+              </div>
+
+              <div className="mt-4 max-h-[50vh] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                {globalSearchResults.length === 0 && globalSearchQuery && (
+                  <div className="text-center text-white/50 py-8">
+                    No matching categories found.
+                  </div>
+                )}
+
+                {globalSearchResults.map((game, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleAddGlobalCategory(game)}
+                    className="w-full flex items-center gap-4 p-3 hover:bg-white/10 border border-transparent hover:border-white/10 rounded-xl transition-all text-left group"
+                  >
+                    <div className="h-12 w-12 bg-white/5 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
+                      {game.image ? (
+                        <img
+                          src={`${API_BASE}/uploads/${game.image}`}
+                          className="h-full w-full object-cover"
+                          alt=""
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-xs text-white/30">?</div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-white group-hover:text-blue-300 transition">{game.name}</div>
+                      <div className="text-xs text-white/40">Click to add</div>
+                    </div>
+                    <div className="text-blue-300 opacity-0 group-hover:opacity-100 transition">
+                      <Plus size={18} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }
