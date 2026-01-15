@@ -14,7 +14,7 @@ import {
   importGlobalProducts
 } from "../controllers/admin/ProductController.js";
 
-import { getDashboardStats, getOrderDetails } from "../controllers/admin/DashboardController.js";
+import { getDashboardStats, getOrderDetails, getRestaurantsList } from "../controllers/admin/DashboardController.js";
 
 import {
   index as listPermissions,
@@ -127,6 +127,7 @@ router.get("/settings", auth, getSettings);
 router.post("/settings", auth, saveSettings);
 
 /* DASHBOARD */
+router.get("/dashboard/restaurants", auth, getRestaurantsList);
 router.get("/dashboard-stats", auth, getDashboardStats);
 router.get("/dashboard/order-details/:order_number", auth, getOrderDetails);
 

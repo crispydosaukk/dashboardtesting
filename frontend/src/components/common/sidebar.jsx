@@ -11,10 +11,9 @@ const Item = ({ to = "#", icon, label }) => (
       `
       flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] font-medium tracking-wide
       transition-all duration-200 border border-transparent
-      ${
-        isActive
-          ? "bg-white/25 text-white shadow-lg backdrop-blur-md scale-[1.03]"
-          : "text-[#f7c7ce] hover:bg-white/10 hover:text-white"
+      ${isActive
+        ? "bg-white/25 text-white shadow-lg backdrop-blur-md scale-[1.03]"
+        : "text-[#f7c7ce] hover:bg-white/10 hover:text-white"
       }
       `
     }
@@ -86,7 +85,7 @@ export default function Sidebar({ open, onClose }) {
   const rawMenu = useMemo(
     () => [
       { label: "Dashboard", to: "/dashboard", icon: iconDashboard(), perm: "dashboard" },
-      { label: "Restaurant", to: "/restuarent", icon: iconRestaurant(), perm: "restaurant" },
+      { label: "Restaurant Profile", to: "/restuarent", icon: iconRestaurant(), perm: "restaurant" },
       { label: "Customer Info", to: "/customerinfo", icon: iconCustomer(), perm: "customer_info" },
       { label: "Customer Details", to: "/customerdetails", icon: iconCustomerDetails(), perm: "customer_details" },
       { label: "Settings", to: "/settings", icon: iconSettings(), perm: "settings" },
@@ -162,9 +161,8 @@ export default function Sidebar({ open, onClose }) {
 
       <div
         onClick={onClose}
-        className={`fixed inset-0 top-16 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity ${
-          open ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
+        className={`fixed inset-0 top-16 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity ${open ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
       />
 
       <aside

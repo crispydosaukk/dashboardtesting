@@ -20,7 +20,7 @@ const statusConfig = (status) => {
     case 1: return { text: "Accepted", color: "text-blue-300", bg: "bg-blue-500/20", border: "border-blue-500/30", icon: Clock };
     case 2: return { text: "Rejected", color: "text-red-300", bg: "bg-red-500/20", border: "border-red-500/30", icon: XCircle };
     case 3: return { text: "Ready", color: "text-purple-300", bg: "bg-purple-500/20", border: "border-purple-500/30", icon: ShoppingBag };
-    case 4: return { text: "Delivered", color: "text-emerald-300", bg: "bg-emerald-500/20", border: "border-emerald-500/30", icon: CheckCircle };
+    case 4: return { text: "Collected", color: "text-emerald-300", bg: "bg-emerald-500/20", border: "border-emerald-500/30", icon: CheckCircle };
     case 5: return { text: "Cancelled", color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20", icon: XCircle };
     default: return { text: "Unknown", color: "text-gray-400", bg: "bg-gray-500/20", border: "border-gray-500/30", icon: AlertCircle };
   }
@@ -409,7 +409,7 @@ export default function Orders() {
                   <option value="1" className="bg-slate-800">Accepted</option>
                   <option value="2" className="bg-slate-800">Rejected</option>
                   <option value="3" className="bg-slate-800">Ready</option>
-                  <option value="4" className="bg-slate-800">Delivered</option>
+                  <option value="4" className="bg-slate-800">Collected</option>
                   <option value="5" className="bg-slate-800">Cancelled</option>
                 </select>
               </div>
@@ -596,7 +596,7 @@ export default function Orders() {
                             onClick={() => updateOrderStatus(order.order_number, 4)}
                             className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
                           >
-                            <Truck size={18} /> Mark Delivered
+                            <Truck size={18} /> Mark Collected
                           </button>
                         )}
                       </div>

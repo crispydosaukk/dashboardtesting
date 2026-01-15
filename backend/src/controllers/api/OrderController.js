@@ -737,25 +737,25 @@ export const updateOrderStatus = async (req, res) => {
 
     // 3️⃣ NOTIFICATION LOGIC
     const statusMap = {
-      1: { 
-        title: "✅ Order Accepted", 
-        body: `Your order will be ready in ${ready_in_minutes} minutes` 
+      1: {
+        title: "✅ Order Accepted",
+        body: `Your order will be ready in ${ready_in_minutes} minutes`
       },
-      2: { 
-        title: "❌ Order Rejected", 
-        body: `Your order ${order_number} was rejected. Sorry, please contact restaurant admin.` 
+      2: {
+        title: "❌ Order Rejected",
+        body: `Your order ${order_number} was rejected. Sorry, please contact restaurant admin.`
       },
-      3: { 
-        title: "🍳 Order Ready", 
-        body: `Your order ${order_number} is ready for pickup` 
+      3: {
+        title: "🍳 Order Ready",
+        body: `Your order ${order_number} is ready for pickup`
       },
-      4: { 
-        title: "🚗 Order Delivered", 
-        body: `Your order ${order_number} has been delivered. Thank you for your order. Enjoy your food!` 
+      4: {
+        title: "🚗 Order Collected",
+        body: `Your order ${order_number} has been collected. Thank you for your order. Enjoy your food!`
       },
-      5: { 
-        title: "⚠️ Order Cancelled", 
-        body: `Your order ${order_number} has been cancelled. Please contact support if you have any concerns.` 
+      5: {
+        title: "⚠️ Order Cancelled",
+        body: `Your order ${order_number} has been cancelled. Please contact support if you have any concerns.`
       }
     };
 
@@ -777,9 +777,9 @@ export const updateOrderStatus = async (req, res) => {
           (user_type, user_id, title, body, created_at, is_read, order_number, status)
           VALUES (?, ?, ?, ?, NOW(), 0, ?, ?)
         `, [
-          "customer", 
-          existingOrder.customer_id, 
-          notifParams.title, 
+          "customer",
+          existingOrder.customer_id,
+          notifParams.title,
           notifParams.body,
           order_number,
           String(newStatus)
