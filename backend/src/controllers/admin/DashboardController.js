@@ -325,15 +325,20 @@ export const getDashboardStats = async (req, res) => {
             const topProductsQuery = `
                 SELECT 
                     p.product_name as name, 
+                    p.product_image as image,
+                    p.product_price as price,
+                    p.product_desc as description,
+                    c.category_name as category_name,
                     COUNT(*) as count
                 FROM orders o
                 JOIN products p ON o.product_id = p.id
                 JOIN restaurant_details rd ON p.user_id = rd.user_id
+                LEFT JOIN categories c ON p.cat_id = c.id
                 WHERE ${effectiveWhere}
                   AND DATE(o.created_at) >= ? AND DATE(o.created_at) <= ?
-                GROUP BY p.id, p.product_name
+                GROUP BY p.id, p.product_name, p.product_image, p.product_price, p.product_desc, c.category_name
                 ORDER BY count DESC
-                LIMIT 5
+                LIMIT 10
             `;
             const [topProductsRows] = await conn.query(topProductsQuery, [...effectiveParams, targetStartDateStr, targetEndDateStr]);
 

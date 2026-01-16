@@ -39,12 +39,12 @@ const StatCard = ({ title, value, subtext, icon: Icon, colorClass, delay }) => (
   </motion.div>
 );
 
-const ChartCard = ({ title, subtitle, children, delay }) => (
+const ChartCard = ({ title, subtitle, children, delay, className = "" }) => (
   <motion.div
     initial={{ opacity: 0, scale: 0.95 }}
     animate={{ opacity: 1, scale: 1 }}
     transition={{ delay, duration: 0.4 }}
-    className="rounded-2xl p-6 shadow-xl border border-white/20 bg-white/10 backdrop-blur-xl flex flex-col h-full"
+    className={`rounded-2xl p-6 shadow-xl border border-white/20 bg-white/10 backdrop-blur-xl flex flex-col ${className}`}
   >
     <div className="mb-6">
       <h3 className="text-lg font-bold text-white">{title}</h3>
@@ -212,6 +212,84 @@ const OrderDetailsModal = ({ order, onClose }) => {
   );
 };
 
+const ProductDetailsModal = ({ product, onClose }) => {
+  if (!product) return null;
+
+  const getImageUrl = (image) => {
+    if (!image) return null;
+    const cleanImage = image.replace(/^uploads\//, '');
+    const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/api\/?$/, '');
+    return `${baseUrl}/uploads/${cleanImage}`;
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#1a1c23] border border-white/10 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col"
+      >
+        <div className="relative h-56 w-full bg-white/5">
+          {product.image ? (
+            <img
+              src={getImageUrl(product.image)}
+              alt={product.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-white/20">
+              <ShoppingBag size={48} />
+            </div>
+          )}
+          <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors">
+            <X size={20} />
+          </button>
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 pt-12">
+            <h3 className="text-2xl font-bold text-white shadow-sm">{product.name}</h3>
+            <p className="text-emerald-300 font-medium text-sm mt-1">{product.category_name || "Uncategorized"}</p>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className="flex items-center justify-between bg-white/5 rounded-xl p-4 border border-white/10">
+            <div>
+              <span className="text-white/60 text-xs block mb-1">Price</span>
+              <span className="text-2xl font-bold text-white">£{Number(product.price).toFixed(2)}</span>
+            </div>
+            <div className="text-right">
+              <span className="text-white/60 text-xs block mb-1">Total Sales</span>
+              <span className="text-xl font-bold text-emerald-400">{product.count} <span className="text-sm font-normal text-white/60">units</span></span>
+            </div>
+          </div>
+
+          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+            <h4 className="text-white/60 text-xs font-bold uppercase mb-2 flex items-center gap-2">
+              <Clock size={12} /> Description
+            </h4>
+            <p className="text-white/80 text-sm leading-relaxed">
+              {product.description || "No description available for this product."}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white/5 p-4 border-t border-white/10 flex justify-end">
+          <button onClick={onClose} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors font-bold shadow-lg shadow-emerald-500/20">
+            Close
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 
 // --- Main Dashboard ---
 
@@ -235,6 +313,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   // Restaurant Filter State (Super Admin)
   const [restaurants, setRestaurants] = useState([]);
@@ -546,7 +625,7 @@ export default function Dashboard() {
           {/* Charts Section 1: Comparisons & Trends */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 
-            <ChartCard title="Sales Comparison" subtitle="Current vs Previous Period" delay={0.4}>
+            <ChartCard title="Sales Comparison" subtitle="Current vs Previous Period" delay={0.4} className="h-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats.sales_comparison || []}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
@@ -564,7 +643,7 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="Average Order Value" subtitle="Trend over time" delay={0.5}>
+            <ChartCard title="Average Order Value" subtitle="Trend over time" delay={0.5} className="h-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={stats.avg_order_cost || []}>
                   <defs>
@@ -585,7 +664,7 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="Orders Trend" subtitle="Selected Range Distribution" delay={0.6}>
+            <ChartCard title="Orders Trend" subtitle="Selected Range Distribution" delay={0.6} className="h-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={stats.weekly_orders || []}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
@@ -604,24 +683,47 @@ export default function Dashboard() {
 
             {/* Top Selling Products (Replaced Pie Chart) */}
             <div className="xl:col-span-1">
-              <ChartCard title="Top Selling Items" subtitle="Most popular products" delay={0.7}>
-                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              <ChartCard title="Top Selling Items" subtitle="Most popular products" delay={0.7} className="h-fit">
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   {stats.top_selling_products && stats.top_selling_products.length > 0 ? (
                     stats.top_selling_products.map((product, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
-                        <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0">
-                          {idx + 1}
+                      <div key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
+
+                        {/* Rank & Image */}
+                        <div className="relative w-12 h-12 shrink-0">
+                          <div className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center z-10 border border-[#1a1c23] shadow-md">
+                            {idx + 1}
+                          </div>
+                          <div className="w-12 h-12 rounded-lg bg-white/10 overflow-hidden ring-1 ring-white/10">
+                            {product.image ? (
+                              <img
+                                src={`${(import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/api\/?$/, '')}/uploads/${product.image.replace(/^uploads\//, '')}`}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <ShoppingBag size={20} className="m-auto text-white/30 h-full" />
+                            )}
+                          </div>
                         </div>
+
+                        {/* Info */}
                         <div className="flex-1 min-w-0">
                           <h5 className="font-medium text-white text-sm truncate">{product.name}</h5>
-                          <p className="text-xs text-white/50">{product.count} sales</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-emerald-400 text-xs font-bold">£{Number(product.price || 0).toFixed(2)}</span>
+                            <span className="text-white/30 text-[10px]">•</span>
+                            <span className="text-white/50 text-xs text-xs">{product.count} sales</span>
+                          </div>
                         </div>
-                        <div className="w-16 bg-white/10 rounded-full h-1.5 overflow-hidden">
-                          <div
-                            className="bg-emerald-400 h-full rounded-full"
-                            style={{ width: `${Math.min((product.count / (stats.top_selling_products[0]?.count || 1)) * 100, 100)}%` }}
-                          />
-                        </div>
+
+                        {/* Action */}
+                        <button
+                          onClick={() => setSelectedProduct(product)}
+                          className="p-2 rounded-lg bg-white/5 hover:bg-emerald-500/20 text-white/40 hover:text-emerald-400 transition-colors border border-transparent hover:border-emerald-500/30"
+                        >
+                          <Eye size={18} />
+                        </button>
                       </div>
                     ))
                   ) : (
@@ -756,6 +858,9 @@ export default function Dashboard() {
       <AnimatePresence>
         {selectedOrder && (
           <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+        )}
+        {selectedProduct && (
+          <ProductDetailsModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
         )}
       </AnimatePresence>
 
