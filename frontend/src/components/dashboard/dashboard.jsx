@@ -183,7 +183,15 @@ const OrderDetailsModal = ({ order, onClose }) => {
                               <ShoppingBag size={12} className="opacity-50" />
                             )}
                           </div>
-                          <span>{item.product_name}</span>
+                          <div>
+                            <span className="block font-medium">{item.product_name}</span>
+                            {item.special_instruction && (
+                              <div className="mt-1 text-xs font-semibold text-amber-300 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20 inline-flex items-center gap-1">
+                                <span className="uppercase text-[10px] tracking-wider opacity-70">Note:</span>
+                                {item.special_instruction}
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-white/70 text-center">x{item.quantity}</td>
                         <td className="px-4 py-3 text-emerald-300 font-medium text-right">£{Number(item.price).toFixed(2)}</td>

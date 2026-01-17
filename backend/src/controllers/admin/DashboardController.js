@@ -452,6 +452,7 @@ export const getOrderDetails = async (req, res) => {
                 o.price,
                 (o.quantity * o.price) as total_price,
                 o.grand_total, -- Included for reference
+                o.special_instruction,
                 o.created_at
             FROM orders o
             JOIN products p ON o.product_id = p.id

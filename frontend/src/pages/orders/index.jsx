@@ -151,7 +151,15 @@ const OrderDetailsModal = ({ order, onClose }) => {
                         <span className="text-2xl font-bold text-emerald-400">{safeNumber(item.quantity)}X</span>
                       </td>
                       <td className="p-4 text-white font-medium text-lg">
-                        {item.product_name}
+                        <div>
+                          {item.product_name}
+                          {item.special_instruction && (
+                            <div className="mt-1 text-sm font-semibold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 w-fit">
+                              <span className="uppercase text-[10px] opacity-70 mr-1">Note:</span>
+                              {item.special_instruction}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 text-right text-white/60">
                         £{safeNumber(item.price).toFixed(2)}
@@ -501,7 +509,15 @@ export default function Orders() {
                             <span className="font-bold text-emerald-300 bg-emerald-500/20 px-2 py-1 rounded-lg text-lg min-w-[2.5rem] text-center border border-emerald-500/30">
                               {safeNumber(item.quantity)}x
                             </span>
-                            <span className="text-white/90 font-medium">{item.product_name || "Unknown Item"}</span>
+                            <div className="flex flex-col">
+                              <span className="text-white/90 font-medium">{item.product_name || "Unknown Item"}</span>
+                              {item.special_instruction && (
+                                <span className="text-xs font-semibold text-amber-300 mt-0.5 flex items-center gap-1">
+                                  <span className="bg-amber-500/20 px-1 rounded text-[9px] uppercase tracking-wider border border-amber-500/30">Note</span>
+                                  {item.special_instruction}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <span className="text-white/60 ml-2 font-mono">£{safeNumber(item.price).toFixed(2)}</span>
                         </div>

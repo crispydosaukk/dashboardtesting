@@ -74,6 +74,7 @@ async function getRedeemSettings(conn) {
 }
 
 // ----------------- CREATE ORDER (WITH WALLET) ----------------- //
+/* CORRECTED createOrder FUNCTION */
 export const createOrder = async (req, res) => {
   const conn = await db.getConnection();
   try {
@@ -97,7 +98,7 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ status: 0, message: "Items are required" });
     }
 
-    // ✅ compute order gross total (for wallet validation)
+    // ✅ compute order gross total
     const orderGrossTotal = items.reduce((sum, item) => {
       const price = Number(item.price || 0);
       const qty = Number(item.quantity || 0);
@@ -105,19 +106,15 @@ export const createOrder = async (req, res) => {
       const vat = Number(item.vat || 0);
 
       const totalPrice = price * qty;
-      const gross = totalPrice - discount + vat; // gross per item
+      const gross = totalPrice - discount + vat;
       return sum + gross;
     }, 0);
-
-    // 🔴 MINIMUM CART TOTAL VALIDATION (NEW RULE)
 
     const [[settingsRow]] = await conn.query(
       "SELECT minimum_cart_total FROM settings ORDER BY id DESC LIMIT 1"
     );
-
     const minimumCartTotal = Number(settingsRow?.minimum_cart_total || 0);
 
-    // validate BEFORE wallet deduction
     if (minimumCartTotal > 0 && orderGrossTotal < minimumCartTotal) {
       await conn.rollback();
       return res.status(400).json({
@@ -128,16 +125,11 @@ export const createOrder = async (req, res) => {
 
     const requestedWallet = Number(wallet_used || 0);
     if (requestedWallet < 0) {
-      return res
-        .status(400)
-        .json({ status: 0, message: "Invalid wallet amount" });
+      return res.status(400).json({ status: 0, message: "Invalid wallet amount" });
     }
 
-    // ✅ transaction start
     await conn.beginTransaction();
 
-    // Fetch restaurant name and OWNER ID
-    // Prefer the restaurant linked to the first product (products.user_id) to avoid mismatch
     let restaurantName = "";
     let restaurantOwnerId = null;
 
@@ -147,8 +139,7 @@ export const createOrder = async (req, res) => {
         `SELECT rd.restaurant_name, p.user_id as owner_id
          FROM products p
          JOIN restaurant_details rd ON p.user_id = rd.user_id
-         WHERE p.id = ?
-         LIMIT 1`,
+         WHERE p.id = ? LIMIT 1`,
         [firstProductId]
       );
       if (prdRows.length) {
@@ -157,18 +148,9 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    // Fallback? If we can't find product owner, what to do? 
-    // Usually we must have a product owner.
-    // If fallback needed, keep original logic but renamed.
-
-    // DECISION: The orders.user_id MUST be the restaurant owner. 
-    // If restaurantOwnerId is found, use it. Else fall back to passed user_id (risky but safe for legacy?).
-    // Given the bug report, we MUST prefer the product owner.
-
     const finalUserId = restaurantOwnerId || user_id;
 
     if (!restaurantName && user_id) {
-      // ... existing fallback ...
       const [rData] = await conn.query(
         "SELECT restaurant_name FROM restaurant_details WHERE user_id = ? LIMIT 1",
         [user_id]
@@ -178,27 +160,21 @@ export const createOrder = async (req, res) => {
 
     const order_number = generateOrderNumber(restaurantName);
 
-    // ✅ Wallet deduction if used
+    // ✅ Wallet deduction
     let walletDeducted = 0;
-
     if (requestedWallet > 0) {
-      // lock wallet row
       const [[walletRow]] = await conn.query(
         "SELECT balance FROM customer_wallets WHERE customer_id = ? FOR UPDATE",
         [customer_id]
       );
-
       const currentBalance = Number(walletRow?.balance || 0);
 
       if (currentBalance <= 0) {
         await conn.rollback();
-        return res
-          .status(400)
-          .json({ status: 0, message: "Wallet balance is 0" });
+        return res.status(400).json({ status: 0, message: "Wallet balance is 0" });
       }
 
       const maxUsable = Math.min(currentBalance, orderGrossTotal);
-
       if (requestedWallet > maxUsable) {
         await conn.rollback();
         return res.status(400).json({
@@ -210,48 +186,32 @@ export const createOrder = async (req, res) => {
       walletDeducted = requestedWallet;
       const newBalance = currentBalance - walletDeducted;
 
-      // update wallet
       await conn.query(
         "UPDATE customer_wallets SET balance = ? WHERE customer_id = ?",
         [newBalance, customer_id]
       );
 
-      // wallet transaction entry
       await conn.query(
         `INSERT INTO wallet_transactions
           (customer_id, transaction_type, amount, balance_after, source, payment_id, order_id, description)
          VALUES (?, 'DEBIT', ?, ?, 'ORDER', NULL, NULL, ?)`,
-        [
-          customer_id,
-          walletDeducted,
-          newBalance,
-          `Wallet used for order ${order_number}`,
-        ]
+        [customer_id, walletDeducted, newBalance, `Wallet used for order ${order_number}`]
       );
     }
 
-    // ✅ Loyalty deduction if used
+    // ✅ Loyalty deduction
     const requestedLoyalty = Number(loyalty_used || 0);
     if (requestedLoyalty < 0) {
       await conn.rollback();
-      return res.status(400).json({
-        status: 0,
-        message: "Invalid loyalty amount",
-      });
+      return res.status(400).json({ status: 0, message: "Invalid loyalty amount" });
     }
 
     let loyaltyDeducted = 0;
-
     if (requestedLoyalty > 0) {
       const [rows] = await conn.query(
-        `SELECT id, points_remaining
-         FROM loyalty_earnings
-         WHERE customer_id = ?
-           AND available_from <= NOW()
-           AND expires_at >= NOW()
-           AND points_remaining > 0
-         ORDER BY expires_at ASC
-         FOR UPDATE`,
+        `SELECT id, points_remaining FROM loyalty_earnings
+         WHERE customer_id = ? AND available_from <= NOW() AND expires_at >= NOW() AND points_remaining > 0
+         ORDER BY expires_at ASC FOR UPDATE`,
         [customer_id]
       );
 
@@ -260,37 +220,22 @@ export const createOrder = async (req, res) => {
 
       for (const r of rows) {
         if (remainingValue <= 0.001) break;
-
-        const creditValue =
-          (r.points_remaining / redeemCfg.redeem_points) *
-          redeemCfg.redeem_value;
-
+        const creditValue = (r.points_remaining / redeemCfg.redeem_points) * redeemCfg.redeem_value;
         const usable = Math.min(creditValue, remainingValue);
-        const pointsToDeduct = Math.ceil(
-          (usable / redeemCfg.redeem_value) *
-          redeemCfg.redeem_points
-        );
+        const pointsToDeduct = Math.ceil((usable / redeemCfg.redeem_value) * redeemCfg.redeem_points);
 
         await conn.query(
-          `UPDATE loyalty_earnings
-           SET points_remaining = points_remaining - ?
-           WHERE id = ?`,
+          `UPDATE loyalty_earnings SET points_remaining = points_remaining - ? WHERE id = ?`,
           [pointsToDeduct, r.id]
         );
-
         loyaltyDeducted += usable;
         remainingValue -= usable;
-
-        // Ensure remainingValue doesn't have floating point noise
         remainingValue = Number(remainingValue.toFixed(4));
       }
 
       if (remainingValue > 0.01) {
         await conn.rollback();
-        return res.status(400).json({
-          status: 0,
-          message: "Not enough loyalty credits",
-        });
+        return res.status(400).json({ status: 0, message: "Not enough loyalty credits" });
       }
     }
 
@@ -299,19 +244,12 @@ export const createOrder = async (req, res) => {
         `INSERT INTO wallet_transactions
          (customer_id, transaction_type, amount, balance_after, source, order_id, description)
          VALUES (?, 'DEBIT', ?, 0, 'LOYALTY_USED', NULL, ?)`,
-        [
-          customer_id,
-          loyaltyDeducted,
-          `Loyalty credits used for order ${order_number}`,
-        ]
+        [customer_id, loyaltyDeducted, `Loyalty credits used for order ${order_number}`]
       );
     }
 
     // ✅ Insert order rows
-    // store wallet_amount only in first inserted row (others 0)
     let firstRow = true;
-
-    // ✅ to store first inserted order row id (for loyalty reference)
     let orderIdForLoyalty = null;
 
     for (const item of items) {
@@ -322,31 +260,33 @@ export const createOrder = async (req, res) => {
         discount_amount,
         vat,
         quantity,
+        textfield,          // <--- GETTING TEXT FROM APP
+        special_instruction
       } = item;
+
+      // Use textfield coming from frontend
+      const noteToSave = textfield || special_instruction || null;
 
       const totalPrice = Number(price) * Number(quantity);
       const totalDiscount = Number(discount_amount || 0);
       const totalVat = Number(vat || 0);
-
-      // ✅ before wallet
       const gross = totalPrice - totalDiscount + totalVat;
 
-      // ✅ apply wallet only once (first row)
       const walletAmountForThisRow = firstRow ? walletDeducted : 0;
       const loyaltyAmountForThisRow = firstRow ? loyaltyDeducted : 0;
       const paid = firstRow
         ? Math.max(0, gross - walletDeducted - loyaltyDeducted)
         : gross;
 
-
+      // ✅ ADDED `special_instruction` to INSERT
       const sql = `
-INSERT INTO orders 
-(user_id, order_number, customer_id, product_id, payment_mode, payment_request_id,
- product_name, price, discount_amount, vat, gross_total,
- wallet_amount, loyalty_amount, quantity, grand_total, order_status,
- delivery_estimate_time, car_color, reg_number, owner_name, mobile_number, instore, allergy_note)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`;
+        INSERT INTO orders 
+        (user_id, order_number, customer_id, product_id, payment_mode, payment_request_id,
+         product_name, special_instruction, price, discount_amount, vat, gross_total,
+         wallet_amount, loyalty_amount, quantity, grand_total, order_status,
+         delivery_estimate_time, car_color, reg_number, owner_name, mobile_number, instore, allergy_note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
 
       const values = [
         finalUserId,
@@ -356,6 +296,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         payment_mode,
         payment_request_id || null,
         product_name,
+        noteToSave, // <--- SAVING THE NOTE HERE
         price,
         totalDiscount,
         totalVat,
@@ -364,8 +305,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         loyaltyAmountForThisRow,
         quantity,
         paid,
-        0,                // ✅ order_status = PLACED
-        null,             // delivery_estimate_time
+        0,
+        null,
         car_color || null,
         reg_number || null,
         owner_name || null,
@@ -376,41 +317,23 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
       const [orderInsertRes] = await conn.query(sql, values);
 
-      // ✅ capture first order row id ONCE
       if (firstRow && orderInsertRes?.insertId) {
         orderIdForLoyalty = orderInsertRes.insertId;
       }
-
-      // ✅ set firstRow false only AFTER first insert completes
       firstRow = false;
     }
 
-    // -------------------------------------------------
-    // 🟢 LOYALTY EARNINGS (DYNAMIC)  ✅ RUN ONCE PER ORDER
-    // -------------------------------------------------
+    // ✅ LOYALTY EARNINGS
     const loyaltyCfg = await getLoyaltySettings(conn);
+    const paidTotal = Math.max(0, Number(orderGrossTotal) - Number(walletDeducted) - Number(loyaltyDeducted));
 
-    // total paid after wallet usage (whole order)
-    const paidTotal = Math.max(
-      0,
-      Number(orderGrossTotal)
-      - Number(walletDeducted)
-      - Number(loyaltyDeducted)
-    );
-
-    // Earn points only if paidTotal >= minimum_order
     if (paidTotal >= loyaltyCfg.minimum_order) {
       const pointsEarned = Math.floor(paidTotal * loyaltyCfg.loyalty_points_per_gbp);
-
       if (pointsEarned > 0 && orderIdForLoyalty) {
         await conn.query(
           `INSERT INTO loyalty_earnings
            (customer_id, order_id, points_earned, points_remaining, available_from, expires_at, created_at)
-           VALUES (?, ?, ?, ?,
-             DATE_ADD(NOW(), INTERVAL ? HOUR),
-             DATE_ADD(NOW(), INTERVAL ? DAY),
-             NOW()
-           )`,
+           VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? HOUR), DATE_ADD(NOW(), INTERVAL ? DAY), NOW())`,
           [
             customer_id,
             orderIdForLoyalty,
@@ -422,96 +345,56 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         );
       }
     }
-    // -------------------------------------------------
-    // 🟢 REFERRAL REWARD (AFTER FIRST ORDER ONLY)
-    // -------------------------------------------------
+
+    // ✅ REFERRAL REWARD
     const [[customerRow]] = await conn.query(
-      `SELECT referred_by_customer_id, referral_bonus_awarded
-       FROM customers WHERE id = ? FOR UPDATE`,
+      `SELECT referred_by_customer_id, referral_bonus_awarded FROM customers WHERE id = ? FOR UPDATE`,
       [customer_id]
     );
 
-    if (
-      customerRow?.referred_by_customer_id &&
-      customerRow.referral_bonus_awarded === 0
-    ) {
+    if (customerRow?.referred_by_customer_id && customerRow.referral_bonus_awarded === 0) {
       const referrerId = customerRow.referred_by_customer_id;
       const referralAmount = await getReferralFlatAmount(conn);
 
       if (referralAmount > 0) {
-        // 1️⃣ Update referrer wallet
         await conn.query(
           `INSERT INTO customer_wallets (customer_id, balance, created_at, updated_at)
            VALUES (?, ?, NOW(), NOW())
-           ON DUPLICATE KEY UPDATE
-           balance = balance + VALUES(balance),
-           updated_at = NOW()`,
+           ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance), updated_at = NOW()`,
           [referrerId, referralAmount]
         );
-
-        // 2️⃣ Get new balance
-        const [[walletRow]] = await conn.query(
-          "SELECT balance FROM customer_wallets WHERE customer_id = ?",
-          [referrerId]
-        );
-
-        const newBalance = Number(walletRow?.balance || 0);
-
-        // 3️⃣ Wallet transaction entry
+        const [[walletRow]] = await conn.query("SELECT balance FROM customer_wallets WHERE customer_id = ?", [referrerId]);
         await conn.query(
           `INSERT INTO wallet_transactions
            (customer_id, transaction_type, amount, balance_after, source, order_id, description, created_at)
            VALUES (?, 'CREDIT', ?, ?, 'REFERRAL_BONUS', NULL, ?, NOW())`,
-          [
-            referrerId,
-            referralAmount,
-            newBalance,
-            `Referral bonus for order ${order_number}`,
-          ]
+          [referrerId, referralAmount, walletRow?.balance || 0, `Referral bonus for order ${order_number}`]
         );
-
-        // 4️⃣ Mark referral as awarded
-        await conn.query(
-          "UPDATE customers SET referral_bonus_awarded = 1 WHERE id = ?",
-          [customer_id]
-        );
+        await conn.query("UPDATE customers SET referral_bonus_awarded = 1 WHERE id = ?", [customer_id]);
       }
     }
 
     if (payment_request_id) {
       await conn.query(
-        `INSERT INTO order_payment_history
-     (order_no, payment_request_id, amount, payment_status)
-     VALUES (?, ?, ?, 'success')`,
-        [
-          order_number,
-          payment_request_id,
-          paidTotal, // total paid after wallet
-        ]
+        `INSERT INTO order_payment_history (order_no, payment_request_id, amount, payment_status)
+         VALUES (?, ?, ?, 'success')`,
+        [order_number, payment_request_id, paidTotal]
       );
     }
-    // clear cart
-    await conn.query("DELETE FROM cart WHERE customer_id = ?", [customer_id]);
 
+    await conn.query("DELETE FROM cart WHERE customer_id = ?", [customer_id]);
     await conn.commit();
 
-    /* 🔔 STEP 7.4 — NOTIFY RESTAURANT */
     try {
       await sendNotification({
         userType: "restaurant",
-        userId: finalUserId, // restaurant owner id
+        userId: finalUserId,
         title: "🍽️ New Order Received",
         body: `Order ${order_number} has been placed`,
-        data: {
-          order_number,
-          type: "NEW_ORDER"
-        }
+        data: { order_number, type: "NEW_ORDER" }
       });
-    } catch (e) {
-      console.error("Restaurant notification failed:", e.message);
-    }
+    } catch (e) { console.error("Restaurant notification failed:", e.message); }
 
-    /* ✅ RESPONSE TO APP */
     return res.status(200).json({
       status: 1,
       message: "Order Placed Successfully",
@@ -521,15 +404,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     });
 
   } catch (error) {
-    try {
-      await conn.rollback();
-    } catch { }
+    try { await conn.rollback(); } catch { }
     console.error("Order creation error:", error);
-    return res.status(500).json({
-      status: 0,
-      message: "Server Error",
-      error: error.message,
-    });
+    return res.status(500).json({ status: 0, message: "Server Error", error: error.message });
   } finally {
     conn.release();
   }
