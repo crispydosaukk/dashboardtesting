@@ -91,25 +91,34 @@ export default function Header({ onToggleSidebar, darkMode = true }) {
   };
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled
-      ? "h-16 bg-white/10 backdrop-blur-xl border-b border-white/10 shadow-lg"
-      : "h-20 bg-transparent"
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 flex flex-col ${scrolled
+      ? "bg-white/10 backdrop-blur-xl border-b border-white/10 shadow-lg"
+      : "bg-transparent"
       }`}>
-      <div className="h-full w-full px-4 sm:px-6 flex items-center justify-between">
+      <div className={`w-full px-4 sm:px-6 flex items-center justify-between transition-all duration-300 ${scrolled ? "h-16" : "h-20"}`}>
 
         {/* LEFT: Branding & Toggle */}
         <div className="flex items-center gap-3 sm:gap-6">
-          <button onClick={onToggleSidebar} className="lg:hidden p-2 rounded-xl text-white hover:bg-white/10 transition-colors">
+          <button onClick={onToggleSidebar} className="p-2 rounded-xl text-white hover:bg-white/10 transition-colors">
             <Menu size={24} />
           </button>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden lg:flex items-center gap-2 sm:gap-3">
             <img
               src="/Crispy-Dosalogo.png"
               alt="Crispy Dosa"
               className={`h-12 sm:h-14 w-auto transition-all duration-300 drop-shadow-md ${scrolled ? "scale-90" : "scale-100"}`}
             />
           </div>
+        </div>
+
+        {/* CENTER: Mobile Logo */}
+        <div className="lg:hidden absolute left-1/2 -translate-x-1/2 flex items-center justify-center">
+          <img
+            src="/Crispy-Dosalogo.png"
+            alt="Crispy Dosa"
+            className="h-10 w-auto drop-shadow-md"
+          />
         </div>
 
         {/* MIDDLE: Search - Hidden on small screens */}

@@ -347,7 +347,7 @@ export default function Orders() {
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col pt-24 lg:pl-72">
+      <div className="flex-1 flex flex-col pt-36 lg:pt-24 lg:pl-72">
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
 
           {/* Top Header */}

@@ -200,7 +200,7 @@ export default function Restuarent() {
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} darkMode={true} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="pt-24 pb-12 px-4 sm:px-6 lg:pl-80 lg:pr-8">
+      <main className="pt-36 lg:pt-24 pb-12 px-4 sm:px-6 lg:pl-80 lg:pr-8">
         <div className="max-w-7xl mx-auto">
 
           {/* Page Header */}

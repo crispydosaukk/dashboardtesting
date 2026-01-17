@@ -68,7 +68,7 @@ const CustomerDetails = () => {
             <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} darkMode={true} />
             <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-            <div className="flex-1 flex flex-col min-h-screen pt-24 lg:pl-72">
+            <div className="flex-1 flex flex-col min-h-screen pt-36 lg:pt-24 lg:pl-72">
                 <main className="flex-1 px-4 sm:px-6 lg:px-10 py-8">
                     <div className="max-w-7xl mx-auto">
 

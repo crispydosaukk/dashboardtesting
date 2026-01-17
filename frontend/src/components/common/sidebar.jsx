@@ -161,19 +161,33 @@ export default function Sidebar({ open, onClose }) {
 
       <div
         onClick={onClose}
-        className={`fixed inset-0 top-16 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity ${open ? "opacity-100" : "opacity-0 pointer-events-none"
+        className={`fixed inset-0 top-0 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity ${open ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
       />
 
       <aside
         className={`
-          fixed left-0 top-16 bottom-0 z-40 w-72
+          fixed left-0 bottom-0 z-[60] lg:z-40 w-72
           bg-gradient-to-br from-[#1A4D3A] to-[#8B1538]
           shadow-2xl
           transform transition-transform duration-300
-          ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+          top-0 lg:top-16
+          ${open ? "translate-x-0 lg:-translate-x-full" : "-translate-x-full lg:translate-x-0"}
         `}
       >
+        {/* Mobile Sidebar Header (Logo + Close) */}
+        <div className="flex lg:hidden items-center justify-between px-4 pb-4 pt-14 border-b border-white/15">
+          <div className="flex items-center gap-2">
+            <img src="/Crispy-Dosalogo.png" alt="Logo" className="h-16 w-auto object-contain" />
+          </div>
+          <button onClick={onClose} className="p-2 text-white/70 hover:text-white bg-white/10 rounded-lg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
         {/* Search */}
         <div className="p-4 border-b border-white/15">
           <input

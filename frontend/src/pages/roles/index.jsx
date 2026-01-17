@@ -239,7 +239,7 @@ export default function Roles() {
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col pt-16 lg:pl-72">
+      <div className="flex-1 flex flex-col pt-36 lg:pt-24 lg:pl-72">
         <main className="flex-1 px-4 sm:px-6 lg:px-10 py-8">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
