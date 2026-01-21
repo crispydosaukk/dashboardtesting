@@ -17,21 +17,48 @@ function buildPhotoUrl(req, raw) {
 }
 
 export const getRestaurants = async (req, res) => {
-  const query = `
-    SELECT
-      id,
-      user_id,
-      restaurant_name AS name,
-      restaurant_photo AS photo,
-      restaurant_address AS address,
-      instore,
-      kerbside
-    FROM restaurant_details
-    ORDER BY id DESC
-  `;
+  const { lat, lng } = req.query;
+
+  let query;
+  let queryParams = [];
+
+  if (lat && lng) {
+    // Haversine formula to calculate distance and sort
+    query = `
+      SELECT
+        id,
+        user_id,
+        restaurant_name AS name,
+        restaurant_photo AS photo,
+        restaurant_address AS address,
+        instore,
+        kerbside,
+        latitude,
+        longitude,
+        ( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) * cos( radians( longitude ) - radians(?) ) + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS distance
+      FROM restaurant_details
+      ORDER BY distance ASC
+    `;
+    queryParams = [lat, lng, lat];
+  } else {
+    query = `
+      SELECT
+        id,
+        user_id,
+        restaurant_name AS name,
+        restaurant_photo AS photo,
+        restaurant_address AS address,
+        instore,
+        kerbside,
+        latitude,
+        longitude
+      FROM restaurant_details
+      ORDER BY id DESC
+    `;
+  }
 
   try {
-    const [results] = await db.query(query);
+    const [results] = await db.query(query, queryParams);
 
     const data = results.map(r => ({
       id: r.id,
@@ -40,7 +67,10 @@ export const getRestaurants = async (req, res) => {
       address: r.address,
       photo: buildPhotoUrl(req, r.photo),
       instore: !!r.instore,
-      kerbside: !!r.kerbside
+      kerbside: !!r.kerbside,
+      latitude: r.latitude,
+      longitude: r.longitude,
+      distance: r.distance ? parseFloat(r.distance.toFixed(2)) : null
     }));
 
     return res.json({ status: 1, data });
@@ -73,6 +103,8 @@ export const getRestaurantById = async (req, res) => {
       restaurant_photo: buildPhotoUrl(req, r.restaurant_photo),
       instore: !!r.instore,
       kerbside: !!r.kerbside,
+      latitude: r.latitude,
+      longitude: r.longitude,
     };
 
     return res.json({ status: 1, data: [restaurant] });

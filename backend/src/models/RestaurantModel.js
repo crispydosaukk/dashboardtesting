@@ -40,8 +40,8 @@ async function insertRestaurant(conn, userId, payload) {
       `INSERT INTO restaurant_details
         (user_id, restaurant_name, restaurant_address, restaurant_phonenumber,
         restaurant_email, restaurant_facebook, restaurant_twitter, restaurant_instagram,
-        restaurant_linkedin, parking_info, instore,kerbside,restaurant_photo)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        restaurant_linkedin, parking_info, instore, kerbside, latitude, longitude, restaurant_photo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
         payload.restaurant_name ?? null,
@@ -55,6 +55,8 @@ async function insertRestaurant(conn, userId, payload) {
         payload.parking_info ?? null,
         payload.instore ?? 0,
         payload.kerbside ?? 0,
+        payload.latitude ?? null,
+        payload.longitude ?? null,
         payload.restaurant_photo ?? null,
       ]
     );
@@ -79,7 +81,9 @@ async function updateRestaurant(conn, restaurantId, payload) {
       "restaurant_linkedin",
       "parking_info",
       "instore",
-      "kerbside"
+      "kerbside",
+      "latitude",
+      "longitude"
     ];
 
     const values = [
@@ -94,6 +98,8 @@ async function updateRestaurant(conn, restaurantId, payload) {
       payload.parking_info ?? null,
       payload.instore ?? 0,
       payload.kerbside ?? 0,
+      payload.latitude ?? null,
+      payload.longitude ?? null,
     ];
 
     // 👇 Only update restaurant_photo if it exists in payload
@@ -129,7 +135,7 @@ async function updateRestaurant(conn, restaurantId, payload) {
  * - If a day is NOT present in payloadTimings but exists in DB -> delete that DB row.
  */
 async function syncTimings(conn, restaurantId, payloadTimings = []) {
-  const validDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  const validDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   function normalizeTimeForSql(v) {
     if (v === undefined || v === null) return null;

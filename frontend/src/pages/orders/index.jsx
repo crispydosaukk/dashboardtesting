@@ -3,6 +3,7 @@ import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
 import api from "../../api.js";
+import ReadyInModal from "../../components/common/ReadyInModal.jsx";
 import {
   Search, RefreshCw, Filter, Calendar, DollarSign, User, Truck,
   MapPin, Phone, Car, Clock, CheckCircle, XCircle, AlertCircle, ShoppingBag, CreditCard, Eye, X
@@ -100,9 +101,16 @@ const OrderDetailsModal = ({ order, onClose }) => {
                   <span className="text-white/50 text-sm">Payment</span>
                   <span className="text-white font-medium">{order.payment_mode === 0 ? "COD" : "Online"}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-white/50 text-sm">Status</span>
-                  <span className={`font-bold ${statusInfo.color}`}>{statusInfo.text}</span>
+                  <div className="text-right">
+                    <span className={`font-bold ${statusInfo.color}`}>{statusInfo.text}</span>
+                    {order.delivery_estimate_time && order.order_status === 1 && (
+                      <p className="text-[10px] text-emerald-400 font-bold mt-0.5">
+                        EST. READY: {new Date(order.delivery_estimate_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -195,6 +203,8 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [isReadyModalOpen, setIsReadyModalOpen] = useState(false);
+  const [orderForReady, setOrderForReady] = useState(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -347,6 +357,19 @@ export default function Orders() {
       <Header onToggleSidebar={() => setSidebarOpen((s) => !s)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
+      <ReadyInModal
+        isOpen={isReadyModalOpen}
+        onClose={() => setIsReadyModalOpen(false)}
+        onConfirm={(mins) => {
+          if (orderForReady) {
+            updateOrderStatus(orderForReady, 1, mins);
+            setIsReadyModalOpen(false);
+            setOrderForReady(null);
+          }
+        }}
+        orderNumber={orderForReady}
+      />
+
       <div className="flex-1 flex flex-col pt-36 lg:pt-24 lg:pl-72">
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
 
@@ -485,9 +508,16 @@ export default function Orders() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <div className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${statusInfo.bg} ${statusInfo.color} ${statusInfo.border}`}>
-                          <StatusIcon size={12} />
-                          {statusInfo.text}
+                        <div className="flex flex-col items-end gap-1">
+                          <div className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${statusInfo.bg} ${statusInfo.color} ${statusInfo.border}`}>
+                            <StatusIcon size={12} />
+                            {statusInfo.text}
+                          </div>
+                          {order.delivery_estimate_time && order.order_status === 1 && (
+                            <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                              READY @ {new Date(order.delivery_estimate_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
                         </div>
                         {/* EYE ICON TRIGGER */}
                         <button
@@ -582,8 +612,8 @@ export default function Orders() {
                           <div className="grid grid-cols-2 gap-3">
                             <button
                               onClick={() => {
-                                const mins = prompt("Order ready in minutes?", "15");
-                                if (mins && !isNaN(mins)) updateOrderStatus(order.order_number, 1, Number(mins));
+                                setOrderForReady(order.order_number);
+                                setIsReadyModalOpen(true);
                               }}
                               className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                             >

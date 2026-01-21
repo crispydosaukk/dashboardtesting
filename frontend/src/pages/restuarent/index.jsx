@@ -28,6 +28,8 @@ export default function Restuarent() {
     parking_info: "",
     instore: false,
     kerbside: false,
+    latitude: "",
+    longitude: "",
     photo: ""
   });
 
@@ -39,6 +41,55 @@ export default function Restuarent() {
   const fileInputRef = useRef(null);
 
   useEffect(() => { loadRestaurant(); }, []);
+
+  // Initialize Google Places Autocomplete for the address field
+  useEffect(() => {
+    const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!GOOGLE_MAPS_API_KEY) return;
+
+    const loadAutocomplete = () => {
+      const input = document.getElementById("restaurant_address_autocomplete");
+      if (!input || !window.google || !window.google.maps || !window.google.maps.places) return;
+
+      const autocomplete = new window.google.maps.places.Autocomplete(input, {
+        fields: ["formatted_address", "geometry"],
+      });
+
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (place.geometry) {
+          setInfo(prev => ({
+            ...prev,
+            address: place.formatted_address,
+            latitude: place.geometry.location.lat(),
+            longitude: place.geometry.location.lng()
+          }));
+        }
+      });
+    };
+
+    // Helper to load script if not already present
+    if (!document.getElementById("google-maps-script")) {
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+      script.id = "google-maps-script";
+      script.async = true;
+      script.onload = loadAutocomplete;
+      document.head.appendChild(script);
+    } else {
+      // Script already exists, but might not be fully loaded or places lib might be missing
+      if (window.google && window.google.maps && window.google.maps.places) {
+        loadAutocomplete();
+      } else {
+        const script = document.getElementById("google-maps-script");
+        const oldOnload = script.onload;
+        script.onload = () => {
+          if (oldOnload) oldOnload();
+          loadAutocomplete();
+        };
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!photoFile) { setPhotoPreview(null); return; }
@@ -93,6 +144,8 @@ export default function Restuarent() {
       parking_info: info.parking_info || null,
       instore: info.instore ? 1 : 0,
       kerbside: info.kerbside ? 1 : 0,
+      latitude: info.latitude || null,
+      longitude: info.longitude || null,
       timings: timings.map((t) => ({
         day: t.day,
         opening_time: toSqlTime(t.start),
@@ -117,6 +170,8 @@ export default function Restuarent() {
       parking_info: restaurant.parking_info ?? "",
       instore: !!restaurant.instore,
       kerbside: !!restaurant.kerbside,
+      latitude: restaurant.latitude ?? "",
+      longitude: restaurant.longitude ?? "",
       photo: restaurant.restaurant_photo ?? ""
     });
 
@@ -261,17 +316,47 @@ export default function Restuarent() {
                   <div>
                     <label className="block text-sm font-semibold text-white/90 mb-2 flex items-center gap-2 drop-shadow">
                       <MapPin size={16} className="text-emerald-300" />
-                      Address
+                      Address & Location
                     </label>
-                    <textarea
-                      rows={3}
-                      value={info.address}
-                      onChange={onInfoChange("address")}
-                      placeholder="Full restaurant address"
-                      className="w-full px-4 py-3 bg-white/10 backdrop-blur-md border-2 border-white/20 rounded-xl text-white placeholder-white/50 
-                               focus:outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 
-                               transition-all duration-200 hover:border-white/30 resize-none shadow-lg"
-                    />
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <textarea
+                          rows={2}
+                          id="restaurant_address_autocomplete"
+                          value={info.address}
+                          onChange={onInfoChange("address")}
+                          placeholder="Search for restaurant address..."
+                          className="w-full px-4 py-3 bg-white/10 backdrop-blur-md border-2 border-white/20 rounded-xl text-white placeholder-white/50 
+                                   focus:outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 
+                                   transition-all duration-200 hover:border-white/30 resize-none shadow-lg"
+                        />
+                        <div className="mt-2 flex gap-4">
+                          <div className="flex-1">
+                            <label className="block text-[10px] uppercase tracking-wider text-white/50 mb-1 font-bold">Latitude</label>
+                            <input
+                              type="text"
+                              value={info.latitude}
+                              readOnly
+                              placeholder="0.000000"
+                              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white/70 text-sm font-mono focus:outline-none cursor-default"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-[10px] uppercase tracking-wider text-white/50 mb-1 font-bold">Longitude</label>
+                            <input
+                              type="text"
+                              value={info.longitude}
+                              readOnly
+                              placeholder="0.000000"
+                              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white/70 text-sm font-mono focus:outline-none cursor-default"
+                            />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-white/40 mt-1 italic">
+                          * Start typing address to select from Google suggestions. Coordinates will update automatically.
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <InputField
