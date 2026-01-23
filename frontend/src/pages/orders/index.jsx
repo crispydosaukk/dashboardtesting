@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import Header from "../../components/common/header.jsx";
 import Sidebar from "../../components/common/sidebar.jsx";
 import Footer from "../../components/common/footer.jsx";
@@ -216,9 +217,16 @@ export default function Orders() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const location = useLocation();
   const [autoRefresh, setAutoRefresh] = useState(() => {
     return localStorage.getItem("orderAutoRefresh") === "true";
   });
+
+  useEffect(() => {
+    if (location.state?.highlightOrder) {
+      setSearchOrder(location.state.highlightOrder);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     localStorage.setItem("orderAutoRefresh", autoRefresh);

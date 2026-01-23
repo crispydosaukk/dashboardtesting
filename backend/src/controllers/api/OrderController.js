@@ -53,7 +53,9 @@ async function getLoyaltySettings(conn) {
   return {
     minimum_order: Number(row?.minimum_order || 0),
     loyalty_points_per_gbp: Number(row?.loyalty_points_per_gbp || 1),
-    loyalty_available_after_hours: Number(row?.loyalty_available_after_hours || 24),
+    loyalty_available_after_hours: (row?.loyalty_available_after_hours !== undefined && row?.loyalty_available_after_hours !== null)
+      ? Number(row.loyalty_available_after_hours)
+      : 24,
     loyalty_expiry_days: Number(row?.loyalty_expiry_days || 30),
   };
 }
@@ -572,6 +574,7 @@ export const getOrder = async (req, res) => {
 /* REPLACE YOUR EXISTING updateOrderStatus FUNCTION WITH THIS */
 
 export const updateOrderStatus = async (req, res) => {
+  const conn = await db.getConnection(); // Use transaction for safety
   try {
     const { order_number, status, ready_in_minutes } = req.body;
     const allowedStatuses = [1, 2, 3, 4, 5];
@@ -581,105 +584,110 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(400).json({ status: 0, message: "Invalid order status" });
     }
 
-    // 1️⃣ CHECK CURRENT STATUS & EXISTENCE
-    const [[existingOrder]] = await db.query(
-      `SELECT order_status, customer_id FROM orders WHERE order_number = ? LIMIT 1`,
+    await conn.beginTransaction();
+
+    // 1️⃣ CHECK CURRENT STATUS & CUSTOMER INFO
+    const [orders] = await conn.query(
+      `SELECT id, order_status, customer_id, wallet_amount, loyalty_amount FROM orders WHERE order_number = ?`,
       [order_number]
     );
 
-    if (!existingOrder) {
+    if (orders.length === 0) {
+      await conn.rollback();
       return res.status(404).json({ status: 0, message: "Order not found" });
     }
 
-    // If status is already the same, do nothing (prevents double notifications)
-    // Exception: If Status is 1 (Accepted), allow update to change time if needed
-    if (Number(existingOrder.order_status) === newStatus && newStatus !== 1) {
-      return res.json({ status: 1, message: "Order status updated successfully" });
+    const firstRow = orders[0];
+    const currentStatus = Number(firstRow.order_status);
+
+    // If status is already 2 (Rejected) or 5 (Cancelled), don't process again
+    if (currentStatus === 2 || currentStatus === 5) {
+      await conn.rollback();
+      return res.status(400).json({ status: 0, message: "Order is already cancelled/rejected" });
     }
 
+    // 2️⃣ REFUND LOGIC (If Rejected or Cancelled)
+    if (newStatus === 2 || newStatus === 5) {
+      // Calculate total to refund (Wallet + Loyalty)
+      const totalRefund = orders.reduce((sum, o) => sum + (Number(o.wallet_amount) + Number(o.loyalty_amount)), 0);
+
+      if (totalRefund > 0) {
+        // Update Customer Wallet Balance
+        await conn.query(
+          "UPDATE customer_wallets SET balance = balance + ? WHERE customer_id = ?",
+          [totalRefund, firstRow.customer_id]
+        );
+
+        // Get new balance for history
+        const [[wRow]] = await conn.query("SELECT balance FROM customer_wallets WHERE customer_id = ?", [firstRow.customer_id]);
+
+        // Add Refund Transaction record
+        await conn.query(
+          `INSERT INTO wallet_transactions
+           (customer_id, transaction_type, amount, balance_after, source, description, created_at)
+           VALUES (?, 'CREDIT', ?, ?, 'REFUND', ?, NOW())`,
+          [
+            firstRow.customer_id,
+            totalRefund,
+            wRow?.balance || 0,
+            `Refund for ${newStatus === 2 ? 'Rejected' : 'Cancelled'} order ${order_number}`
+          ]
+        );
+      }
+
+      // 3️⃣ VOID EARNED LOYALTY (Remove pending points so they don't get free points)
+      await conn.query(
+        `DELETE FROM loyalty_earnings WHERE order_id IN (SELECT id FROM orders WHERE order_number = ?)`,
+        [order_number]
+      );
+    }
+
+    // 4️⃣ UPDATE STATUS ON ORDERS TABLE
     let readyAt = null;
     if (newStatus === 1) {
-      if (!ready_in_minutes || ready_in_minutes <= 0) {
-        return res.status(400).json({ status: 0, message: "Ready time (minutes) is required" });
-      }
-      const d = new Date(Date.now() + ready_in_minutes * 60000);
+      const minutes = Number(ready_in_minutes || 0);
+      const d = new Date(Date.now() + minutes * 60000);
       readyAt = d.toISOString().slice(0, 19).replace("T", " ");
     }
 
-    // 2️⃣ UPDATE ORDER TABLE
-    await db.query(
+    await conn.query(
       `UPDATE orders SET order_status = ?, delivery_estimate_time = ? WHERE order_number = ?`,
       [newStatus, readyAt, order_number]
     );
 
-    // 3️⃣ NOTIFICATION LOGIC
+    // 5️⃣ NOTIFICATION LOGIC (Same as before)
     const statusMap = {
-      1: {
-        title: "✅ Order Accepted",
-        body: `Your order will be ready in ${ready_in_minutes} minutes`
-      },
-      2: {
-        title: "❌ Order Rejected",
-        body: `Your order ${order_number} was rejected. Sorry, please contact restaurant admin.`
-      },
-      3: {
-        title: "🍳 Order Ready",
-        body: `Your order ${order_number} is ready for pickup`
-      },
-      4: {
-        title: "🚗 Order Collected",
-        body: `Your order ${order_number} has been collected. Thank you for your order. Enjoy your food!`
-      },
-      5: {
-        title: "⚠️ Order Cancelled",
-        body: `Your order ${order_number} has been cancelled. Please contact support if you have any concerns.`
-      }
+      1: { title: "✅ Order Accepted", body: `Your order will be ready in ${ready_in_minutes} minutes` },
+      2: { title: "❌ Order Rejected", body: `Your order ${order_number} was rejected and amount refunded.` },
+      3: { title: "🍳 Order Ready", body: `Your order ${order_number} is ready for pickup` },
+      4: { title: "🚗 Order Collected", body: `Thank you! Enjoy your food!` },
+      5: { title: "⚠️ Order Cancelled", body: `Your order ${order_number} has been cancelled and amount refunded.` }
     };
 
     if (statusMap[newStatus]) {
-      const notifParams = statusMap[newStatus];
+      const notif = statusMap[newStatus];
+      await conn.query(`
+        INSERT INTO notifications (user_type, user_id, title, body, created_at, order_number, status)
+        VALUES (?, ?, ?, ?, NOW(), ?, ?)
+      `, ["customer", firstRow.customer_id, notif.title, notif.body, order_number, String(newStatus)]);
 
-      // CRITICAL FIX: Check if we already notified for this specific status
-      // This prevents duplicates if the button is clicked multiple times
-      const [[alreadyNotified]] = await db.query(
-        `SELECT id FROM notifications 
-         WHERE order_number = ? AND status = ? LIMIT 1`,
-        [order_number, String(newStatus)]
-      );
-
-      if (!alreadyNotified) {
-        // Insert Notification only if it doesn't exist
-        await db.query(`
-          INSERT INTO notifications 
-          (user_type, user_id, title, body, created_at, is_read, order_number, status)
-          VALUES (?, ?, ?, ?, NOW(), 0, ?, ?)
-        `, [
-          "customer",
-          existingOrder.customer_id,
-          notifParams.title,
-          notifParams.body,
-          order_number,
-          String(newStatus)
-        ]);
-
-        // Send Push Notification
-        await sendNotification({
-          userType: "customer",
-          userId: existingOrder.customer_id,
-          title: notifParams.title,
-          body: notifParams.body,
-          data: {
-            order_number,
-            status: String(newStatus)
-          }
-        });
-      }
+      await sendNotification({
+        userType: "customer",
+        userId: firstRow.customer_id,
+        title: notif.title,
+        body: notif.body,
+        data: { order_number, status: String(newStatus) }
+      });
     }
 
-    return res.json({ status: 1, message: "Order status updated successfully" });
+    await conn.commit();
+    return res.json({ status: 1, message: "Order status updated and processed successfully" });
 
   } catch (err) {
+    if (conn) await conn.rollback();
     console.error("Update order status error:", err);
     return res.status(500).json({ status: 0, message: "Server error" });
+  } finally {
+    if (conn) conn.release();
   }
 };

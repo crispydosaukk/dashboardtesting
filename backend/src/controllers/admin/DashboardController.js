@@ -363,20 +363,85 @@ export const getDashboardStats = async (req, res) => {
             `;
             const [recentOrders] = await conn.query(recentOrdersQuery, [...effectiveParams, targetStartDateStr, targetEndDateStr]);
 
-            // 5. SUPER ADMIN EXTRAS
+            // 5. NEW METRICS & EXTRAS
             let pendingOrdersVal = 0;
             let restaurantPerformance = [];
 
-            if (isSuperAdmin) {
-                // Filter by range or all time? User asked "when custom range selected...".
-                const pendingQuery = `
-                    SELECT COUNT(DISTINCT o.order_number) as count
-                    FROM orders o
-                    WHERE o.order_status IN (0, 1) AND DATE(o.created_at) >= ? AND DATE(o.created_at) <= ?
-                 `;
-                const [[pendingRes]] = await conn.query(pendingQuery, [targetStartDateStr, targetEndDateStr]);
-                pendingOrdersVal = pendingRes?.count || 0;
+            // New Metrics for Row 1
+            let complaintRequestsVal = 0; // Placeholder for now
+            let cancelledOrdersVal = 0;
+            let yetToReceivePaymentsVal = 0;
+            let deactiveProductsVal = 0;
 
+            // Additional Metrics for Row 2
+            let totalProductsVal = 0;
+            let completedOrdersVal = 0;
+
+            // Fetch Pending Orders (Status 0: Placed, 1: Accepted, 3: Ready)
+            const pendingQuery = `
+                SELECT COUNT(DISTINCT o.order_number) as count
+                FROM orders o
+                JOIN products p ON o.product_id = p.id
+                JOIN restaurant_details rd ON p.user_id = rd.user_id
+                WHERE o.order_status IN (0, 1, 3) AND ${effectiveWhere} AND DATE(o.created_at) >= ? AND DATE(o.created_at) <= ?
+            `;
+            const [[pendingRes]] = await conn.query(pendingQuery, [...effectiveParams, targetStartDateStr, targetEndDateStr]);
+            pendingOrdersVal = pendingRes?.count || 0;
+
+            // Fetch Cancelled Orders (Status 5)
+            const cancelledQuery = `
+                SELECT COUNT(DISTINCT o.order_number) as count
+                FROM orders o
+                JOIN products p ON o.product_id = p.id
+                JOIN restaurant_details rd ON p.user_id = rd.user_id
+                WHERE o.order_status = 5 AND ${effectiveWhere} AND DATE(o.created_at) >= ? AND DATE(o.created_at) <= ?
+            `;
+            const [[cancelledRes]] = await conn.query(cancelledQuery, [...effectiveParams, targetStartDateStr, targetEndDateStr]);
+            cancelledOrdersVal = cancelledRes?.count || 0;
+
+            // Yet to receive payments (Assume Cash and not Collected/Ready)
+            const paymentsQuery = `
+                SELECT COUNT(DISTINCT o.order_number) as count
+                FROM orders o
+                JOIN products p ON o.product_id = p.id
+                JOIN restaurant_details rd ON p.user_id = rd.user_id
+                WHERE o.payment_mode = 0 AND o.order_status < 4 AND ${effectiveWhere} AND DATE(o.created_at) >= ? AND DATE(o.created_at) <= ?
+            `;
+            const [[paymentsRes]] = await conn.query(paymentsQuery, [...effectiveParams, targetStartDateStr, targetEndDateStr]);
+            yetToReceivePaymentsVal = paymentsRes?.count || 0;
+
+            // Deactive Products (status = 0)
+            const stockQuery = `
+                SELECT COUNT(*) as count
+                FROM products p
+                JOIN restaurant_details rd ON p.user_id = rd.user_id
+                WHERE p.status = 0 AND ${effectiveWhere}
+            `;
+            const [[stockRes]] = await conn.query(stockQuery, effectiveParams);
+            deactiveProductsVal = stockRes?.count || 0;
+
+            // Total products
+            const productsCountQuery = `
+                SELECT COUNT(*) as count
+                FROM products p
+                JOIN restaurant_details rd ON p.user_id = rd.user_id
+                WHERE ${effectiveWhere}
+            `;
+            const [[productsRes]] = await conn.query(productsCountQuery, effectiveParams);
+            totalProductsVal = productsRes?.count || 0;
+
+            // Completed orders (Status 4: Collected)
+            const completedQuery = `
+                SELECT COUNT(DISTINCT o.order_number) as count
+                FROM orders o
+                JOIN products p ON o.product_id = p.id
+                JOIN restaurant_details rd ON p.user_id = rd.user_id
+                WHERE o.order_status = 4 AND ${effectiveWhere} AND DATE(o.created_at) >= ? AND DATE(o.created_at) <= ?
+            `;
+            const [[completedRes]] = await conn.query(completedQuery, [...effectiveParams, targetStartDateStr, targetEndDateStr]);
+            completedOrdersVal = completedRes?.count || 0;
+
+            if (isSuperAdmin) {
                 // Restaurant Wise Data (in range)
                 const perfQuery = `
                     SELECT 
@@ -418,6 +483,13 @@ export const getDashboardStats = async (req, res) => {
 
                     // Extras
                     pending_orders: pendingOrdersVal,
+                    complaint_requests: complaintRequestsVal,
+                    cancelled_orders: cancelledOrdersVal,
+                    yet_to_receive_payments: yetToReceivePaymentsVal,
+                    deactive_products: deactiveProductsVal,
+                    total_products: totalProductsVal,
+                    completed_orders: completedOrdersVal,
+
                     restaurant_performance: restaurantPerformance,
                     is_super_admin: isSuperAdmin
                 }

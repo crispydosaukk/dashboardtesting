@@ -2,8 +2,11 @@ import React, { useEffect, useState } from "react";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend
 } from "recharts";
+import { useNavigate } from "react-router-dom";
 import {
-  ShoppingBag, Users, Store, UserPlus, ArrowUp, ArrowRight, CheckCircle, Clock, Eye, X, Calendar, DollarSign, TrendingUp, CreditCard, ChevronDown, PoundSterling
+  ShoppingBag, Users, Store, UserPlus, ArrowUp, ArrowRight, CheckCircle, Clock, Eye, X,
+  Calendar, DollarSign, TrendingUp, CreditCard, ChevronDown, PoundSterling, Package,
+  RotateCcw, AlertCircle, Box
 } from "lucide-react";
 import Header from "../common/header.jsx";
 import Sidebar from "../common/sidebar.jsx";
@@ -12,32 +15,6 @@ import api from "../../api.js";
 import { motion, AnimatePresence } from "framer-motion";
 
 // --- Components ---
-
-const StatCard = ({ title, value, subtext, icon: Icon, colorClass, delay }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay, duration: 0.4 }}
-    className="relative overflow-hidden rounded-2xl p-6 border border-white/20 bg-white/10 backdrop-blur-xl shadow-xl group hover:bg-white/15 transition-all duration-300"
-  >
-    <div className="relative z-10 flex justify-between items-start">
-      <div>
-        <div className={`p-3 rounded-xl backdrop-blur-md mb-3 inline-block ${colorClass}`}>
-          <Icon size={22} className="text-white" />
-        </div>
-        <p className="text-sm font-medium text-white/70">{title}</p>
-        <h3 className="text-3xl font-bold text-white mt-1 drop-shadow-md">{value}</h3>
-      </div>
-    </div>
-    <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
-      <span className="text-xs font-medium text-emerald-300 flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-lg">
-        <ArrowUp size={12} strokeWidth={3} /> {subtext}
-      </span>
-    </div>
-    {/* Decorative Glow */}
-    <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-white/5 rounded-full blur-3xl group-hover:bg-white/10 transition-colors" />
-  </motion.div>
-);
 
 const ChartCard = ({ title, subtitle, children, delay, className = "" }) => (
   <motion.div
@@ -55,6 +32,206 @@ const ChartCard = ({ title, subtitle, children, delay, className = "" }) => (
     </div>
   </motion.div>
 );
+
+const StatCard = ({ title, value, subtext, icon: Icon, colorClass, delay, onEyeClick, trend }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay, duration: 0.4 }}
+    className="relative overflow-hidden rounded-2xl p-5 border border-white/20 bg-white/10 backdrop-blur-xl shadow-xl group hover:bg-white/15 transition-all duration-300 flex flex-col justify-between h-full min-h-[160px]"
+  >
+    <div className="relative z-10 flex justify-between items-start mb-2">
+      <div className={`p-2.5 rounded-xl backdrop-blur-md inline-block ${colorClass}`}>
+        <Icon size={20} className="text-white" />
+      </div>
+      {onEyeClick && (
+        <button
+          onClick={onEyeClick}
+          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/20 text-white/40 hover:text-white transition-all border border-transparent hover:border-white/10"
+        >
+          <Eye size={18} />
+        </button>
+      )}
+      {trend && (
+        <div className="flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-lg text-emerald-300 text-[10px] font-bold border border-emerald-500/20">
+          <TrendingUp size={10} /> {trend}
+        </div>
+      )}
+    </div>
+
+    <div className="relative z-10">
+      <h3 className="text-3xl font-black text-white drop-shadow-md tracking-tight">{value}</h3>
+      <div className="mt-2">
+        <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest leading-none">{title}</p>
+        <p className="text-[11px] font-medium text-white/60 mt-1">{subtext}</p>
+      </div>
+    </div>
+
+    {/* Decorative Glow */}
+    <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-white/5 rounded-full blur-3xl group-hover:bg-white/10 transition-colors" />
+  </motion.div>
+);
+
+const MetricDetailsModal = ({ isOpen, onClose, title, items = [], type }) => {
+  const navigate = useNavigate();
+
+  if (!isOpen) return null;
+
+  const handleRowClick = (item) => {
+    if (type === 'orders' || type === 'pending' || type === 'completed' || type === 'payments') {
+      navigate('/orders', { state: { highlightOrder: item.order_number } });
+    } else if (type === 'products' || type === 'stock') {
+      navigate('/product');
+    } else if (type === 'customers') {
+      navigate('/customerinfo');
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#1a1c23] border border-white/10 rounded-3xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col max-h-[85vh]"
+      >
+        <div className="bg-gradient-to-r from-emerald-900 to-teal-900 px-8 py-5 flex justify-between items-center border-b border-white/10">
+          <div>
+            <h3 className="text-xl font-black text-white flex items-center gap-3 uppercase tracking-wider">
+              <Eye size={24} className="text-emerald-400" /> {title}
+            </h3>
+            <p className="text-xs text-white/50 mt-1 uppercase tracking-widest">{items.length} records found</p>
+          </div>
+          <button onClick={onClose} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-2xl text-white/70 hover:text-white transition-all border border-white/5">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+          <div className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-white/10 text-white/40 text-[10px] uppercase font-black tracking-widest border-b border-white/10">
+                <tr>
+                  {type === 'products' || type === 'stock' ? (
+                    <>
+                      <th className="px-6 py-4">Product</th>
+                      <th className="px-6 py-4">Price</th>
+                      <th className="px-6 py-4 text-center">Status</th>
+                    </>
+                  ) : type === 'customers' ? (
+                    <>
+                      <th className="px-6 py-4">Customer</th>
+                      <th className="px-6 py-4">Email/Phone</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-6 py-4">Order Info</th>
+                      <th className="px-6 py-4">Customer</th>
+                      <th className="px-6 py-4">Amount</th>
+                      <th className="px-6 py-4 text-center">Status</th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {items.length > 0 ? items.map((item, idx) => (
+                  <tr
+                    key={idx}
+                    onClick={() => handleRowClick(item)}
+                    className="hover:bg-white/[0.07] transition-all cursor-pointer group"
+                  >
+                    {type === 'products' || type === 'stock' ? (
+                      <>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-white/10 overflow-hidden shrink-0 border border-white/10">
+                              {item.image ? (
+                                <img
+                                  src={`${(import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/api\/?$/, '')}/uploads/${item.image.replace(/^uploads\//, '')}`}
+                                  alt=""
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                />
+                              ) : (
+                                <ShoppingBag size={16} className="m-auto text-white/20 h-full" />
+                              )}
+                            </div>
+                            <span className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{item.name || item.product_name}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-emerald-400 font-black text-sm">£{Number(item.price || item.product_price || 0).toFixed(2)}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${Number(item.status || item.product_status) === 1 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                            {Number(item.status || item.product_status) === 1 ? 'In Stock' : 'Out of Stock'}
+                          </span>
+                        </td>
+                      </>
+                    ) : type === 'customers' ? (
+                      <>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{item.full_name || item.customer_name || 'Guest'}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-white/70">{item.email || item.customer_email || 'No email'}</p>
+                          <p className="text-[10px] text-white/40 mt-0.5">{item.mobile_number || item.customer_phone || 'No phone'}</p>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-6 py-4 font-bold text-white">
+                          <span className="text-sm group-hover:text-emerald-400 transition-colors">#{item.order_number}</span>
+                          <span className="block text-[10px] font-medium text-white/40 mt-1">
+                            {new Date(item.created_at).toLocaleDateString()} at {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-white/70 text-sm font-medium">{item.customer_name || 'Guest'}</td>
+                        <td className="px-6 py-4 text-emerald-400 font-black text-sm">£{Number(item.grand_total).toFixed(2)}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${Number(item.order_status) === 4 ? "bg-emerald-500/20 text-emerald-400" :
+                            Number(item.order_status) === 0 ? "bg-blue-500/20 text-blue-400" :
+                              Number(item.order_status) === 2 ? "bg-red-500/20 text-red-400" :
+                                "bg-amber-500/20 text-amber-400"
+                            }`}>
+                            {Number(item.order_status) === 0 ? 'Placed' :
+                              Number(item.order_status) === 1 ? 'Accepted' :
+                                Number(item.order_status) === 2 ? 'Rejected' :
+                                  Number(item.order_status) === 3 ? 'Ready' :
+                                    Number(item.order_status) === 4 ? 'Collected' : 'Cancelled'}
+                          </span>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-20 text-center">
+                      <div className="flex flex-col items-center opacity-20">
+                        <ShoppingBag size={48} className="mb-4" />
+                        <p className="text-lg font-black uppercase tracking-widest">No Records Found</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="bg-white/5 p-6 border-t border-white/10 flex justify-between items-center sm:px-8">
+          <p className="text-[10px] text-white/30 uppercase font-black tracking-widest">Click any row to manage</p>
+          <button onClick={onClose} className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl transition-all font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-900/40 active:scale-95">
+            Close Details
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
 
 const OrderDetailsModal = ({ order, onClose }) => {
   const [items, setItems] = useState([]);
@@ -316,12 +493,19 @@ export default function Dashboard() {
     restaurant_name: "",
     is_super_admin: false,
     pending_orders: 0,
+    complaint_requests: 0,
+    cancelled_orders: 0,
+    yet_to_receive_payments: 0,
+    deactive_products: 0,
+    total_products: 0,
+    completed_orders: 0,
     restaurant_performance: [],
   });
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [detailModal, setDetailModal] = useState({ isOpen: false, title: "", items: [], type: "" });
 
   // Restaurant Filter State (Super Admin)
   const [restaurants, setRestaurants] = useState([]);
@@ -371,6 +555,38 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const openDetailModal = async (type, title) => {
+    let items = [];
+    if (type === 'pending') {
+      items = stats.recent_orders?.filter(o => [0, 1, 3].includes(Number(o.order_status))) || [];
+    } else if (type === 'completed') {
+      items = stats.recent_orders?.filter(o => o.order_status === 4) || [];
+    } else if (type === 'cancelled') {
+      items = stats.recent_orders?.filter(o => Number(o.order_status) === 5) || [];
+    } else if (type === 'orders') {
+      items = stats.recent_orders || [];
+    } else if (type === 'payments') {
+      items = stats.recent_orders?.filter(o => Number(o.payment_mode) === 0 && Number(o.order_status) < 4) || [];
+    } else if (type === 'products' || type === 'deactive') {
+      try {
+        const res = await api.get('/products');
+        if (Array.isArray(res.data)) {
+          items = type === 'deactive' ? res.data.filter(p => Number(p.status) === 0) : res.data;
+        }
+      } catch (err) { console.error(err); }
+    } else if (type === 'customers') {
+      try {
+        const res = await api.get('/customers/by-user'); // Use specific endpoint
+        if (Array.isArray(res.data)) {
+          items = res.data;
+        } else if (res.data.status === 1) {
+          items = res.data.data || [];
+        }
+      } catch (err) { console.error(err); }
+    }
+    setDetailModal({ isOpen: true, title, items, type });
   };
 
   const handleRangeSelect = (option) => {
@@ -436,11 +652,8 @@ export default function Dashboard() {
   };
 
   // derived stats
-  // derived stats
   const todayRevenueTotal = stats.daily_revenue || 0;
-  // stats.today_users is effectively "Orders Count" for the day per backend changes
   const todayOrdersCount = stats.today_users || 0;
-
 
   // Pagination Logic
   const indexOfLastOrder = currentPage * ordersPerPage;
@@ -493,141 +706,119 @@ export default function Dashboard() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              {/* Restaurant Filter (Super Admin) */}
-              {stats.is_super_admin && (
-                <div className="relative">
-                  <button
-                    onClick={() => setShowRestaurantMenu(!showRestaurantMenu)}
-                    className="flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 text-white font-medium shadow-lg hover:bg-white/20 transition-all min-w-[240px] justify-between"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Store size={16} className="text-white/70" />
-                      <span className="truncate max-w-[180px]">
-                        {selectedRestaurant
-                          ? restaurants.find(r => r.user_id == selectedRestaurant)?.restaurant_name
-                          : "All Restaurants"}
-                      </span>
-                    </div>
-                    <ChevronDown size={14} className={`text-white/60 transition-transform ${showRestaurantMenu ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {showRestaurantMenu && (
-                    <div className="absolute left-0 top-full mt-2 w-full bg-[#1a1c23] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 max-h-80 overflow-y-auto custom-scrollbar">
-                      <button
-                        onClick={() => { setSelectedRestaurant(""); setShowRestaurantMenu(false); }}
-                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/10 transition-colors ${selectedRestaurant === "" ? 'text-emerald-400 font-bold bg-white/5' : 'text-white/80'}`}
-                      >
-                        All Restaurants
-                      </button>
-                      {restaurants.map(r => (
-                        <button
-                          key={r.user_id}
-                          onClick={() => { setSelectedRestaurant(r.user_id); setShowRestaurantMenu(false); }}
-                          className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/10 transition-colors ${selectedRestaurant == r.user_id ? 'text-emerald-400 font-bold bg-white/5' : 'text-white/80'}`}
-                        >
-                          {r.restaurant_name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Range Picker */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowRangeMenu(!showRangeMenu)}
-                  className="flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 text-white font-medium shadow-lg hover:bg-white/20 transition-all min-w-[240px] justify-between"
-                >
-                  <div className="flex items-center gap-2">
-                    <Calendar size={16} className="text-white/70" />
-                    <span>{dateRange.label} ({dateRange.start === dateRange.end ? dateRange.start : `${dateRange.start} - ${dateRange.end}`})</span>
-                  </div>
-                  <ChevronDown size={14} className={`text-white/60 transition-transform ${showRangeMenu ? 'rotate-180' : ''}`} />
-                </button>
-
-                {showRangeMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-64 bg-[#1a1c23] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                    {!isCustomMode ? (
-                      <div className="py-1">
-                        {['Today', 'This Week', 'This Month', 'This Quarter', 'This Year', 'Previous Week', 'Previous Month', 'Previous Quarter', 'Previous Year', 'Custom Range'].map(opt => (
-                          <button
-                            key={opt}
-                            onClick={() => handleRangeSelect(opt)}
-                            className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/10 transition-colors ${dateRange.label === opt ? 'text-emerald-400 font-bold bg-white/5' : 'text-white/80'}`}
-                          >
-                            {opt}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-4 space-y-3">
-                        <div className="flex items-center gap-2 mb-2 text-white/50 cursor-pointer hover:text-white" onClick={() => setIsCustomMode(false)}>
-                          <ArrowRight size={14} className="rotate-180" /> Back
-                        </div>
-                        <div>
-                          <label className="text-xs text-white/50 block mb-1">Start Date</label>
-                          <input type="date" value={customRange.start} onChange={e => setCustomRange(p => ({ ...p, start: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-white text-sm" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-white/50 block mb-1">End Date</label>
-                          <input type="date" value={customRange.end} onChange={e => setCustomRange(p => ({ ...p, end: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-white text-sm" />
-                        </div>
-                        <button onClick={applyCustomRange} className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm font-bold mt-2">Apply</button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              {/* Super Admin Buttons (Matches reference image style) */}
+              <button className="flex items-center gap-2 px-6 py-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 text-white font-bold hover:bg-white/20 transition-all text-sm uppercase tracking-wider">
+                <Calendar size={18} /> Today <ChevronDown size={14} />
+              </button>
+              <button className="flex items-center gap-2 px-6 py-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 text-white font-bold hover:bg-white/20 transition-all text-sm uppercase tracking-wider">
+                <ArrowRight className="rotate-90" size={18} /> Export
+              </button>
+              <button className="flex items-center gap-2 px-6 py-2 bg-indigo-600 rounded-xl text-white font-bold hover:bg-indigo-500 transition-all text-sm uppercase tracking-wider shadow-lg shadow-indigo-900/40">
+                <X className="rotate-45" size={18} /> New Order
+              </button>
             </div>
           </div>
 
-          {/* Stats Grid - Moved Pending Orders inside here for "Side by Side" layout */}
-          <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 ${stats.is_super_admin ? 'xl:grid-cols-5' : ''} gap-6 mb-8`}>
-            {/* Orders Card */}
+          {/* Stats Grid - Row 1 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <StatCard
-              title={`Orders (${dateRange.label})`}
+              title="Pending Orders"
+              value={stats.pending_orders}
+              subtext="To Be Confirmed"
+              icon={Clock}
+              colorClass="bg-amber-500/20 border border-amber-400/30"
+              delay={0}
+              onEyeClick={() => openDetailModal('pending', 'Pending Orders')}
+            />
+            <StatCard
+              title="Complaint Request"
+              value={stats.complaint_requests}
+              subtext="To Be Reviewed"
+              icon={RotateCcw}
+              colorClass="bg-orange-500/20 border border-orange-400/30"
+              delay={0.1}
+              onEyeClick={() => openDetailModal('complaints', 'Complaint Requests')}
+            />
+            <StatCard
+              title="Cancelled Orders"
+              value={stats.cancelled_orders}
+              subtext="Total Cancelled"
+              icon={AlertCircle}
+              colorClass="bg-rose-500/20 border border-rose-400/30"
+              delay={0.2}
+              onEyeClick={() => openDetailModal('cancelled', 'Cancelled Orders')}
+            />
+            <StatCard
+              title="Yet to Receive Payments"
+              value={stats.yet_to_receive_payments}
+              subtext="To Be Received"
+              icon={CreditCard}
+              colorClass="bg-blue-500/20 border border-blue-400/30"
+              delay={0.3}
+              onEyeClick={() => openDetailModal('payments', 'Payment Requests')}
+            />
+            <StatCard
+              title="Deactive Products"
+              value={stats.deactive_products}
+              subtext="In-active items"
+              icon={Package}
+              colorClass="bg-emerald-500/20 border border-emerald-400/30"
+              delay={0.4}
+              onEyeClick={() => openDetailModal('deactive', 'Deactive Products')}
+            />
+          </div>
+
+          {/* Stats Grid - Row 2 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <StatCard
+              title="Total Products"
+              value={stats.total_products}
+              subtext="Total Inventory"
+              icon={Box}
+              colorClass="bg-indigo-500/20 border border-indigo-400/30"
+              delay={0.5}
+              trend="0%"
+              onEyeClick={() => openDetailModal('products', 'Total Products')}
+            />
+            <StatCard
+              title="Orders"
               value={todayOrdersCount}
               subtext={dateRange.label}
               icon={ShoppingBag}
-              colorClass="bg-blue-500/20 border border-blue-400/30"
-              delay={0}
+              colorClass="bg-rose-500/20 border border-rose-400/30"
+              delay={0.6}
+              trend="0%"
+              onEyeClick={() => openDetailModal('orders', 'Orders Overview')}
             />
             <StatCard
-              title={`Revenue (${dateRange.label})`}
+              title="Revenue"
               value={formatCurrency(todayRevenueTotal)}
               subtext={dateRange.label}
-              icon={PoundSterling}
+              icon={DollarSign}
               colorClass="bg-emerald-500/20 border border-emerald-400/30"
-              delay={0.1}
+              delay={0.7}
+              trend="0%"
+              onEyeClick={() => openDetailModal('orders', 'Revenue Details')}
             />
             <StatCard
-              title="Total Customers"
+              title="Customers"
               value={stats.followers}
-              subtext="Lifetime customers"
+              subtext="Total Reach"
               icon={Users}
-              colorClass="bg-amber-500/20 border border-amber-400/30"
-              delay={0.2}
+              colorClass="bg-purple-500/20 border border-purple-400/30"
+              delay={0.8}
+              trend="0%"
+              onEyeClick={() => openDetailModal('customers', 'Customers List')}
             />
             <StatCard
-              title="Total Revenue"
-              value={formatCurrency(stats.total_revenue)}
-              subtext="Lifetime revenue"
-              icon={TrendingUp}
-              colorClass="bg-purple-500/20 border border-purple-400/30"
+              title="Completed Orders"
+              value={stats.completed_orders}
+              subtext="Successfully Delivered"
+              icon={CheckCircle}
+              colorClass="bg-emerald-500/20 border border-emerald-400/30"
+              delay={0.9}
+              onEyeClick={() => openDetailModal('completed', 'Completed Orders')}
             />
-
-            {/* Pending Orders (Super Admin Only) - Added to grid */}
-            {stats.is_super_admin && (
-              <StatCard
-                title="Pending Orders"
-                value={stats.pending_orders}
-                subtext="Action Required"
-                icon={Clock}
-                colorClass="bg-rose-500/20 border border-rose-400/30"
-                delay={0.4}
-              />
-            )}
           </div>
 
           {/* Charts Section 1: Comparisons & Trends */}
@@ -869,6 +1060,15 @@ export default function Dashboard() {
         )}
         {selectedProduct && (
           <ProductDetailsModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
+        )}
+        {detailModal.isOpen && (
+          <MetricDetailsModal
+            isOpen={detailModal.isOpen}
+            title={detailModal.title}
+            items={detailModal.items}
+            type={detailModal.type}
+            onClose={() => setDetailModal({ ...detailModal, isOpen: false })}
+          />
         )}
       </AnimatePresence>
 
