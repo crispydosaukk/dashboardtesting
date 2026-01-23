@@ -507,9 +507,7 @@ export default function Header({ onToggleSidebar, darkMode = true }) {
             />
           </div>
 
-          {/* MIDDLE: Search & Location - Hidden on small screens */}
           <div className="hidden lg:flex flex-1 items-center justify-center gap-4 max-w-2xl mx-auto px-4">
-
             {/* Location Badge - Clickable */}
             <button
               onClick={() => setIsLocationModalOpen(true)}
@@ -519,21 +517,6 @@ export default function Header({ onToggleSidebar, darkMode = true }) {
               <span className="truncate">{locationName}</span>
               <ChevronDown size={14} className="text-white/40 ml-auto shrink-0" />
             </button>
-
-            {/* Search Bar */}
-            <div className="relative w-full max-w-sm group">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search size={18} className="text-white/50 group-focus-within:text-emerald-400 transition-colors" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search..."
-                className="block w-full pl-10 pr-3 py-2.5 border rounded-xl leading-5 focus:outline-none focus:ring-2 transition-all duration-200 sm:text-sm bg-white/10 border-white/10 text-white placeholder-white/40 focus:bg-white/20 focus:ring-emerald-400/30 focus:border-white/20 shadow-inner"
-              />
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <span className="text-xs border rounded px-1.5 py-0.5 text-white/30 border-white/10">⌘K</span>
-              </div>
-            </div>
           </div>
 
           {/* RIGHT: Actions */}
@@ -705,7 +688,7 @@ export default function Header({ onToggleSidebar, darkMode = true }) {
         {/* Mobile Search - Expandable on small screens */}
         {!scrolled && (
           <div className="lg:hidden px-4 pb-3 pt-2">
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-2">
               <button
                 onClick={() => setIsLocationModalOpen(true)}
                 className="flex-1 flex items-center gap-2 text-white/80 bg-white/10 backdrop-blur-md py-2 px-3 rounded-xl border border-white/10 text-xs font-medium active:scale-95 transition-transform"
@@ -714,16 +697,6 @@ export default function Header({ onToggleSidebar, darkMode = true }) {
                 <span className="truncate">{locationName}</span>
                 <ChevronDown size={12} className="text-white/40 ml-auto" />
               </button>
-            </div>
-            <div className="relative w-full">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search size={16} className="text-white/40" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search..."
-                className="block w-full pl-9 pr-3 py-2 border border-white/10 rounded-lg text-sm bg-white/10 text-white placeholder-white/40 focus:outline-none focus:bg-white/20 focus:ring-2 focus:ring-emerald-500/30 focus:border-white/20 transition-all"
-              />
             </div>
           </div>
         )}
